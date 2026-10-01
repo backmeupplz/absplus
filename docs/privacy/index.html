@@ -33,14 +33,22 @@
   <li>Downloaded audio files, in the app's private storage.</li>
   <li>Settings, playback position, favorites and the list of recently played items.</li>
 </ul>
-<p>Logging out removes your account data, tokens, cache and settings from the device. Downloads are kept until you remove them (Settings → Downloads) or uninstall the app. Uninstalling removes everything. Device backups of app data are disabled.</p>
+<p>Logging out removes your account data, tokens, cache and settings from the device. Downloads are kept until you remove them (Settings → Downloads) or uninstall the app. Uninstalling removes everything. On iOS, the system can keep login tokens in the Keychain after an uninstall; the app deletes them if it's installed again.</p>
+<p>On Android, device backups of app data are disabled. On iOS, login tokens are stored in the Keychain for this device only and downloads are excluded from backups. Settings and lists (such as favorites and recently played) can be part of your own encrypted iCloud or computer backup.</p>
 
 <h2>Permissions</h2>
+<p>On Android:</p>
 <ul>
   <li><strong>Internet</strong> and <strong>network state</strong>: to reach your server and notice when you go offline.</li>
   <li><strong>Foreground service (media playback)</strong> and <strong>wake lock</strong>: to keep audio playing with the screen off and show playback controls.</li>
 </ul>
 <p>Downloads use Android's system download manager.</p>
+<p>On iOS:</p>
+<ul>
+  <li><strong>Background audio</strong>: to keep playing with the screen locked and show lock screen controls.</li>
+  <li><strong>Local network</strong>: asked only if your server is on your local network.</li>
+</ul>
+<p>Downloads use iOS background transfers, so they continue when the app is closed.</p>
 
 <h2>Children</h2>
 <p>The app is not directed at children under 13 and does not knowingly collect data from anyone.</p>

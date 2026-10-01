@@ -6,3 +6,6 @@ keystore.properties
 *.jks
 demo-server.credentials
 play/README.md
+shots/
+ios/build/
+appstore/README.md
