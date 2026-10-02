@@ -32,4 +32,4 @@ jobs:
           packageName: com.borodutch.absplus
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
           releaseName: ${{ github.event.release.name }}
-          track: production
+          tracks: production
