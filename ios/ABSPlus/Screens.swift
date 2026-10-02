@@ -203,7 +203,7 @@ struct SettingsView: View {
             }
             Section("Storage") {
                 NavigationLink(value: Route.downloads) {
-                    LabeledContent("Downloads", value: "\(dls.count) item\(dls.count == 1 ? "" : "s") · \(bytes(total))")
+                    LabeledContent("Downloads", value: "\(dls.count) item\(dls.count == 1 ? "" : "s") · \(bytes(total))" + (app.dlq.isEmpty ? "" : " · \(app.dlq.count) downloading"))
                 }
             }
             Section("About") {
@@ -279,11 +279,39 @@ struct LinkAccount: View {
 
 struct DownloadsView: View {
     @State private var removeAll = false
+    @State private var stopping: Now?
+    @State private var stopAll = false
 
     var body: some View {
         let items = app.downloads()
         let total = items.reduce(0) { $0 + $1.size }
         List {
+            if !app.dlq.isEmpty {
+                Section {
+                    ForEach(app.dlq, id: \.key) { n in
+                        let (have, all) = app.dlBytes(n)
+                        NavigationLink(value: Route.item(n.item)) {
+                            HStack(spacing: 14) {
+                                Cover(id: n.item).frame(width: 56, height: 56)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(n.title).font(.subheadline.weight(.semibold)).lineLimit(2)
+                                    Text(dlStatus(n)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    ProgressView(value: all > 0 ? min(1, Double(have) / Double(all)) : 0)
+                                }
+                                Button { stopping = n } label: { Image(systemName: "xmark.circle.fill").font(.title2).foregroundStyle(.secondary) }
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel("Cancel download")
+                            }
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Downloading")
+                        Spacer()
+                        if app.dlq.count > 1 { Button("Cancel all") { stopAll = true }.textCase(nil) }
+                    }
+                }
+            }
             if !items.isEmpty {
                 Section {
                     ForEach(items, id: \.id) { d in
@@ -299,9 +327,15 @@ struct DownloadsView: View {
             }
         }
         .overlay {
-            if items.isEmpty {
+            if items.isEmpty && app.dlq.isEmpty {
                 ContentUnavailableView("No downloads", systemImage: "arrow.down.circle", description: Text("Nothing downloaded on this device."))
             }
+        }
+        .confirmationDialog("Cancel downloading “\(stopping?.title ?? "")”?", isPresented: $stopping.some(), titleVisibility: .visible) {
+            Button("Cancel download", role: .destructive) { if let n = stopping { app.remove(n) } }
+        }
+        .confirmationDialog("Cancel all \(app.dlq.count) downloads?", isPresented: $stopAll, titleVisibility: .visible) {
+            Button("Cancel all", role: .destructive) { app.dlq.forEach { app.remove($0) } }
         }
         .navigationTitle("Downloads")
         .toolbar {

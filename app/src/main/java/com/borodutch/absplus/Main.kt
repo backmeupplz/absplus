@@ -1,11 +1,6 @@
 package com.borodutch.absplus
 
-import android.app.DownloadManager
-import android.content.BroadcastReceiver
 import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
@@ -51,6 +46,7 @@ import com.google.android.material.chip.ChipGroup
 import com.google.android.material.color.DynamicColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.imageview.ShapeableImageView
+import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.shape.ShapeAppearanceModel
 import com.google.android.material.slider.Slider
@@ -75,6 +71,12 @@ class Main : AppCompatActivity() {
     private lateinit var miniSub: TextView
     private lateinit var miniPlay: MaterialButton
     private lateinit var miniProg: LinearProgressIndicator
+    private lateinit var dlBar: MaterialCardView
+    private lateinit var dlCover: Cover
+    private lateinit var dlTitle: TextView
+    private lateinit var dlSub: TextView
+    private lateinit var dlProg: LinearProgressIndicator
+    private var dlWas = false
     private var sheet: ((MediaController, Now, Double, Boolean) -> Unit)? = null // updates the open player sheet
     private var fut: ListenableFuture<MediaController>? = null
     private var ctl: MediaController? = null
@@ -82,7 +84,8 @@ class Main : AppCompatActivity() {
     private var screen = 0 // bumped per screen so stale async results are dropped
     private val stack = ArrayDeque<() -> Unit>()
     private var cur: () -> Unit = {}
-    private var onDl: (() -> Unit)? = null // current screen's reaction to a finished download
+    private var onDl: (() -> Unit)? = null // current screen's reaction to a download finishing, starting or being cancelled
+    private var onDlTick: (() -> Unit)? = null // ...and to download progress (every second while something downloads)
     private val speeds = listOf(1f, 1.25f, 1.5f, 1.75f, 2f, 0.8f)
     private val back = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = pop()
@@ -93,12 +96,14 @@ class Main : AppCompatActivity() {
         DynamicColors.applyToActivityIfAvailable(this)
         super.onCreate(b)
         Abs.init(this)
+        Dl.load()
         content = FrameLayout(this)
         ViewCompat.setOnApplyWindowInsetsListener(content) { v, i ->
             v.setPadding(0, i.getInsets(WindowInsetsCompat.Type.statusBars()).top, 0, 0)
             i
         }
         mini = miniPlayer()
+        dlBar = downloadBar()
         nav = BottomNavigationView(this).apply {
             menu.add(0, 0, 0, "Home").setIcon(R.drawable.i_home)
             menu.add(0, 1, 1, "Library").setIcon(R.drawable.i_auto_stories)
@@ -113,9 +118,12 @@ class Main : AppCompatActivity() {
             button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) { thread { Abs.ping() } }
                 .apply { setTextColor(color(M.attr.colorOnErrorContainer)) },
         ).pad(16, 0).apply { setBackgroundColor(color(M.attr.colorErrorContainer)); visibility = View.GONE }
-        setContentView(col(content.lp(-1, 0, 1f), banner, mini, nav))
+        setContentView(col(content.lp(-1, 0, 1f), banner, dlBar, mini, nav))
         onBackPressedDispatcher.addCallback(this, back)
-        if (Abs.me == null) login() else tab(0)
+        if (Abs.me == null) login() else {
+            tab(0)
+            Dl.start(this) // pick up downloads left unfinished last time
+        }
     }
 
     override fun onStart() {
@@ -123,11 +131,19 @@ class Main : AppCompatActivity() {
         val f = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlayerService::class.java))).buildAsync()
         fut = f
         f.addListener({ ctl = runCatching { f.get() }.getOrNull(); restore(); tick.run() }, mainExecutor)
-        ContextCompat.registerReceiver(this, dlDone, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), ContextCompat.RECEIVER_EXPORTED)
+        Dl.onChange = { msg ->
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                msg?.let(::toast)
+                onDl?.invoke()
+                updateDl()
+            }
+        }
+        onDl?.invoke() // downloads may have finished while we were in the background
     }
 
     override fun onStop() {
-        unregisterReceiver(dlDone)
+        Dl.onChange = null
         h.removeCallbacks(tick)
         fut?.let { MediaController.releaseFuture(it) }
         fut = null
@@ -140,17 +156,10 @@ class Main : AppCompatActivity() {
         if (Abs.me != null) cur() // re-layout grids for the new width
     }
 
-    private val dlDone = object : BroadcastReceiver() {
-        override fun onReceive(c: Context, i: Intent) {
-            Abs.dlChanged()
-            Abs.failure(c, i.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1))?.let(::toast)
-            onDl?.invoke()
-        }
-    }
-
     private val tick = object : Runnable {
         override fun run() {
             updatePlayer()
+            updateDl()
             if (Abs.offline != wasOffline) { // connectivity flipped: re-render with/without the downloads-only filter
                 wasOffline = Abs.offline
                 banner.isVisible = wasOffline
@@ -186,6 +195,7 @@ class Main : AppCompatActivity() {
     private fun begin() {
         screen++
         onDl = null
+        onDlTick = null
         nav.isVisible = true
     }
 
@@ -195,10 +205,10 @@ class Main : AppCompatActivity() {
     }
 
     private fun header(title: String) =
-        row(text(title, M.attr.textAppearanceHeadlineMedium).lp(0, -2, 1f), icon(R.drawable.i_settings) { push(::settings) }).pad(16, 8)
+        row(text(title, M.attr.textAppearanceHeadlineMedium).lp(0, -2, 1f), icon(R.drawable.i_settings) { push(::settings) }.apply { contentDescription = "Settings" }).pad(16, 8)
 
     private fun subHeader(title: String) =
-        row(icon(R.drawable.i_arrow_back) { pop() }, text(title, M.attr.textAppearanceTitleLarge, 1).lp(0, -2, 1f)).pad(4, 4)
+        row(icon(R.drawable.i_arrow_back) { pop() }.apply { contentDescription = "Back" }, text(title, M.attr.textAppearanceTitleLarge, 1).lp(0, -2, 1f)).pad(4, 4)
 
     private fun section(title: String) = text(title, M.attr.textAppearanceTitleMedium).pad(16, 12)
 
@@ -413,9 +423,10 @@ class Main : AppCompatActivity() {
 
         body.addView(section("Storage"))
         val dls = Abs.downloads()
+        val busy = Dl.jobs.size.takeIf { it > 0 }?.let { " · $it downloading" } ?: ""
         body.addView(row(
             col(text("Downloads", M.attr.textAppearanceTitleSmall),
-                text("${dls.size} item${if (dls.size == 1) "" else "s"} · ${mb(dls.sumOf { d -> d.listFiles()?.sumOf { it.length() } ?: 0L })}", M.attr.textAppearanceBodySmall, muted = true)).lp(0, -2, 1f),
+                text("${dls.size} item${if (dls.size == 1) "" else "s"} · ${mb(dls.sumOf { d -> d.listFiles()?.sumOf { it.length() } ?: 0L })}$busy", M.attr.textAppearanceBodySmall, muted = true)).lp(0, -2, 1f),
         ).pad(16, 10).apply {
             setBackgroundResource(res(android.R.attr.selectableItemBackground))
             setOnClickListener { push(::downloads) }
@@ -427,16 +438,29 @@ class Main : AppCompatActivity() {
 
     private fun downloads() {
         begin()
+        val body = col(subHeader("Downloads"))
+        val jobs = Dl.jobs.toList()
+        if (jobs.isNotEmpty()) {
+            body.addView(row(
+                section("Downloading").lp(0, -2, 1f),
+                button("Cancel all", style = androidx.appcompat.R.attr.borderlessButtonStyle) {
+                    confirm("Cancel all ${jobs.size} downloads?") { jobs.forEach { Dl.cancel(it.n) }; Abs.dlChanged(); downloads() }
+                }.apply { isVisible = jobs.size > 1 },
+            ).apply { setPadding(0, 0, dp(8), 0) })
+            val rows = jobs.map { jobRow(it).also { (v, _) -> body.addView(v) } }
+            onDlTick = { rows.forEach { it.second() } }
+        }
+        onDl = { downloads() }
         val items = Abs.downloads().map { d -> d to (d.listFiles()?.sumOf { it.length() } ?: 0L) }
         val total = items.sumOf { it.second }
-        val body = col(subHeader("Downloads"))
-        if (items.isEmpty()) body.addView(text("Nothing downloaded on this device.", muted = true).pad(16, 4))
-        else {
+        if (jobs.isNotEmpty() && items.isNotEmpty()) body.addView(section("On this device"))
+        if (items.isEmpty() && jobs.isEmpty()) body.addView(text("Nothing downloaded on this device.", muted = true).pad(16, 4))
+        if (items.isNotEmpty()) {
             body.addView(row(
                 text("${items.size} items · ${mb(total)}", muted = true).lp(0, -2, 1f),
                 button("Remove all", R.drawable.i_delete, M.attr.materialButtonOutlinedStyle) {
                     confirm("Remove all ${items.size} downloads (${mb(total)}) from this device? Nothing is deleted on the server.") {
-                        items.forEach { Abs.removeAll(this, it.first) }
+                        items.forEach { Abs.removeAll(it.first) }
                         downloads()
                     }
                 },
@@ -444,11 +468,53 @@ class Main : AppCompatActivity() {
             items.forEach { (d, size) ->
                 val c = Abs.cachedCard(d.name)
                 body.addView(listRow(c, "${c.sub} · ${mb(size)}", R.drawable.i_delete, {
-                    confirm("Remove the download of “${c.title}” from this device?") { Abs.removeAll(this, d); downloads() }
+                    confirm("Remove the download of “${c.title}” from this device?") { Abs.removeAll(d); downloads() }
                 }) { push { item(c.id) } })
             }
         }
         show(NestedScrollView(this).apply { addView(body) })
+    }
+
+    /** a title in the download queue, with live progress and a cancel button; returns the view and its updater */
+    private fun jobRow(j: Dl.Job): Pair<View, () -> Unit> {
+        val cover = Cover(this).lp(dp(56), dp(56))
+        Covers.load(cover, j.n.item)
+        val meta = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
+        val prog = LinearProgressIndicator(this).apply { max = 1000; trackThickness = dp(4); trackCornerRadius = dp(2) }.lp(m = 0)
+        (prog.layoutParams as LinearLayout.LayoutParams).topMargin = dp(6)
+        val r = row(
+            cover,
+            col(text(j.n.title, M.attr.textAppearanceTitleSmall, 2), meta, prog).pad(14, 0).lp(0, -2, 1f),
+            icon(R.drawable.i_close) { confirm("Cancel downloading “${j.n.title}”?") { Dl.cancel(j.n); Abs.dlChanged(); downloads() } }
+                .apply { contentDescription = "Cancel download" },
+        ).pad(16, 8)
+        r.setBackgroundResource(res(android.R.attr.selectableItemBackground))
+        r.setOnClickListener { push { item(j.n.item) } }
+        val upd = {
+            meta.text = dlStatus(j)
+            progress(prog, j)
+        }
+        upd()
+        return r to upd
+    }
+
+    /** "45% · 47 of 105 MB", "Queued" or "Waiting for connection" */
+    private fun dlStatus(j: Dl.Job) = when {
+        j !== Dl.jobs.firstOrNull() -> "Queued"
+        j.waiting -> "Waiting for connection"
+        else -> "${(Dl.pct(j) * 100).toInt()}% · ${mb(j.got)} of ${mb(j.total)}"
+    }
+
+    /** determinate while bytes are coming in, indeterminate while queued or waiting */
+    private fun progress(p: com.google.android.material.progressindicator.BaseProgressIndicator<*>, j: Dl.Job) {
+        val known = j === Dl.jobs.firstOrNull() && !j.waiting && j.total > 0
+        if (p.isIndeterminate == known) { // can't switch modes while shown
+            val v = p.visibility
+            p.visibility = View.INVISIBLE
+            p.isIndeterminate = !known
+            p.visibility = v
+        }
+        if (known) p.setProgressCompat((Dl.pct(j) * 1000).toInt(), true)
     }
 
     private fun mb(b: Long) = if (b >= 1 shl 30) "%.1f GB".format(b / 1073741824.0) else "${b shr 20} MB"
@@ -569,10 +635,11 @@ class Main : AppCompatActivity() {
             val meta = listOfNotNull(Abs.fmt(n.duration), "${ts.size} files".takeIf { ts.size > 1 },
                 if (p >= 1) "Finished" else if (p > 0) "${(p * 100).toInt()}% done" else null)
             head.addView(text(meta.joinToString(" · "), muted = true).apply { gravity = Gravity.CENTER }.pad(0, 6))
-            val dl = icon(R.drawable.i_download) {}
-            fun updDl() = dlButton(dl, n)
+            val dl = dlView()
+            fun updDl() = bindDl(dl, n)
             updDl()
             onDl = { updDl() }
+            onDlTick = { updDl() }
             val play = button(if (p > 0 && p < 1) "Resume" else "Play", R.drawable.i_play_arrow_fill) { play(n) }
             play.isEnabled = ts.isNotEmpty()
             head.addView(row(play.lp(-2, -2), dl, fav, share).apply { gravity = Gravity.CENTER }.pad(0, 8))
@@ -586,6 +653,7 @@ class Main : AppCompatActivity() {
             head.addView(row(fav, share).apply { gravity = Gravity.CENTER })
             val ad = Rv({ eps.size }, { episodeRow() }, { v, i -> bindEpisode(v, eps[i], dates[i]) })
             onDl = { ad.notifyDataSetChanged() }
+            onDlTick = { if (Dl.jobs.any { it.n.item == c.id }) ad.notifyDataSetChanged() }
             epAdapter = ad
         }
         val desc = HtmlCompat.fromHtml(md.str("description"), HtmlCompat.FROM_HTML_MODE_COMPACT).trim()
@@ -598,12 +666,12 @@ class Main : AppCompatActivity() {
         rv.adapter = epAdapter?.let { ConcatAdapter(one, it) } ?: one
     }
 
-    private class EpRow(val title: TextView, val meta: TextView, val dl: MaterialButton, val play: MaterialButton)
+    private class EpRow(val title: TextView, val meta: TextView, val dl: View, val play: MaterialButton)
 
     private fun episodeRow(): View {
         val title = text("", M.attr.textAppearanceTitleSmall, 2)
         val meta = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
-        val dl = icon(R.drawable.i_download) {}
+        val dl = dlView()
         val play = icon(R.drawable.i_play_arrow_fill, M.attr.materialIconButtonFilledTonalStyle) {}
         return row(col(title, meta).lp(0, -2, 1f), dl, play).apply {
             pad(16, 6)
@@ -618,29 +686,78 @@ class Main : AppCompatActivity() {
         val p = Abs.pct(n.key)
         title.text = n.title
         meta.text = listOfNotNull(date, Abs.fmt(n.duration), p?.let { if (it >= 1) "Finished" else "${(it * 100).toInt()}%" }).joinToString(" · ")
-        dlButton(dl, n)
+        bindDl(dl, n)
         play.setOnClickListener { play(n) }
         v.setOnClickListener { play(n) }
     }
 
-    /** done -> remove, in flight -> cancel, otherwise (incl. failed/partial) -> download what's missing */
-    private fun dlButton(b: MaterialButton, n: Now) {
-        val done = n.tracks.all { Abs.done(n.item, it) }
-        val busy = !done && Abs.downloading(this, n.tracks.map { Abs.file(n.item, it) })
-        b.icon = ContextCompat.getDrawable(this, if (done) R.drawable.i_download_done_fill else R.drawable.i_download)
-        b.alpha = if (busy) 0.5f else 1f
-        b.setOnClickListener { if (done || busy) removeDl(n, busy) else download(n) }
+    private class DlView(val btn: MaterialButton, val ring: CircularProgressIndicator)
+
+    /** download button; while the title downloads, a ring around a stop icon shows its progress */
+    private fun dlView(): View {
+        val btn = icon(R.drawable.i_download) {}
+        val ring = CircularProgressIndicator(this).apply { max = 1000; indicatorSize = dp(30); trackThickness = dp(3); isVisible = false }
+        return FrameLayout(this).apply {
+            addView(btn)
+            addView(ring, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+            tag = DlView(btn, ring)
+        }
     }
 
-    private fun download(n: Now) = bg({ Abs.download(this, n.item, n.tracks, n.title) }) {
+    /** done -> remove, queued or downloading -> cancel, otherwise (incl. partial) -> download what's missing */
+    private fun bindDl(v: View, n: Now) = (v.tag as DlView).run {
+        val done = n.tracks.all { Abs.done(n.item, it) }
+        val j = if (done) null else Dl.job(n.key)
+        btn.icon = ContextCompat.getDrawable(this@Main, if (done) R.drawable.i_download_done_fill else if (j != null) R.drawable.i_stop else R.drawable.i_download)
+        btn.contentDescription = if (done) "Remove download" else if (j != null) "Cancel download" else "Download"
+        ring.isVisible = j != null
+        if (j != null) progress(ring, j)
+        btn.setOnClickListener { if (done || j != null) removeDl(n, j != null) else download(n) }
+    }
+
+    private fun download(n: Now) {
+        Dl.add(this, n)
         toast("Downloading…")
         onDl?.invoke()
+        updateDl()
     }
 
     private fun removeDl(n: Now, busy: Boolean = false) = confirm(if (busy) "Cancel downloading “${n.title}”?" else "Remove the download of “${n.title}”?") {
-        Abs.remove(this, n.tracks.map { Abs.file(n.item, it) })
+        if (busy) Dl.cancel(n) else Abs.remove(n.tracks.map { Abs.file(n.item, it) })
         Abs.dlChanged()
         onDl?.invoke()
+        updateDl()
+    }
+
+    // --- the bar above the mini player while something downloads; tapping it opens the downloads screen
+
+    private fun downloadBar(): MaterialCardView {
+        dlCover = Cover(this).lp(dp(36), dp(36))
+        dlTitle = text("", M.attr.textAppearanceTitleSmall, 1)
+        dlSub = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
+        dlProg = LinearProgressIndicator(this).apply { max = 1000; trackThickness = dp(2) }
+        val arrow = ImageView(this).apply {
+            setImageResource(R.drawable.i_download)
+            imageTintList = android.content.res.ColorStateList.valueOf(color(M.attr.colorOnSurfaceVariant))
+        }
+        return MaterialCardView(this, null, M.attr.materialCardViewFilledStyle).apply {
+            addView(col(row(dlCover, col(dlTitle, dlSub).pad(12, 0).lp(0, -2, 1f), arrow.lp(dp(24), dp(24), m = 8)).pad(8, 4), dlProg))
+            setOnClickListener { if (cur != this@Main::downloads) push(::downloads) }
+            visibility = View.GONE
+        }.lp(m = 8).also { (it.layoutParams as LinearLayout.LayoutParams).bottomMargin = 0 }
+    }
+
+    private fun updateDl() {
+        val j = Dl.jobs.firstOrNull()
+        dlBar.isVisible = j != null && Abs.me != null && nav.isVisible
+        if (j != null) {
+            if (dlCover.tag != j.n.item) Covers.load(dlCover, j.n.item)
+            dlTitle.text = j.n.title
+            dlSub.text = dlStatus(j) + (Dl.jobs.size - 1).let { if (it > 0) " · $it more" else "" }
+            progress(dlProg, j)
+        }
+        if (j != null || dlWas) onDlTick?.invoke()
+        dlWas = j != null
     }
 
     // --- progress sharing

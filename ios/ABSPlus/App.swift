@@ -50,6 +50,8 @@ struct RootView: View {
                 .task {
                     Downloader.shared.restore()
                     await player.restore()
+                    try? await Task.sleep(for: .seconds(2)) // interrupted transfers report back with their resume data first
+                    await app.resumeQueue()
                 }
             }
         }

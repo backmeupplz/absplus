@@ -1,6 +1,5 @@
 package com.borodutch.absplus
 
-import android.app.DownloadManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
@@ -27,6 +26,19 @@ class Now(val item: String, val ep: String?, val title: String, val author: Stri
     fun at(t: Double): Pair<Int, Long> {
         val i = tracks.indexOfLast { it.start <= t }.coerceAtLeast(0)
         return i to ((t - tracks[i].start) * 1000).toLong()
+    }
+
+    fun json(): JSONObject = JSONObject().put("item", item).put("ep", ep).put("title", title).put("author", author).put("tracks", JSONArray().apply {
+        tracks.forEach { put(JSONObject().put("ino", it.ino).put("ext", it.ext).put("size", it.size).put("duration", it.duration).put("start", it.start)) }
+    })
+
+    companion object {
+        fun of(j: JSONObject): Now {
+            val a = j.getJSONArray("tracks")
+            return Now(j.getString("item"), j.str("ep").ifEmpty { null }, j.getString("title"), j.getString("author"), (0 until a.length()).map {
+                a.getJSONObject(it).run { Track(getString("ino"), getString("ext"), getLong("size"), getDouble("duration"), getDouble("start")) }
+            })
+        }
     }
 }
 
@@ -139,6 +151,7 @@ object Abs {
     fun accounts() = p.all.keys.filter { it.startsWith("acct:") }.map { it.drop(5) }.filter { it != me }.sorted()
 
     fun logout() {
+        Dl.clear()
         p.edit().clear().commit()
         cacheDir.listFiles()?.forEach { it.delete() }
         now = null
@@ -186,21 +199,6 @@ object Abs {
     fun uri(item: String, t: Track): Uri =
         if (done(item, t)) Uri.fromFile(file(item, t)) else Uri.parse("$server/api/items/$item/file/${t.ino}")
 
-    /** Call off the main thread (may refresh the token). */
-    fun download(c: Context, item: String, ts: List<Track>, title: String) {
-        val todo = ts.filter { !done(item, it) }
-        remove(c, todo.map { file(item, it) }) // drop stale partials / duplicate queue entries
-        val auth = "Bearer " + token()
-        val dm = c.getSystemService(DownloadManager::class.java)
-        File(dir, item).mkdirs()
-        for (t in todo) dm.enqueue(
-            DownloadManager.Request(Uri.parse("$server/api/items/$item/file/${t.ino}/download"))
-                .addRequestHeader("Authorization", auth)
-                .setTitle(title)
-                .setDestinationInExternalFilesDir(c, null, "$item/${t.ino}${t.ext}")
-        )
-    }
-
     private val dlMemo = HashMap<String, Boolean>()
     fun dlChanged() = dlMemo.clear()
 
@@ -214,48 +212,22 @@ object Abs {
         }.getOrDefault(false)
     }
 
-    /** true while any of [files] is queued or downloading */
-    fun downloading(c: Context, files: List<File>): Boolean {
-        val paths = files.map { it.absolutePath }.toSet()
-        val q = DownloadManager.Query().setFilterByStatus(DownloadManager.STATUS_PENDING or DownloadManager.STATUS_RUNNING or DownloadManager.STATUS_PAUSED)
-        c.getSystemService(DownloadManager::class.java).query(q).use {
-            while (it.moveToNext()) {
-                val u = it.getString(it.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)) ?: continue
-                if (Uri.parse(u).path in paths) return true
-            }
-        }
-        return false
-    }
-
-    /** error text if download [id] failed */
-    fun failure(c: Context, id: Long): String? =
-        c.getSystemService(DownloadManager::class.java).query(DownloadManager.Query().setFilterById(id)).use {
-            if (!it.moveToFirst() || it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) != DownloadManager.STATUS_FAILED) null
-            else "Download failed (${it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))}), tap download to retry"
-        }
-
-    /** item folders that hold downloaded files */
-    fun downloads() = dir.listFiles { f -> f.isDirectory && !f.list().isNullOrEmpty() }?.toList() ?: emptyList()
+    /** item folders that hold finished files (a download in progress also leaves "*.part" files) */
+    fun downloads() = dir.listFiles { f -> f.isDirectory && f.list()?.any { !it.endsWith(".part") } == true }?.toList() ?: emptyList()
 
     /** title/author from the item page's cached json */
     fun cachedCard(id: String) = runCatching { Card.item(JSONObject(cached("/api/items/$id?expanded=1")!!)) }.getOrElse { Card(id, "Unknown item", "") }
 
-    fun removeAll(c: Context, item: File) {
-        remove(c, item.listFiles()?.toList() ?: emptyList())
+    fun removeAll(item: File) {
+        Dl.jobs.filter { it.n.item == item.name }.forEach { Dl.cancel(it.n) }
+        item.listFiles()?.forEach { it.delete() }
         item.delete()
         dlChanged()
     }
 
-    fun remove(c: Context, files: List<File>) {
-        val dm = c.getSystemService(DownloadManager::class.java)
-        val paths = files.map { it.absolutePath }.toSet()
-        dm.query(DownloadManager.Query()).use { q ->
-            while (q.moveToNext()) {
-                val u = q.getString(q.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)) ?: continue
-                if (Uri.parse(u).path in paths) dm.remove(q.getLong(q.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)))
-            }
-        }
-        files.forEach { it.delete() }
+    /** deletes [files] and their partial downloads */
+    fun remove(files: List<File>) {
+        files.forEach { it.delete(); File(it.path + ".part").delete() }
         files.firstOrNull()?.parentFile?.delete() // only succeeds once empty
     }
 
@@ -266,19 +238,9 @@ object Abs {
 
     // --- what's playing, kept across app restarts
 
-    fun saveNow(n: Now) {
-        val ts = JSONArray()
-        n.tracks.forEach { ts.put(JSONObject().put("ino", it.ino).put("ext", it.ext).put("size", it.size).put("duration", it.duration).put("start", it.start)) }
-        p.edit().putString("now", JSONObject().put("item", n.item).put("ep", n.ep).put("title", n.title).put("author", n.author).put("tracks", ts).toString()).apply()
-    }
+    fun saveNow(n: Now) = p.edit().putString("now", n.json().toString()).apply()
 
-    fun loadNow() = runCatching {
-        val j = JSONObject(p.getString("now", null)!!)
-        val a = j.getJSONArray("tracks")
-        Now(j.getString("item"), j.str("ep").ifEmpty { null }, j.getString("title"), j.getString("author"), (0 until a.length()).map {
-            a.getJSONObject(it).run { Track(getString("ino"), getString("ext"), getLong("size"), getDouble("duration"), getDouble("start")) }
-        })
-    }.getOrNull()
+    fun loadNow() = runCatching { Now.of(JSONObject(p.getString("now", null)!!)) }.getOrNull()
 
     fun pos(pl: Player, n: Now) = (n.tracks.getOrNull(pl.currentMediaItemIndex)?.start ?: 0.0) + pl.currentPosition / 1000.0
 

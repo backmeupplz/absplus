@@ -27,10 +27,7 @@ final class Tour: XCTestCase {
 
     func label(_ s: String) -> XCUIElement { app.buttons.containing(NSPredicate(format: "label CONTAINS %@", s)).firstMatch }
 
-    func testTour() throws {
-        continueAfterFailure = false
-        app.launch()
-
+    func signIn() {
         let url = app.textFields["Server URL"]
         if url.waitForExistence(timeout: 5) {
             url.tap()
@@ -47,6 +44,12 @@ final class Tour: XCTestCase {
                 break
             }
         }
+    }
+
+    func testTour() throws {
+        continueAfterFailure = false
+        app.launch()
+        signIn()
 
         // library -> book page -> play
         tap(app.tabBars.buttons["Library"])
@@ -121,5 +124,56 @@ final class Tour: XCTestCase {
         wait(app.otherElements["mini"])
         wait(app.buttons["Play"])
         shot("12-restored")
+    }
+
+    /// Download progress, the downloads bar and list, cancelling, and a download carrying on after the app is killed.
+    func testDownloads() throws {
+        continueAfterFailure = false
+        app.launch()
+        signIn()
+        // the dialog's button shares its label with the one that opened it
+        func confirm(_ s: String) { tap(app.buttons.matching(identifier: s).element(boundBy: 1)) }
+
+        // start clean, so the podcast's second episode (#501, 250 MB) is the second "Download" button
+        tap(app.tabBars.buttons["Home"])
+        tap(app.buttons["Settings"])
+        tap(app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'Downloads'")).firstMatch)
+        if app.buttons["Remove all"].waitForExistence(timeout: 3) {
+            app.buttons["Remove all"].tap()
+            confirm("Remove all")
+        }
+        tap(app.tabBars.buttons["Library"])
+        app.tabBars.buttons["Library"].tap()
+        if app.navigationBars.buttons["Audiobooks"].waitForExistence(timeout: 5) {
+            app.navigationBars.buttons["Audiobooks"].tap()
+            tap(app.buttons["Podcasts"])
+        }
+        tap(label("Lex"))
+        let second = app.buttons.matching(identifier: "Download").element(boundBy: 1)
+        tap(second)
+        wait(app.buttons["dlbar"])
+        sleep(1)
+        shot("13-downloading")
+
+        tap(app.buttons["dlbar"])
+        wait(app.staticTexts["Downloading"])
+        shot("14-queue")
+        tap(app.buttons["Cancel download"])
+        confirm("Cancel download")
+        XCTAssert(app.staticTexts["Downloading"].waitForNonExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["dlbar"].exists)
+
+        // start again and kill the app mid-download: the system keeps the transfer going, and the app picks it up on launch
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        tap(second)
+        wait(app.buttons["dlbar"])
+        app.terminate()
+        app.launch()
+        shot("15-after-relaunch")
+        tap(app.tabBars.buttons["Library"])
+        tap(label("Lex"))
+        XCTAssert(app.buttons["Remove download"].waitForExistence(timeout: 300), "download didn't finish after the relaunch")
+        shot("16-finished")
+        XCTAssert(app.buttons["dlbar"].waitForNonExistence(timeout: 10))
     }
 }

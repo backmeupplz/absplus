@@ -97,6 +97,13 @@ let dlDir: URL = {
     return u
 }()
 
+/// resume data of interrupted downloads, one file per download path
+let resumeDir: URL = {
+    let u = URL.applicationSupportDirectory.appending(path: "resume")
+    try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
+    return u
+}()
+
 @MainActor let app = Abs()
 
 /// Server API, accounts, downloads, progress. Settings live in UserDefaults, login tokens in the Keychain.
@@ -121,6 +128,12 @@ let dlDir: URL = {
     /// download paths ("item/inoext") still transferring; dlv bumps when downloads change
     var inflight = Set<String>()
     var dlv = 0
+    /// titles being downloaded, oldest first; kept across launches so unfinished ones carry on
+    var dlq: [Now] = [] { didSet { store("dlq", dlq) } }
+    /// bytes received so far per download path
+    var got: [String: Int64] = [:]
+    /// download paths the user cancelled, so their transfers aren't picked up again
+    @ObservationIgnored var cancelling = Set<String>()
     @ObservationIgnored private var dlMemo: [String: Bool] = [:]
     @ObservationIgnored private var refreshing: [String: Task<String, Error>] = [:]
     @ObservationIgnored private var pushingFavs = false
@@ -134,6 +147,7 @@ let dlDir: URL = {
         favq = load("favq") ?? [:]
         hist = load("hist") ?? []
         shares = load("shares") ?? [:]
+        dlq = load("dlq") ?? []
         if me == nil && !accts.isEmpty { // the Keychain outlives a reinstall
             accts = [:]
             kcWrite([:])
@@ -211,6 +225,8 @@ let dlDir: URL = {
     var accounts: [String] { accts.keys.filter { $0 != me }.sorted() }
 
     func logout() {
+        cancel(inflight) // downloads stop, files stay
+        dlq = []
         d.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
@@ -228,10 +244,10 @@ let dlDir: URL = {
         return e
     }
 
-    /// A valid access token for `name`, refreshing it if it's about to expire.
-    func token(_ name: String? = nil) async throws -> String {
+    /// A valid access token for `name`, refreshing it if less than `fresh` seconds of it are left.
+    func token(_ name: String? = nil, fresh: Double = 60) async throws -> String {
         guard let name = name ?? me, let a = accts[name] else { throw Expired() }
-        if exp(a.a) - Date().timeIntervalSince1970 > 60 { return a.a }
+        if exp(a.a) - Date().timeIntervalSince1970 > fresh { return a.a }
         if let t = refreshing[name] { return try await t.value }
         let t = Task {
             defer { refreshing[name] = nil }
@@ -291,26 +307,51 @@ let dlDir: URL = {
         done(item, t) ? file(item, t) : URL(string: "\(server)/api/items/\(item)/file/\(t.ino)")!
     }
 
+    func resumeFile(_ rel: String) -> URL { resumeDir.appending(path: rel.replacingOccurrences(of: "/", with: "_")) }
+
+    /// queues a title and starts its missing files
     func download(_ n: Now) async {
+        if !queued(n) { dlq.append(n) }
+        await fetch(n)
+    }
+
+    /// starts the files of a queued title that are neither on disk nor on their way, continuing interrupted ones
+    func fetch(_ n: Now) async {
         do {
-            let auth = "Bearer " + (try await token())
+            let auth = "Bearer " + (try await token(fresh: 1800)) // long enough for the system's own retries
             for t in n.tracks where !done(n.item, t) && !inflight.contains(rel(n.item, t)) {
-                try? FileManager.default.removeItem(at: file(n.item, t)) // drop stale partials
-                var r = URLRequest(url: URL(string: "\(server)/api/items/\(n.item)/file/\(t.ino)/download")!)
-                r.setValue(auth, forHTTPHeaderField: "Authorization")
-                let task = Downloader.shared.session.downloadTask(with: r)
-                task.taskDescription = rel(n.item, t)
-                inflight.insert(rel(n.item, t))
-                task.resume()
+                let r = rel(n.item, t)
+                let url = URL(string: "\(server)/api/items/\(n.item)/file/\(t.ino)/download")!
+                if let data = try? Data(contentsOf: resumeFile(r)) {
+                    try? FileManager.default.removeItem(at: resumeFile(r))
+                    Downloader.shared.start(r, url, auth, resume: data)
+                } else {
+                    try? FileManager.default.removeItem(at: file(n.item, t)) // drop stale partials
+                    Downloader.shared.start(r, url, auth)
+                }
             }
-            toast = "Downloading…"
             dlChanged()
         } catch { say(error) }
+    }
+
+    /// after a relaunch: carry on with queued titles that have files left and nothing transferring
+    func resumeQueue() async {
+        for n in dlq { await fetch(n) }
+    }
+
+    func queued(_ n: Now) -> Bool { dlq.contains { $0.key == n.key } }
+
+    /// (bytes so far, total) of a title
+    func dlBytes(_ n: Now) -> (Int64, Int64) {
+        _ = dlv
+        return n.tracks.reduce((0, 0)) { a, t in (a.0 + (done(n.item, t) ? t.size : got[rel(n.item, t)] ?? 0), a.1 + t.size) }
     }
 
     func dlChanged() {
         dlMemo = [:]
         dlv += 1
+        let left = dlq.filter { n in !n.tracks.allSatisfy { done(n.item, $0) } }
+        if left.count != dlq.count { dlq = left }
     }
 
     /// book fully downloaded / podcast has a downloaded episode (judged from the item page's cached json)
@@ -345,20 +386,25 @@ let dlDir: URL = {
     func removeAll(_ id: String) {
         let dir = dlDir.appending(path: id)
         let rels = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).map { "\(id)/\($0)" }
-        cancel(Set(rels).union(inflight.filter { $0.hasPrefix(id + "/") }))
+        cancel(Set(rels).union(inflight.filter { $0.hasPrefix(id + "/") }).union(dlq.filter { $0.item == id }.flatMap { n in n.tracks.map { rel(n.item, $0) } }))
+        dlq.removeAll { $0.item == id }
         try? FileManager.default.removeItem(at: dir)
         dlChanged()
     }
 
+    /// cancels a title's download, or removes it once done
     func remove(_ n: Now) {
         cancel(Set(n.tracks.map { rel(n.item, $0) }))
+        dlq.removeAll { $0.key == n.key }
         n.tracks.forEach { try? FileManager.default.removeItem(at: file(n.item, $0)) }
         try? FileManager.default.removeItem(at: dlDir.appending(path: n.item)) // fails unless empty
         dlChanged()
     }
 
     private func cancel(_ rels: Set<String>) {
+        cancelling.formUnion(rels.intersection(inflight))
         inflight.subtract(rels)
+        rels.forEach { got[$0] = nil; try? FileManager.default.removeItem(at: resumeFile($0)) }
         Downloader.shared.session.getAllTasks { ts in ts.filter { rels.contains($0.taskDescription ?? "") }.forEach { $0.cancel() } }
     }
 
@@ -483,22 +529,49 @@ let dlDir: URL = {
     }
 }
 
-/// Background downloads: they keep going when the app is suspended.
+/// Background downloads: they keep going when the app is suspended. When it's force-quit, iOS cancels them with resume
+/// data; that is kept, and the file continues from there on the next launch with a fresh token in the saved request.
 final class Downloader: NSObject, URLSessionDownloadDelegate {
     static let shared = Downloader()
     var bgDone: (() -> Void)?
+    private var reported: [String: Date] = [:]
+    private var tries: [String: Int] = [:]
     lazy var session: URLSession = {
         let c = URLSessionConfiguration.background(withIdentifier: "com.borodutch.absplus.dl")
         c.sessionSendsLaunchEvents = true
         return URLSession(configuration: c, delegate: self, delegateQueue: .main)
     }()
 
+    @MainActor func start(_ rel: String, _ url: URL, _ auth: String, resume: Data? = nil) {
+        let t: URLSessionDownloadTask
+        if let resume { t = session.downloadTask(withResumeData: Self.reauth(resume, auth)) }
+        else {
+            var r = URLRequest(url: url)
+            r.setValue(auth, forHTTPHeaderField: "Authorization")
+            t = session.downloadTask(with: r)
+        }
+        t.taskDescription = rel
+        app.inflight.insert(rel)
+        t.resume()
+    }
+
     /// picks up downloads still running from an earlier launch
     func restore() {
         session.getAllTasks { ts in
-            let rels = ts.filter { $0.state == .running || $0.state == .suspended }.compactMap(\.taskDescription)
-            Task { @MainActor in app.inflight.formUnion(rels) }
+            let live = ts.filter { $0.state == .running || $0.state == .suspended }.compactMap { t in t.taskDescription.map { ($0, t.countOfBytesReceived) } }
+            Task { @MainActor in
+                for (rel, n) in live {
+                    app.inflight.insert(rel)
+                    app.got[rel] = n
+                }
+            }
         }
+    }
+
+    func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didWriteData _: Int64, totalBytesWritten w: Int64, totalBytesExpectedToWrite _: Int64) {
+        guard let rel = t.taskDescription, Date().timeIntervalSince(reported[rel] ?? .distantPast) > 0.5 else { return }
+        reported[rel] = Date()
+        MainActor.assumeIsolated { app.got[rel] = w }
     }
 
     func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didFinishDownloadingTo loc: URL) {
@@ -512,12 +585,27 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
 
     func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {
         let code = (task.response as? HTTPURLResponse)?.statusCode ?? 0
-        let cancelled = (e as? URLError)?.code == .cancelled
-        let fail = !cancelled && (e != nil || code >= 400)
         let rel = task.taskDescription ?? ""
-        Task { @MainActor in
+        let resume = (e as? URLError)?.downloadTaskResumeData
+        reported[rel] = nil
+        MainActor.assumeIsolated {
             app.inflight.remove(rel)
-            if fail { app.toast = "Download failed (\(code > 0 ? "HTTP \(code)" : e?.localizedDescription ?? "")), tap download to retry" }
+            let mine = app.cancelling.remove(rel) != nil
+            let n = app.dlq.first { q in q.tracks.contains { app.rel(q.item, $0) == rel } }
+            // force-quit, a dropped connection or an expired token: continue the file (start over after a 401)
+            if !mine, let n, resume != nil || code == 401, tries[rel, default: 0] < 3 {
+                tries[rel, default: 0] += 1
+                if let resume, code != 401 { try? resume.write(to: app.resumeFile(rel)) }
+                Task { await app.fetch(n) }
+                return
+            }
+            tries[rel] = nil
+            app.got[rel] = nil
+            let cancelled = (e as? URLError)?.code == .cancelled
+            if !cancelled && (e != nil || code >= 400) {
+                app.toast = "Download failed (\(code > 0 ? "HTTP \(code)" : e?.localizedDescription ?? "")), tap download to retry"
+                app.dlq.removeAll { $0.key == n?.key }
+            }
             app.dlChanged()
         }
     }
@@ -527,5 +615,29 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
             self.bgDone?()
             self.bgDone = nil
         }
+    }
+
+    // Resume data is an archive holding the original request, token included. A file resumed after the token's
+    // one-hour lifetime would get a 401, so the saved requests get the current token. Unexpected formats pass through.
+    private static let root = "NSKeyedArchiveRootObjectKey" // the key these archives use (not NSKeyedArchiveRootObjectKey, which is "root")
+
+    static func reauth(_ data: Data, _ auth: String) -> Data {
+        func open<T>(_ d: Data, _ classes: [AnyClass]) -> T? {
+            (try? NSKeyedUnarchiver(forReadingFrom: d))?.decodeObject(of: classes, forKey: root) as? T
+        }
+        func pack(_ o: Any) -> Data {
+            let a = NSKeyedArchiver(requiringSecureCoding: true)
+            a.encode(o, forKey: root)
+            a.finishEncoding()
+            return a.encodedData
+        }
+        guard let dict: NSDictionary = open(data, [NSDictionary.self, NSString.self, NSNumber.self, NSData.self, NSDate.self]) else { return data }
+        let m = NSMutableDictionary(dictionary: dict)
+        for k in ["NSURLSessionResumeCurrentRequest", "NSURLSessionResumeOriginalRequest"] {
+            guard let d = m[k] as? Data, let r: NSURLRequest = open(d, [NSURLRequest.self]), let req = r.mutableCopy() as? NSMutableURLRequest else { continue }
+            req.setValue(auth, forHTTPHeaderField: "Authorization")
+            m[k] = pack(req)
+        }
+        return pack(m)
     }
 }

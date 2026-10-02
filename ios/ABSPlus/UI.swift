@@ -147,7 +147,7 @@ struct PlayButton: View {
     }
 }
 
-/// done -> remove, in flight -> cancel, otherwise (incl. failed/partial) -> download what's missing
+/// done -> remove, downloading -> cancel (a ring shows how far it got), otherwise -> download what's missing
 struct DlButton: View {
     let n: Now
     @State private var ask = false
@@ -155,16 +155,78 @@ struct DlButton: View {
     var body: some View {
         let _ = app.dlv
         let done = n.tracks.allSatisfy { app.done(n.item, $0) }
-        let busy = !done && n.tracks.contains { app.inflight.contains(app.rel(n.item, $0)) }
+        let busy = !done && app.queued(n)
         Button {
-            if done || busy { ask = true } else { Task { await app.download(n) } }
+            if done || busy { ask = true } else {
+                app.toast = "Downloading…"
+                Task { await app.download(n) }
+            }
         } label: {
-            if busy { ProgressView() }
+            if busy { DlRing(n: n) }
             else { Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle") }
         }
         .accessibilityLabel(done ? "Remove download" : busy ? "Cancel download" : "Download")
         .confirmationDialog(busy ? "Cancel downloading “\(n.title)”?" : "Remove the download of “\(n.title)”?", isPresented: $ask, titleVisibility: .visible) {
             Button(busy ? "Cancel download" : "Remove download", role: .destructive) { app.remove(n) }
+        }
+    }
+}
+
+/// download progress around a stop square; a spinner until bytes arrive
+struct DlRing: View {
+    let n: Now
+
+    var body: some View {
+        let (have, total) = app.dlBytes(n)
+        ZStack {
+            if have > 0 && total > 0 {
+                Circle().stroke(.tint.opacity(0.25), lineWidth: 2.5)
+                Circle().trim(from: 0, to: Double(have) / Double(total))
+                    .stroke(.tint, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 0.5), value: have)
+            } else {
+                ProgressView()
+            }
+            Image(systemName: "stop.fill").font(.system(size: 7, weight: .black))
+        }
+        .frame(width: 20, height: 20)
+    }
+}
+
+/// "45% · 47 MB of 105 MB", or "Waiting" until the first bytes arrive
+@MainActor func dlStatus(_ n: Now) -> String {
+    let (have, total) = app.dlBytes(n)
+    return have > 0 && total > 0 ? "\(Int(Double(have) / Double(total) * 100))% · \(bytes(have)) of \(bytes(total))" : "Waiting"
+}
+
+/// The title downloading now, above the player; tapping it opens Downloads.
+struct DlBar: View {
+    @Environment(Nav.self) private var nav
+
+    var body: some View {
+        if let n = app.dlq.first {
+            let (have, total) = app.dlBytes(n)
+            let more = app.dlq.count - 1
+            Button { nav.open(.downloads) } label: {
+                HStack(spacing: 10) {
+                    Cover(id: n.item, radius: 6).frame(width: 32, height: 32)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(n.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        Text(dlStatus(n) + (more > 0 ? " · \(more) more" : "")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        ProgressView(value: total > 0 ? min(1, Double(have) / Double(total)) : 0)
+                    }
+                    Image(systemName: "arrow.down.circle").foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .contentShape(.rect)
+                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+            .accessibilityIdentifier("dlbar")
         }
     }
 }
@@ -200,6 +262,7 @@ struct Stack<Root: View>: View {
                 }
             }
         }
+        .safeAreaInset(edge: .bottom) { DlBar() }
         .environment(nav)
     }
 }
