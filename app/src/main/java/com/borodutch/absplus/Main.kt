@@ -1,7 +1,10 @@
 package com.borodutch.absplus
 
+import android.Manifest
 import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -716,6 +719,9 @@ class Main : AppCompatActivity() {
     }
 
     private fun download(n: Now) {
+        // Android 13+ hides the download progress notification until the app may post notifications
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
         Dl.add(this, n)
         toast("Downloading…")
         onDl?.invoke()
