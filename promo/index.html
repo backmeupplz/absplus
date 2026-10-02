@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ABS+ promo</title>
+<!--
+  The ABS+ promo video, 1920×1080. Every frame is a pure function of time: render(t) sets the whole stage.
+  Open this file in a browser to preview it (space plays/pauses, ←/→ seek, index.html?t=12.5 opens at a time).
+  render.mjs renders it frame by frame and adds out/music.wav (music.py). Scenes start on the music's bars (2 s each).
+  Screenshots come straight from the store folders, ../play/screenshots and ../appstore/screenshots, so re-rendering picks up new ones.
+-->
+<style>
+@font-face { font-family: "Bricolage"; src: url("fonts/BricolageGrotesque.ttf"); font-weight: 200 800; font-stretch: 75% 100%; }
+:root { --paper: #F4F2FB; --ink: #1B1446; --indigo: #4B35C9; --violet: #7B5CFF; --deep: #2B1F8F; --amber: #FFC94D; --muted: #5E577E; --night: #0E0A27; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: #08061a; }
+body { font-family: "Bricolage", system-ui, sans-serif; color: var(--ink); }
+#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: var(--night); }
+#world { position: absolute; inset: 0; perspective: 2600px; }
+.scene { position: absolute; inset: 0; overflow: hidden; display: none; background: var(--paper); }
+.scene.dark { color: #fff; background: var(--ink); }
+.cam, .fill { position: absolute; inset: 0; }
+.cam, #s7-ring { perspective: 2200px; }
+.abs { position: absolute; }
+.amber { color: var(--amber); }
+.indigo { color: var(--indigo); }
+.w { display: inline-block; }
+
+/* type */
+.kicker { position: absolute; font-size: 26px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--indigo); overflow: hidden; white-space: nowrap; }
+.kicker .w { display: inline-flex; align-items: center; gap: 14px; }
+.kicker svg { width: 24px; height: 24px; flex: none; }
+.dark .kicker { color: var(--amber); }
+.big { position: absolute; font-size: 112px; font-weight: 800; letter-spacing: -.035em; line-height: 1.02; font-stretch: 93%; white-space: nowrap; overflow: hidden; padding: 0 .05em .12em 0; }
+.sub { position: absolute; font-size: 34px; font-weight: 500; line-height: 1.35; max-width: 760px; color: var(--muted); }
+.dark .sub { color: rgba(255, 255, 255, .76); }
+.center { left: 0; right: 0; margin: 0 auto; text-align: center; }
+.kicker.center .w { justify-content: center; }
+.time { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* backgrounds */
+.pluses { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cpath d='M36 30v12M30 36h12' stroke='%234B35C9' stroke-opacity='.12' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.dark .pluses { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cpath d='M36 30v12M30 36h12' stroke='%23FFFFFF' stroke-opacity='.07' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.blob { position: absolute; border-radius: 50%; }
+.pt { position: absolute; left: 0; top: 0; clip-path: polygon(38% 0, 62% 0, 62% 38%, 100% 38%, 100% 62%, 62% 62%, 62% 100%, 38% 100%, 38% 62%, 0 62%, 0 38%, 38% 38%); }
+
+/* devices */
+.phone { position: absolute; background: linear-gradient(150deg, #3d3778 0%, #1a1440 28%, #0b0820 100%); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .16), 0 60px 90px -40px rgba(20, 12, 70, .55), 0 20px 40px -24px rgba(20, 12, 70, .45); }
+.dark .phone { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .22), 0 60px 110px -40px rgba(0, 0, 0, .75); }
+.screen { position: relative; width: 100%; height: 100%; overflow: hidden; background: #000; }
+.screen > img { display: block; width: 100%; }
+.island { position: absolute; left: 50%; transform: translateX(-50%); background: #000; border-radius: 999px; z-index: 5; }
+.sbar { position: relative; display: flex; align-items: center; justify-content: space-between; color: #fff; font-weight: 600; background-repeat: no-repeat; }
+.sbar .hole { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; background: #050505; box-shadow: 0 0 0 1px #2a2a2a; }
+.sbar svg { height: 42%; aspect-ratio: 44 / 16; }
+
+/* 1 logo */
+#s1 { background: radial-gradient(ellipse at 50% 46%, #2c2180 0%, #170f45 42%, #090619 100%); }
+.tile { position: absolute; inset: 0; border-radius: 23%; background: linear-gradient(135deg, #2B1F8F, #7B5CFF); box-shadow: 0 30px 80px -20px rgba(123, 92, 255, .55), inset 0 0 0 1.5px rgba(255, 255, 255, .12); }
+.glyph { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.glyph path { transform-box: fill-box; transform-origin: center; }
+.word { position: absolute; font-weight: 800; letter-spacing: -.035em; line-height: 1; white-space: nowrap; overflow: hidden; padding: .02em .04em .1em; }
+.word span { display: inline-block; }
+.word .plus { color: var(--amber); }
+#s1-glow { left: 360px; top: -60px; width: 1200px; height: 1200px; border-radius: 50%; background: radial-gradient(circle, rgba(123, 92, 255, .55) 0%, rgba(123, 92, 255, .18) 35%, rgba(123, 92, 255, 0) 65%); }
+#s1-ring { width: 200px; height: 200px; border-radius: 50%; border: 6px solid var(--amber); }
+
+/* 2 hook */
+.hl { position: relative; z-index: 0; }
+.hl::before { content: ""; position: absolute; left: -.04em; right: -.02em; bottom: .13em; height: .28em; background: var(--amber); border-radius: .05em; z-index: -1; transform: scaleX(var(--hl, 0)); transform-origin: left; }
+.chips { position: absolute; display: flex; gap: 14px; }
+.chips span { display: inline-flex; align-items: center; gap: 10px; padding: 13px 24px 13px 18px; border-radius: 999px; background: #fff; color: var(--ink); font-size: 25px; font-weight: 650; box-shadow: 0 10px 30px -12px rgba(27, 20, 70, .3), inset 0 0 0 1px rgba(75, 53, 201, .1); }
+.chips svg { width: 22px; height: 22px; }
+
+/* 3 timeline */
+#s3 { background: linear-gradient(160deg, #1B1446 0%, #2B1F8F 100%); }
+.file { position: absolute; border: 1.5px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .08); overflow: hidden; }
+.file .fi { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 18px 20px; }
+.file svg { width: 92px; height: 34px; }
+.file b { font-size: 26px; font-weight: 650; letter-spacing: .01em; color: #fff; }
+#s3-track { left: 230px; top: 690px; width: 1460px; height: 20px; border-radius: 10px; background: rgba(255, 255, 255, .2); }
+#s3-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 10px; background: linear-gradient(90deg, #FFB547, var(--amber)); }
+#s3-knob { position: absolute; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background: #fff; box-shadow: 0 6px 20px rgba(0, 0, 0, .35), 0 0 0 8px rgba(255, 201, 77, .25); }
+.pills { position: absolute; display: flex; gap: 18px; justify-content: center; left: 0; right: 0; }
+.pills span { display: inline-flex; align-items: center; gap: 14px; padding: 18px 34px 18px 26px; border-radius: 999px; background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .2); font-size: 32px; font-weight: 600; }
+.pills svg, .ico svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pills svg { width: 34px; height: 34px; color: var(--amber); }
+
+/* 4 offline */
+.card { position: absolute; display: flex; align-items: center; gap: 20px; padding: 20px 30px 20px 20px; border-radius: 30px; background: #fff; box-shadow: 0 30px 60px -24px rgba(27, 20, 70, .35), 0 0 0 1px rgba(75, 53, 201, .08); }
+.card .ico { position: relative; width: 76px; height: 76px; flex: none; border-radius: 50%; background: #EEEAFB; color: var(--indigo); }
+.card .ico > * { position: absolute; inset: 0; margin: auto; }
+.card b { display: block; font-size: 28px; font-weight: 700; letter-spacing: -.01em; }
+.card small { display: block; font-size: 22px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.eq { display: flex; gap: 5px; align-items: flex-end; width: 34px; height: 30px; }
+.eq i { flex: 1; background: var(--indigo); border-radius: 3px; }
+.banner { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; color: #fff; font-weight: 650; background: linear-gradient(#FF4D45, #E5332B); z-index: 4; }
+#s4-net { left: 990px; top: 132px; width: 92px; height: 92px; border-radius: 50%; background: #fff; color: var(--indigo); box-shadow: 0 20px 40px -18px rgba(27, 20, 70, .4); }
+#s4-net svg { position: absolute; inset: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+
+/* 5 sync */
+#s5 { background: radial-gradient(ellipse at 50% 30%, #4a35c4 0%, #2B1F8F 45%, #150e3d 100%); }
+.server { display: flex; flex-direction: column; gap: 14px; }
+.server .unit { position: relative; width: 230px; height: 66px; border-radius: 16px; background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .26); }
+.server .unit::after { content: ""; position: absolute; left: 70px; right: 26px; top: 29px; height: 8px; border-radius: 4px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .3) 0 14px, transparent 14px 22px); }
+.server i { position: absolute; left: 26px; top: 24px; width: 18px; height: 18px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 16px var(--amber); }
+.laptop .lid { width: 470px; height: 300px; padding: 14px; border-radius: 22px 22px 6px 6px; background: linear-gradient(150deg, #3d3778, #120d2e); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .2); }
+.laptop .base { width: 560px; height: 20px; margin-left: -45px; border-radius: 4px 4px 18px 18px; background: linear-gradient(#cfcbe6, #8f8ab3); }
+.web { position: relative; height: 100%; border-radius: 10px; background: #f6f5fb; overflow: hidden; color: var(--ink); }
+.web-top { height: 26px; display: flex; gap: 7px; align-items: center; padding: 0 12px; background: #e7e4f3; }
+.web-top i { width: 9px; height: 9px; border-radius: 50%; background: #c9c4e3; }
+.web-body { display: flex; gap: 18px; padding: 22px; }
+.web-body img { width: 150px; height: 150px; object-fit: cover; border-radius: 10px; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, .35); }
+.web-body b { display: block; font-size: 25px; letter-spacing: -.01em; margin-top: 6px; }
+.web-body span { display: block; font-size: 18px; color: var(--muted); }
+.web .bar { position: relative; height: 8px; margin-top: 30px; border-radius: 4px; background: #dcd8ee; }
+.web .bar div { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--indigo); }
+.web .times { display: flex; justify-content: space-between; margin-top: 8px; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.web .toast { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: 18px; padding: 9px 18px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 17px; font-weight: 600; white-space: nowrap; }
+.label { font-size: 26px; font-weight: 600; color: rgba(255, 255, 255, .8); text-align: center; width: 400px; }
+.packet { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 12px 16px; border-radius: 999px; background: var(--amber); color: var(--ink); font-size: 28px; font-weight: 750; font-variant-numeric: tabular-nums; box-shadow: 0 0 40px rgba(255, 201, 77, .55); white-space: nowrap; }
+.packet svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 6 together */
+.avatar { display: inline-flex; align-items: center; gap: 12px; padding: 8px 24px 8px 8px; border-radius: 999px; background: #fff; font-size: 26px; font-weight: 700; box-shadow: 0 14px 30px -14px rgba(27, 20, 70, .35); white-space: nowrap; }
+.avatar i { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--indigo); color: #fff; font-style: normal; font-size: 24px; }
+.avatar.am i { background: var(--amber); color: var(--ink); }
+.badge { display: grid; place-items: center; width: 76px; height: 76px; border-radius: 50%; background: var(--indigo); box-shadow: 0 16px 30px -12px rgba(75, 53, 201, .6); }
+.badge svg { width: 42px; height: 42px; fill: #fff; }
+.dialog { width: 370px; padding: 28px 0 14px; border-radius: 28px; background: #2B2930; color: #E6E0E9; box-shadow: 0 30px 60px -10px rgba(0, 0, 0, .6); }
+.dialog p { padding: 0 28px 14px; font-size: 25px; line-height: 1.3; }
+.dialog div { padding: 15px 28px; font-size: 24px; font-variant-numeric: tabular-nums; }
+.toast { padding: 14px 26px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 24px; font-weight: 600; white-space: nowrap; box-shadow: 0 16px 30px -14px rgba(27, 20, 70, .6); }
+
+/* 7 library */
+#s7 { background: radial-gradient(ellipse at 50% 62%, #3b2bb0 0%, #1d1554 48%, #0b0822 100%); }
+#s7-floor { left: 460px; top: 860px; width: 1000px; height: 160px; border-radius: 50%; background: radial-gradient(ellipse, rgba(123, 92, 255, .5), rgba(123, 92, 255, 0) 70%); }
+.heart { position: absolute; left: 0; top: 0; width: 44px; height: 44px; fill: var(--amber); }
+
+/* 8 size */
+#s8 { background: radial-gradient(ellipse at 50% 45%, #FFD877 0%, var(--amber) 55%, #F5B935 100%); }
+#s8-num { top: 330px; font-size: 330px; font-weight: 800; letter-spacing: -.05em; line-height: 1; font-stretch: 85%; display: flex; justify-content: center; align-items: baseline; }
+#s8-num .dg { display: inline-block; height: 1em; overflow: hidden; }
+#s8-num .col { display: flex; flex-direction: column; }
+#s8-num .mb { margin-left: .12em; }
+#s8 .sub { color: rgba(27, 20, 70, .78); }
+
+/* 9 privacy */
+#s9 { background: radial-gradient(ellipse at 30% 40%, #241a5e 0%, var(--ink) 50%, #0d0926 100%); }
+
+.blocked { width: 120px; text-align: center; }
+.blocked svg { display: block; width: 92px; height: 92px; margin: 0 auto; padding: 22px; border-radius: 50%; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); fill: none; stroke: rgba(255, 255, 255, .85); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.blocked b { display: block; margin-top: 10px; font-size: 22px; font-weight: 600; color: rgba(255, 255, 255, .7); }
+.blocked i { position: absolute; left: 50%; top: 46px; width: 112px; height: 5px; margin-left: -56px; border-radius: 3px; background: #FF6B60; transform-origin: left center; box-shadow: 0 0 12px rgba(255, 107, 96, .6); }
+#s9-link { border-radius: 4px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .35) 0 10px, transparent 10px 20px); }
+#s9-link.on { background: repeating-linear-gradient(90deg, var(--amber) 0 14px, rgba(255, 201, 77, .35) 14px 24px); box-shadow: 0 0 24px rgba(255, 201, 77, .7); }
+
+/* 10 end card */
+#s10 { background: linear-gradient(135deg, #2B1F8F 0%, #4B35C9 55%, #7B5CFF 100%); }
+#s10-rays { left: -240px; top: -960px; width: 2400px; height: 2400px; background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .06) 0deg 7deg, rgba(255, 255, 255, 0) 7deg 18deg); -webkit-mask: radial-gradient(circle, #000 0%, transparent 60%); mask: radial-gradient(circle, #000 0%, transparent 60%); }
+.url { display: inline-flex; align-items: center; gap: 16px; padding: 22px 44px 22px 30px; border-radius: 999px; background: #fff; color: var(--ink); font-size: 54px; font-weight: 800; letter-spacing: -.02em; box-shadow: 0 30px 60px -24px rgba(16, 10, 50, .6); overflow: hidden; position: relative; }
+.url svg { width: 46px; height: 46px; fill: var(--amber); }
+.url .shine { position: absolute; top: 0; bottom: 0; width: 120px; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .85), transparent); }
+
+/* transitions and finish */
+.over { position: absolute; inset: 0; display: none; pointer-events: none; }
+#wipe-a { background: var(--amber); z-index: 15; }
+#wipe-b { background: var(--indigo); z-index: 16; }
+#iris { position: absolute; border-radius: 50%; border: 18px solid var(--amber); display: none; z-index: 35; }
+#band-a { background: var(--amber); z-index: 35; }
+#band-b { background: var(--violet); z-index: 34; }
+#blinds { z-index: 85; }
+#blinds i { position: absolute; height: 121px; background: var(--ink); }
+#flash { background: #FFF6DE; z-index: 200; }
+#grain { display: block; z-index: 300; opacity: .07; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E"); }
+#fade { background: #000; z-index: 400; }
+
+/* preview controls (hidden while rendering) */
+#ui { position: fixed; left: 0; right: 0; bottom: 0; height: 48px; display: flex; align-items: center; gap: 14px; padding: 0 16px; background: #0d0a24; color: #cfc9ff; font: 14px system-ui, sans-serif; }
+#ui button { width: 64px; height: 30px; border: 0; border-radius: 6px; background: #4B35C9; color: #fff; font: inherit; cursor: pointer; }
+#ui input { flex: 1; accent-color: #FFC94D; }
+#ui output { width: 56px; font-variant-numeric: tabular-nums; }
+.render #ui { display: none; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="world">
+
+  <!-- 1 · logo (0–4 s, intro build) -->
+  <section class="scene dark" id="s1"><div class="cam" id="s1-cam">
+    <div class="abs" id="s1-glow"></div>
+    <div class="fill" id="s1-pts"></div>
+    <div class="fill" id="s1-lock">
+      <div class="abs" id="s1-icon" style="left:760px; top:340px; width:400px; height:400px">
+        <div class="tile" id="s1-tile"></div>
+        <svg class="glyph" viewBox="18 18 72 72">
+          <path class="g-band" d="M34,62 L34,54 A20,20 0 0,1 74,54 L74,62" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+          <path class="g-l" fill="#fff" d="M34,56 h1 a5,5 0 0,1 5,5 v8 a5,5 0 0,1 -5,5 h-1 a5,5 0 0,1 -5,-5 v-8 a5,5 0 0,1 5,-5z"/>
+          <path class="g-r" fill="#fff" d="M73,56 h1 a5,5 0 0,1 5,5 v8 a5,5 0 0,1 -5,5 h-1 a5,5 0 0,1 -5,-5 v-8 a5,5 0 0,1 5,-5z"/>
+          <path class="g-plus" d="M54,56 v16 M46,64 h16" fill="none" stroke="#FFC94D" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="abs" id="s1-ring" style="left:860px; top:496px"></div>
+      <div class="word" id="s1-word" style="top:398px; font-size:250px; color:#fff"><span>A</span><span>B</span><span>S</span><span class="plus">+</span></div>
+      <div class="abs" id="s1-tag" style="top:668px; font-size:42px; font-weight:500; color:rgba(255,255,255,.74)">for Audiobookshelf</div>
+    </div>
+  </div></section>
+
+  <!-- 2 · hook (4–8 s, drop) -->
+  <section class="scene" id="s2"><div class="cam" id="s2-cam">
+    <div class="fill pluses" id="s2-grid"></div>
+    <div class="blob" style="left:980px; top:-260px; width:1100px; height:1100px; background:radial-gradient(circle, rgba(123,92,255,.22), rgba(123,92,255,0) 65%)"></div>
+    <div class="blob" style="left:-300px; top:560px; width:900px; height:900px; background:radial-gradient(circle, rgba(255,201,77,.22), rgba(255,201,77,0) 65%)"></div>
+    <div class="big" id="s2-l1" data-split style="left:150px; top:292px">Your audiobooks,</div>
+    <div class="big indigo" id="s2-l2" style="left:150px; top:410px"><span class="w hl" id="s2-hl">wherever</span> <span class="w">you</span> <span class="w">are.</span></div>
+    <div class="sub" id="s2-sub" style="left:154px; top:570px; max-width:700px">A small, fast player for your own Audiobookshelf server.</div>
+    <div class="chips" id="s2-chips" style="left:150px; top:730px">
+      <span><svg viewBox="0 -960 960 960" fill="#4B35C9"><path d="M467-172.5q-6-1.5-11-5.5-44-29-93.570-45.5Q312.87-240 260-240q-42 0-82.5 11T100-198q-21 11-40.5-1T40-234v-482q0-11 5.5-21T62-752q46-24 96-36t102-12q58 0 113.5 15T480-740v506q51-33 107-49.5T700-300q36 0 78.5 7t81.5 29v-505q9.89 3.75 19.44 7.87Q889-757 898-752q10 6 16 15.68 6 9.67 6 20.320v482q0 23-19.5 35t-40.5 1q-37-20-77.5-31T700-240q-52.87 0-102.43 16.5Q548-207 504-178q-5 4-11 5.5t-13 1.5q-7 0-13-1.5Z"/></svg>Audiobooks</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="#4B35C9" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Podcasts</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="#4B35C9" stroke-width="2.4" stroke-linecap="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg>Android</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="#4B35C9" stroke-width="2.4" stroke-linecap="round"><rect x="6" y="2.5" width="12" height="19" rx="3.5"/><path d="M10 5.5h4"/></svg>iPhone</span>
+    </div>
+    <div class="phone android" id="s2-and" data-shot="play/screenshots/05-player.png" data-x="1300" data-y="560" data-h="800"></div>
+    <div class="phone ios" id="s2-ios" data-shot="appstore/screenshots/05-player.png" data-x="1600" data-y="590" data-h="860"></div>
+  </div></section>
+
+  <!-- 3 · plays like one book (8–12 s) -->
+  <section class="scene dark" id="s3"><div class="cam" id="s3-cam">
+    <div class="fill pluses"></div>
+    <div class="kicker" id="s3-k" style="left:150px; top:146px">Plays like one book</div>
+    <div class="big" id="s3-a" data-split style="left:150px; top:190px">12 files.</div>
+    <div class="big" id="s3-b" style="left:150px; top:190px"><span class="w amber">One</span> <span class="w">timeline.</span></div>
+    <div class="sub" id="s3-sub" style="left:154px; top:332px; max-width:900px">Books split into many files play with a single timeline.</div>
+    <div class="fill" id="s3-files"></div>
+    <div class="abs" id="s3-track"><div id="s3-fill"></div><div id="s3-knob"></div></div>
+    <div class="abs time" id="s3-cur" style="left:230px; top:726px">0:00:00</div>
+    <div class="abs time" id="s3-tot" style="left:1490px; top:726px; width:200px; text-align:right; color:rgba(255,255,255,.6)">2:58:51</div>
+    <div class="pills" id="s3-pills" style="top:850px">
+      <span><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>Lock screen</span>
+      <span><svg viewBox="0 0 24 24"><path d="M4 16v-4a8 8 0 0 1 16 0v4"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/></svg>Headset</span>
+      <span><svg viewBox="0 0 24 24"><path d="M7 7.5l10 9-5 4.5V3l5 4.5-10 9"/></svg>Bluetooth</span>
+    </div>
+  </div></section>
+
+  <!-- 4 · works offline (12–16 s) -->
+  <section class="scene" id="s4"><div class="cam" id="s4-cam">
+    <div class="fill pluses"></div>
+    <div class="blob" style="left:900px; top:-200px; width:1100px; height:1100px; background:radial-gradient(circle, rgba(123,92,255,.2), rgba(123,92,255,0) 65%)"></div>
+    <div class="kicker" id="s4-k" style="left:150px; top:322px">Works offline</div>
+    <div class="big" id="s4-a" data-split style="left:150px; top:366px">Download it.</div>
+    <div class="big" id="s4-b" data-split style="left:150px; top:366px">Keep listening.</div>
+    <div class="sub" id="s4-sub" style="left:154px; top:510px; max-width:660px">No connection? ABS+ switches to your downloads on its own.</div>
+    <div class="phone ios" id="s4-ios" data-shot="appstore/screenshots/04-book.png" data-x="1300" data-y="560" data-h="900">
+      <div class="banner" id="s4-banner"><span>Offline · showing downloads only</span><span>Retry</span></div>
+    </div>
+    <div class="abs" id="s4-net"><svg viewBox="0 0 24 24"><path d="M2.5 9.5a14 14 0 0 1 19 0"/><path d="M5.5 13a9.5 9.5 0 0 1 13 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/><path id="s4-slash" d="M4 3.5l16 17" stroke-width="2.6"/></svg></div>
+    <div class="card" id="s4-card" style="left:1390px; top:650px">
+      <div class="ico">
+        <svg id="s4-ring" viewBox="0 0 76 76" width="76" height="76"><circle cx="38" cy="38" r="34" fill="none" stroke="#D9D2F7" stroke-width="5"/><circle id="s4-arc" cx="38" cy="38" r="34" fill="none" stroke="#4B35C9" stroke-width="5" stroke-linecap="round" transform="rotate(-90 38 38)" stroke-dasharray="213.6" stroke-dashoffset="213.6"/></svg>
+        <svg id="s4-dl" viewBox="0 -960 960 960" width="40" height="40" style="fill:#4B35C9"><path d="M469-327q-5-2-10-7L308-485q-9-9.27-8.5-21.64.5-12.36 9.11-21.36 9.39-9 21.890-9t21.5 9l98 99v-341q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v341l99-99q8.8-9 20.9-8.5 12.1.5 21.49 9.5 8.61 9 8.61 21.5t-9 21.5L501-334q-5 5-10.13 7-5.14 2-11 2-5.870 0-10.87-2ZM220-160q-24 0-42-18t-18-42v-113q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v113h520v-113q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.380v113q0 24-18 42t-42 18H220Z"/></svg>
+        <svg id="s4-done" viewBox="0 -960 960 960" width="44" height="44" style="fill:#4B35C9"><path d="m380-422 357-357q9-9 21-8.5t21 9.5q9 9 9 21t-9 21L401-358q-9 9-21 9t-21-9L181-536q-9-9-8.5-21t9.5-21q9-9 21-9t21 9l156 156ZM230-160q-13 0-21.5-8.5T200-190q0-13 8.5-21.5T230-220h500q13 0 21.5 8.5T760-190q0 13-8.5 21.5T730-160H230Z"/></svg>
+        <div class="eq" id="s4-eq"><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div><b>Alice in Wonderland</b><small id="s4-status">Downloading… 0%</small></div>
+    </div>
+  </div></section>
+
+  <!-- 5 · keeps your place (16–20 s) -->
+  <section class="scene dark" id="s5"><div class="cam" id="s5-cam">
+    <div class="fill pluses"></div>
+    <div class="kicker center" id="s5-k" style="top:112px">Keeps your place</div>
+    <div class="big center" id="s5-a" data-split style="top:156px; font-size:104px">Pick up where you left off.</div>
+    <svg class="fill" viewBox="0 0 1920 1080" style="overflow:visible">
+      <path id="s5-p1" d="M590 590 C660 470 760 470 830 590" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 14"/>
+      <path id="s5-p2" d="M1090 590 C1160 470 1250 470 1290 590" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 14"/>
+    </svg>
+    <div class="phone android" id="s5-phone" data-shot="play/screenshots/05-player.png" data-x="440" data-y="600" data-h="520"></div>
+    <div class="abs server" id="s5-server" style="left:845px; top:478px"><div class="unit"><i></i></div><div class="unit"><i></i></div><div class="unit"><i></i></div></div>
+    <div class="abs laptop" id="s5-laptop" style="left:1290px; top:440px">
+      <div class="lid"><div class="web">
+        <div class="web-top"><i></i><i></i><i></i></div>
+        <div class="web-body"><img src="img/alice.jpg" alt=""><div style="flex:1"><b>Alice in Wonderland</b><span>Lewis Carroll</span>
+          <div class="bar"><div id="s5-wfill"></div></div><div class="times"><span id="s5-wcur">0:00:00</span><span>2:58:51</span></div></div></div>
+        <div class="toast" id="s5-wtoast">Resumed at 1:42:07</div>
+      </div></div>
+      <div class="base"></div>
+    </div>
+    <div class="abs label" id="s5-l1" style="left:240px; top:880px">ABS+</div>
+    <div class="abs label" id="s5-l2" style="left:760px; top:880px">Your server</div>
+    <div class="abs label" id="s5-l3" style="left:1325px; top:880px">Web player &amp; other apps</div>
+    <div class="abs packet" id="s5-packet"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 0-14.3-4.9M4 12a8 8 0 0 0 14.3 4.9"/><path d="M5.2 3.5v3.8H9M18.8 20.5v-3.8H15"/></svg>1:42:07</div>
+    <div class="sub center" id="s5-sub" style="top:950px; max-width:1300px">Progress syncs to your server, so every app continues from the same spot.</div>
+  </div></section>
+
+  <!-- 6 · listen together (20–24 s) -->
+  <section class="scene" id="s6"><div class="cam" id="s6-cam">
+    <div class="fill pluses"></div>
+    <div class="blob" style="left:1000px; top:180px; width:900px; height:900px; background:radial-gradient(circle, rgba(255,201,77,.28), rgba(255,201,77,0) 65%)"></div>
+    <div class="kicker" id="s6-k" style="left:150px; top:322px">Shared progress</div>
+    <div class="big" id="s6-a" data-split style="left:150px; top:366px">Listen together.</div>
+    <div class="sub" id="s6-sub" style="left:154px; top:510px; max-width:640px">Share progress on a title with another account. You’re asked before jumping to their spot.</div>
+    <svg class="fill" viewBox="0 0 1920 1080"><path id="s6-arc" d="M1236 168 Q1365 70 1494 168" fill="none" stroke="#4B35C9" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 13"/></svg>
+    <div class="phone android" id="s6-and" data-shot="play/screenshots/04-book.png" data-x="1150" data-y="620" data-h="720"></div>
+    <div class="phone ios" id="s6-ios" data-shot="appstore/screenshots/05-player.png" data-x="1580" data-y="620" data-h="740"></div>
+    <div class="abs avatar" id="s6-you" style="left:1080px; top:140px"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="#fff"><circle cx="12" cy="8" r="4.2"/><path d="M4 20.5c.8-4.2 4-6.3 8-6.3s7.2 2.1 8 6.3z"/></svg></i>You</div>
+    <div class="abs avatar am" id="s6-sam" style="left:1505px; top:140px"><i>S</i>Sam</div>
+    <div class="abs badge" id="s6-group" style="left:1327px; top:62px"><svg viewBox="0 -960 960 960"><path d="M38-254q0-35 18-63.5t50-42.5q73-32 131.5-46T358-420q62 0 120 14t131 46q32 14 50.5 42.5T678-254v34q0 25-17.5 42.5T618-160H98q-25 0-42.5-17.5T38-220v-34Zm824 94H724q5-15 9.5-29.5T738-220v-34q0-63-29-101.5T622-420q69 8 130 22t99 34q33 19 52 47t19 63v34q0 25-17.5 42.5T862-160ZM250-523q-42-42-42-108t42-108q42-42 108-42t108 42q42 42 42 108t-42 108q-42 42-108 42t-108-42Zm426 0q-42 42-108 42-11 0-24.5-1.5T519-488q24-25 36.5-61.5T568-631q0-45-12.5-79.5T519-774q11-3 24.5-5t24.5-2q66 0 108 42t42 108q0 66-42 108Z"/></svg></div>
+    <div class="abs dialog" id="s6-dialog" style="left:965px; top:520px"><p>Resume “Alice in Wonderland” from</p><div>You — 0:52:14</div><div id="s6-opt">Sam — 1:42:07</div></div>
+    <div class="abs toast" id="s6-toast" style="left:1150px; top:900px">Picked up at 1:42:07</div>
+  </div></section>
+
+  <!-- 7 · the library (24–28 s) -->
+  <section class="scene dark" id="s7"><div class="cam" id="s7-cam">
+    <div class="fill pluses"></div>
+    <div class="abs" id="s7-floor"></div>
+    <div class="kicker center" id="s7-k" style="top:66px">Favorites and series</div>
+    <div class="big center" id="s7-a" data-split style="top:104px; font-size:100px">Your whole library.</div>
+    <div class="fill" id="s7-ring"></div>
+    <div class="fill" id="s7-hearts"></div>
+    <div class="big center" id="s7-label" style="top:954px; font-size:44px; font-weight:700; letter-spacing:-.01em; font-stretch:100%"></div>
+  </div></section>
+
+  <!-- 8 · small and quick (28–30 s) -->
+  <section class="scene" id="s8"><div class="cam" id="s8-cam">
+    <div class="fill" id="s8-pts"></div>
+    <div class="kicker center" id="s8-k" style="top:262px; color:var(--ink)">Small and quick</div>
+    <div class="abs center" id="s8-num"><span id="s8-tilde">~</span><span class="dg"><span class="col" id="s8-col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span></span></span><span class="mb" id="s8-mb">MB</span></div>
+    <div class="sub center" id="s8-sub" style="top:730px; max-width:1100px">Built natively for Android and iPhone. Opens straight to your library.</div>
+  </div></section>
+
+  <!-- 9 · privacy (30–34 s) -->
+  <section class="scene dark" id="s9"><div class="cam" id="s9-cam">
+    <div class="fill" id="s9-pts"></div>
+    <div class="big" id="s9-1" data-split style="left:150px; top:200px; font-size:100px">No account with us.</div>
+    <div class="big" id="s9-2" data-split style="left:150px; top:316px; font-size:100px">No analytics.</div>
+    <div class="big" id="s9-3" data-split style="left:150px; top:432px; font-size:100px">No ads.</div>
+    <div class="big amber" id="s9-4" data-split style="left:150px; top:566px; font-size:118px">Only your server.</div>
+    <div class="sub" id="s9-sub" style="left:154px; top:770px; max-width:900px">ABS+ only talks to the server you sign in to. Free and open source.</div>
+    <div class="abs blocked" id="s9-b1" style="left:1238px; top:236px"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c.9-4 3.9-6 7.5-6s6.6 2 7.5 6"/></svg><b>Account</b><i></i></div>
+    <div class="abs blocked" id="s9-b2" style="left:1418px; top:236px"><svg viewBox="0 0 24 24"><path d="M5 20v-8M12 20V5M19 20v-5"/></svg><b>Analytics</b><i></i></div>
+    <div class="abs blocked" id="s9-b3" style="left:1598px; top:236px"><svg viewBox="0 0 24 24"><path d="M4 10v4h3l7 4.5v-13L7 10z"/><path d="M17.5 9.5a4 4 0 0 1 0 5"/></svg><b>Ads</b><i></i></div>
+    <div class="abs" id="s9-link" style="left:1342px; top:603px; width:262px; height:8px"></div>
+    <div class="abs" id="s9-app" style="left:1190px; top:537px; width:140px; height:140px"></div>
+    <div class="abs server" id="s9-server" style="left:1612px; top:494px"><div class="unit"><i></i></div><div class="unit"><i></i></div><div class="unit"><i></i></div></div>
+    <div class="abs label" id="s9-l1" style="left:1060px; top:700px">ABS+</div>
+    <div class="abs label" id="s9-l2" style="left:1527px; top:740px">Your server</div>
+  </div></section>
+
+  <!-- 10 · end card (34–40 s) -->
+  <section class="scene dark" id="s10"><div class="cam" id="s10-cam">
+    <div class="abs" id="s10-rays"></div>
+    <div class="fill" id="s10-pts"></div>
+    <div class="phone android" id="s10-and" data-shot="play/screenshots/02-home.png" data-x="285" data-y="800" data-h="900"></div>
+    <div class="phone ios" id="s10-ios" data-shot="appstore/screenshots/02-home.png" data-x="1635" data-y="800" data-h="900"></div>
+    <div class="abs" id="s10-icon" style="left:865px; top:120px; width:190px; height:190px"></div>
+    <div class="word center" id="s10-word" style="top:318px; font-size:190px; color:#fff; width:max-content"><span>A</span><span>B</span><span>S</span><span class="plus">+</span></div>
+    <div class="abs center" id="s10-tag" style="top:548px; font-size:46px; font-weight:600; color:rgba(255,255,255,.88)">Your audiobooks, wherever you are.</div>
+    <div class="abs center" style="top:648px; width:max-content"><div class="url" id="s10-url"><svg viewBox="0 -960 960 960"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>absplus.app<i class="shine" id="s10-shine"></i></div></div>
+    <div class="abs center" id="s10-foot" style="top:800px; font-size:30px; font-weight:500; color:rgba(255,255,255,.74)">Free for Android and iPhone · Open source · No ads</div>
+  </div></section>
+
+  <!-- transitions -->
+  <div class="over" id="wipe-a"></div>
+  <div class="over" id="wipe-b"></div>
+  <div id="iris"></div>
+  <div class="over" id="band-b"></div>
+  <div class="over" id="band-a"></div>
+  <div class="over" id="blinds"></div>
+</div>
+  <div class="over" id="flash"></div>
+  <div class="over" id="grain"></div>
+  <div class="over" id="fade"></div>
+</div>
+<svg width="0" height="0" style="position:absolute">
+  <filter id="mbx" x="-5%" y="0" width="110%" height="100%"><feGaussianBlur id="mbx-b" stdDeviation="0 0"/></filter>
+  <filter id="mby" x="0" y="-5%" width="100%" height="110%"><feGaussianBlur id="mby-b" stdDeviation="0 0"/></filter>
+</svg>
+<div id="ui"><button id="play">Play</button><input id="seek" type="range" min="0" max="40" step="0.01" value="0"><output id="clock">0.00</output></div>
+
+<script>
+const DURATION = 40
+// Carousel in scene 7: [platform, screenshot, caption]
+const LIBRARY = [
+  ['ios', '02-home', 'Home'], ['android', '03-library', 'Library'], ['ios', '06-podcast', 'Podcasts'], ['android', '07-series', 'Series'],
+  ['ios', '08-series-detail', 'Children’s Classics'], ['android', '04-book', 'Favorites'], ['ios', '03-library', 'Search'], ['android', '02-home', 'Continue listening'],
+]
+const SHOT_DIR = { ios: 'appstore/screenshots', android: 'play/screenshots' }
+
+// ------------------------------------------------------------------ helpers
+const els = {}
+const $ = id => els[id] ??= document.getElementById(id)
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x))
+const pr = (t, a, b) => clamp((t - a) / (b - a))
+const mix = (a, b, k) => a + (b - a) * k
+const ease = {
+  out: k => 1 - (1 - k) ** 3,
+  in: k => k ** 3,
+  inOut: k => k < .5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2,
+  outExpo: k => k >= 1 ? 1 : 1 - 2 ** (-10 * k),
+  inExpo: k => k <= 0 ? 0 : 2 ** (10 * k - 10),
+  outBack: k => 1 + 2.70158 * (k - 1) ** 3 + 1.70158 * (k - 1) ** 2,
+  spring: k => k >= 1 ? 1 : 1 - Math.exp(-7 * k) * Math.cos(11 * k),
+}
+// transform relative to the element's CSS position
+function put(el, { x = 0, y = 0, z = 0, s = 1, sx, sy, r = 0, rx = 0, ry = 0, o = 1, b = 0 } = {}) {
+  if (typeof el === 'string') el = $(el)
+  el.style.transform = `translate3d(${x}px,${y}px,${z}px)` + (rx ? ` rotateX(${rx}deg)` : '') + (ry ? ` rotateY(${ry}deg)` : '') + (r ? ` rotate(${r}deg)` : '') + ` scale(${sx ?? s},${sy ?? s})`
+  el.style.opacity = o
+  el.style.filter = b > .2 ? `blur(${b.toFixed(1)}px)` : ''
+}
+const words = el => (typeof el === 'string' ? $(el) : el).querySelectorAll(':scope > .w')
+// words rise into their line one after another; with `out` they leave upwards again
+function rise(id, t, t0, stagger = .08, out = 1e9) {
+  words(id).forEach((w, i) => {
+    const kin = ease.outExpo(pr(t, t0 + i * stagger, t0 + i * stagger + .6))
+    const kout = ease.in(pr(t, out + i * .04, out + i * .04 + .3))
+    w.style.transform = `translateY(${((1 - kin) * 108 - kout * 112).toFixed(2)}%)`
+  })
+}
+function fadeUp(id, t, t0, dur = .6, dy = 26) {
+  const k = ease.out(pr(t, t0, t0 + dur))
+  put(id, { y: (1 - k) * dy, o: k })
+}
+function pop(el, t, t0, dur = .45, base = {}) {
+  const k = pr(t, t0, t0 + dur)
+  put(el, { ...base, s: (base.s ?? 1) * mix(.4, 1, ease.outBack(k)), o: clamp(k * 3) })
+}
+function rng(seed) { let s = seed >>> 0; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296 }
+const fmt = s => `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(Math.floor(s) % 60).padStart(2, '0')}`
+const bob = (t, phase, amp = 9) => Math.sin(t * 2.1 + phase) * amp
+
+// outline of the logo's plus (round caps), centered at cx,cy: L = center to tip, T = half thickness
+function plusPath(cx, cy, L, T, rot) {
+  const c = Math.cos(rot), s = Math.sin(rot), a = Math.max(T, L - T)
+  const P = (x, y) => `${(cx + x * c - y * s).toFixed(1)} ${(cy + x * s + y * c).toFixed(1)}`
+  return `M${P(T, -T)} L${P(T, -a)} A${T} ${T} 0 0 0 ${P(-T, -a)} L${P(-T, -T)} L${P(-a, -T)} A${T} ${T} 0 0 0 ${P(-a, T)} L${P(-T, T)} ` +
+    `L${P(-T, a)} A${T} ${T} 0 0 0 ${P(T, a)} L${P(T, T)} L${P(a, T)} A${T} ${T} 0 0 0 ${P(a, -T)} Z`
+}
+const plusClip = (cx, cy, L, rot) => `path('${plusPath(cx, cy, L, L * .27, rot)}')`
+
+// floating plus particles
+function particles(parent, n, seed, colors) {
+  const r = rng(seed), ps = []
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('i')
+    el.className = 'pt'
+    el.style.width = el.style.height = `${10 + r() * 18}px`
+    el.style.background = colors[i % colors.length]
+    $(parent).append(el)
+    ps.push({ el, x: r() * 1920, y: r() * 1180, v: 25 + r() * 55, a: r() * 6.3, w: .3 + r() * .7, o: .15 + r() * .35, rot: r() * 90, vr: (r() - .5) * 50 })
+  }
+  return (t, speed = 1) => ps.forEach(p => put(p.el, { x: p.x + 30 * Math.sin(t * p.w + p.a), y: ((p.y - p.v * t * speed) % 1180 + 1180) % 1180 - 60, r: p.rot + p.vr * t, o: p.o }))
+}
+
+// ------------------------------------------------------------------ devices
+async function buildPhone(el) {
+  const ios = el.classList.contains('ios')
+  const img = new Image()
+  img.src = '../' + el.dataset.shot
+  await img.decode()
+  const H = +el.dataset.h, p = Math.round(H * .012), sh = H - 2 * p
+  const bar = ios ? 0 : .062 // android screenshots have no status bar, so we draw one above them
+  const sw = sh / (img.naturalHeight / img.naturalWidth + bar)
+  const W = sw + 2 * p, R = W * (ios ? .16 : .11)
+  Object.assign(el.style, { width: `${W}px`, height: `${H}px`, left: `${el.dataset.x - W / 2}px`, top: `${el.dataset.y - H / 2}px`, padding: `${p}px`, borderRadius: `${R}px` })
+  const screen = document.createElement('div')
+  screen.className = 'screen'
+  screen.style.borderRadius = `${R - p}px`
+  if (ios) {
+    const isl = document.createElement('div')
+    isl.className = 'island'
+    Object.assign(isl.style, { width: `${sw * .285}px`, height: `${sw * .084}px`, top: `${sw * .027}px` })
+    screen.append(isl)
+  } else {
+    const h = sw * bar, sb = document.createElement('div')
+    sb.className = 'sbar'
+    // the bar takes the color of the screenshot's top row, stretched
+    Object.assign(sb.style, { height: `${h}px`, padding: `0 ${sw * .06}px`, fontSize: `${h * .5}px`, backgroundImage: `url("${img.src}")`, backgroundSize: `100% ${img.naturalHeight * h}px` })
+    sb.innerHTML = `<span>9:41</span><i class="hole" style="width:${h * .5}px;height:${h * .5}px"></i>` +
+      `<svg viewBox="0 0 44 16" fill="#fff"><path d="M1 12a8 8 0 0 1 12 0l-6 3z" opacity=".95"/><rect x="17" y="10" width="2.6" height="5" rx="1"/><rect x="21" y="7" width="2.6" height="8" rx="1"/><rect x="25" y="4" width="2.6" height="11" rx="1"/><rect x="31" y="3.5" width="11" height="11" rx="2.5" fill="none" stroke="#fff" stroke-width="1.6"/><rect x="33" y="5.5" width="6" height="7" rx="1"/></svg>`
+    screen.append(sb)
+  }
+  screen.append(img, ...[...el.children])
+  el.replaceChildren(screen)
+  el.screenW = sw
+}
+
+// ------------------------------------------------------------------ scenes
+const scenes = []
+const scene = (id, from, to, draw) => scenes.push({ el: $(id), from, to, draw })
+let ptsLogo, ptsPrivacy, ptsEnd, ptsSize, bandLen = 1, wipeO = { x: 960, y: 540 }, iconShift = 0
+const files = [], carousel = [], hearts = []
+const HEART = { x: 972, y: 560 } // the heart button on the centered phone in scene 7 (Android 04-book)
+
+// 1 · logo: draw the headphones on the intro's pluck hits, plus lands on bar 2, word, then the plus wipes to the drop
+scene('s1', 0, 4.45, t => {
+  ptsLogo(t, .6)
+  put('s1-glow', { s: .7 + .3 * ease.out(pr(t, 0, 2.2)) + .05 * ease.out(1 - pr(t, 2, 2.5)) * pr(t, 1.9, 2), o: .25 + .6 * pr(t, 0, 2) })
+  const band = $('s1-icon').querySelector('.g-band')
+  band.style.strokeDashoffset = bandLen * (1 - ease.inOut(pr(t, .1, 1.15)))
+  band.style.opacity = t > .1 ? 1 : 0
+  pop($('s1-icon').querySelector('.g-l'), t, 1.125, .4)
+  pop($('s1-icon').querySelector('.g-r'), t, 1.5, .4)
+  const kp = pr(t, 2, 2.45)
+  put($('s1-icon').querySelector('.g-plus'), { s: ease.outBack(kp), r: -90 * (1 - ease.out(kp)), o: kp > 0 ? 1 : 0 })
+  const kr = pr(t, 2, 2.7)
+  put('s1-ring', { s: .25 + 2.4 * ease.out(kr), o: kr > 0 && kr < 1 ? 1 - kr : 0 })
+  const kt = pr(t, 2.375, 2.8)
+  put('s1-tile', { s: .55 + .45 * ease.outBack(kt), o: ease.out(kt) })
+  const km = ease.inOut(pr(t, 2.7, 3.2))
+  put('s1-icon', { x: iconShift * km, s: 1 - .25 * km })
+  words('s1-word').forEach((l, i) => { l.style.transform = `translateY(${(1 - ease.outExpo(pr(t, 2.85 + i * .07, 3.4 + i * .07))) * 110}%)` })
+  fadeUp('s1-tag', t, 3.2)
+  put('s1-lock', { s: 1 + .05 * ease.in(pr(t, 3.35, 3.95)) })
+})
+
+// 2 · hook
+scene('s2', 4, 8, t => {
+  put('s2-cam', { s: 1 + .05 * (1 - ease.out(pr(t, 4, 4.7))) + .07 * ease.in(pr(t, 7.55, 8)) })
+  $('s2-grid').style.backgroundPosition = `${-t * 14}px ${-t * 8}px`
+  rise('s2-l1', t, 4, .25)
+  rise('s2-l2', t, 4.75, .25)
+  $('s2-hl').style.setProperty('--hl', ease.inOut(pr(t, 5.1, 5.5)))
+  fadeUp('s2-sub', t, 5.5)
+  $('s2-chips').querySelectorAll('span').forEach((c, i) => pop(c, t, 6 + i * .25))
+  phoneIn('s2-and', t, 4.1, { r: -8, ry: 16 }, 0)
+  phoneIn('s2-ios', t, 4.3, { r: 6, ry: -12 }, 1.4)
+})
+function phoneIn(id, t, t0, rest, phase, dist = 1000) {
+  const k = pr(t, t0, t0 + .9), e = ease.spring(k)
+  put(id, { y: (1 - e) * dist + bob(t, phase), r: (rest.r ?? 0) + (1 - e) * 16, ry: rest.ry ?? 0, rx: rest.rx ?? 0, o: k > 0 ? 1 : 0 })
+}
+
+// 3 · twelve files snap into one timeline
+const TILE = { w: 220, h: 120, gap: 28, x: 230, y: 470 }, TRACK = { x: 230, y: 690, w: 1460, h: 20 }, BOOK = 2 * 3600 + 58 * 60 + 51
+scene('s3', 7.55, 12.05, t => {
+  put('s3-cam', { s: 1.04 - .04 * ease.out(pr(t, 7.8, 8.6)) })
+  rise('s3-k', t, 8)
+  rise('s3-a', t, 8.25, .12, 9.45)
+  rise('s3-b', t, 9.55, .12)
+  fadeUp('s3-sub', t, 9.85)
+  files.forEach((f, i) => {
+    const gx = TILE.x + (i % 6) * (TILE.w + TILE.gap), gy = TILE.y + Math.floor(i / 6) * (TILE.h + TILE.gap)
+    const seg = TRACK.w / files.length
+    const kin = pr(t, 8 + i * .0625, 8.45 + i * .0625)
+    const km = ease.inOut(pr(t, 9 + i * .03, 9.55 + i * .03))
+    const gap = 8 * (1 - ease.inOut(pr(t, 9.6, 9.85)))
+    Object.assign(f.el.style, {
+      left: `${mix(gx, TRACK.x + i * seg + gap / 2, km)}px`, top: `${mix(gy, TRACK.y, km)}px`,
+      width: `${mix(TILE.w, seg - gap, km)}px`, height: `${mix(TILE.h, TRACK.h, km)}px`,
+      borderRadius: `${mix(22, 10, km)}px`, background: `rgba(255,255,255,${mix(.08, .2, km)})`, borderColor: `rgba(255,255,255,${.2 * (1 - km)})`,
+      transform: `scale(${mix(.5, 1, ease.outBack(kin))}) rotate(${(1 - ease.out(kin)) * f.rot}deg)`, opacity: t < 9.86 ? ease.out(kin) : 0,
+    })
+    f.el.firstChild.style.opacity = 1 - pr(km, 0, .3)
+  })
+  const kf = ease.out(pr(t, 10, 12.2)) * .38
+  $('s3-track').style.opacity = t >= 9.86 ? 1 : 0
+  $('s3-fill').style.width = `${kf * 100}%`
+  $('s3-knob').style.left = `${kf * 100}%`
+  put('s3-knob', { s: ease.outBack(pr(t, 9.9, 10.3)) })
+  fadeUp('s3-cur', t, 9.9, .4, 10)
+  fadeUp('s3-tot', t, 9.9, .4, 10)
+  $('s3-cur').textContent = fmt(kf * BOOK)
+  $('s3-pills').querySelectorAll('span').forEach((p, i) => pop(p, t, 10.5 + i * .25))
+})
+
+// 4 · download, lose the connection, keep listening
+scene('s4', 11.6, 16, t => {
+  rise('s4-k', t, 12.05)
+  rise('s4-a', t, 12.15, .12, 13.95)
+  rise('s4-b', t, 14.05, .12)
+  fadeUp('s4-sub', t, 14.45)
+  put('s4-ios', { x: 300 * (1 - ease.out(pr(t, 11.65, 12.55))), y: bob(t, .5), ry: -14, r: 2.5 })
+  pop('s4-card', t, 12.55, .5)
+  const kd = ease.inOut(pr(t, 12.65, 13.55))
+  $('s4-arc').style.strokeDashoffset = 213.6 * (1 - kd)
+  $('s4-ring').style.opacity = t < 13.55 ? 1 : 1 - pr(t, 13.55, 13.7)
+  put('s4-dl', { s: 1, o: t < 13.55 ? 1 : 0 })
+  pop('s4-done', t, 13.55, .4)
+  if (t >= 14.4) put('s4-done', { o: 1 - pr(t, 14.4, 14.5) })
+  put('s4-eq', { o: pr(t, 14.45, 14.6) })
+  $('s4-eq').querySelectorAll('i').forEach((b, i) => { b.style.height = `${30 * (.35 + .65 * Math.abs(Math.sin(t * (7 + i * 1.7) + i)))}px` })
+  $('s4-status').textContent = t < 13.55 ? `Downloading… ${Math.round(kd * 100)}%` : t < 14.45 ? 'Downloaded' : 'Playing from your downloads'
+  pop('s4-net', t, 13.6, .45)
+  const ks = ease.inOut(pr(t, 14, 14.25))
+  $('s4-slash').style.strokeDasharray = 30
+  $('s4-slash').style.strokeDashoffset = 30 * (1 - ks)
+  $('s4-net').style.background = ks > .5 ? '#FFE3E1' : '#fff'
+  $('s4-net').style.color = ks > .5 ? '#E5332B' : 'var(--indigo)'
+  const kb = 1 - ease.out(pr(t, 14.05, 14.4)) // slides down from under the status bar
+  $('s4-banner').style.transform = `translateY(${-100 * kb}%)`
+  $('s4-banner').style.clipPath = `inset(${100 * kb}% 0 0 0)`
+})
+
+// 5 · position travels phone → server → web player
+scene('s5', 15.55, 20, t => {
+  rise('s5-k', t, 16.05)
+  rise('s5-a', t, 16.15, .07)
+  fadeUp('s5-sub', t, 18.7)
+  phoneIn('s5-phone', t, 15.75, { r: -4 }, .3, 500)
+  put('s5-laptop', { y: (1 - ease.spring(pr(t, 15.95, 16.75))) * 500, o: t > 15.95 ? 1 : 0 })
+  ;['s5-l1', 's5-l2', 's5-l3'].forEach((id, i) => fadeUp(id, t, 16.2 + i * .15, .5))
+  ;['s5-p1', 's5-p2'].forEach((id, i) => { $(id).style.clipPath = `inset(0 ${(1 - ease.inOut(pr(t, 16.75 + i * .12, 17.1 + i * .12))) * 100}% 0 0)` })
+  // the position rides into the server (it shrinks away while the server flashes), then pops out the other side
+  const [id, a, b] = t < 17.75 ? ['s5-p1', 17.05, 17.7] : ['s5-p2', 17.8, 18.5]
+  const path = $(id), pt = path.getPointAtLength(ease.inOut(pr(t, a, b)) * path.getTotalLength())
+  const pk = $('s5-packet')
+  pk.style.left = `${pt.x - pk.offsetWidth / 2}px`
+  pk.style.top = `${pt.y - pk.offsetHeight / 2}px`
+  const ps = Math.max(0, Math.min(ease.outBack(pr(t, a, a + .25)), 1 - ease.in(pr(t, b - .15, b))))
+  put(pk, { s: ps, o: ps > 0 ? 1 : 0 })
+  const flash = Math.max(0, 1 - Math.abs(t - 17.75) / .25)
+  $('s5-server').querySelectorAll('i').forEach((led, i) => { led.style.opacity = .35 + .65 * Math.max(flash, (Math.sin(t * 9 + i * 2) + 1) / 2 * .6) })
+  put('s5-server', { y: (1 - ease.spring(pr(t, 15.85, 16.65))) * 500, s: 1 + .06 * flash, o: t > 15.85 ? 1 : 0 })
+  const kw = ease.outBack(pr(t, 18.5, 18.8)) * 0.5718
+  $('s5-wfill').style.width = `${kw * 100}%`
+  $('s5-wcur').textContent = fmt(Math.max(0, kw) * BOOK)
+  pop('s5-wtoast', t, 18.65, .4)
+})
+
+// 6 · two accounts, one book
+scene('s6', 19.55, 24, t => {
+  rise('s6-k', t, 20.05)
+  rise('s6-a', t, 20.15, .1)
+  fadeUp('s6-sub', t, 21)
+  put('s6-and', { y: bob(t, 0), r: -5, ry: 16 })
+  put('s6-ios', { y: bob(t, 1.6), r: 5, ry: -16 })
+  pop('s6-you', t, 20.55)
+  pop('s6-sam', t, 20.7)
+  $('s6-arc').style.clipPath = `inset(0 ${(1 - ease.inOut(pr(t, 20.85, 21.2))) * 100}% 0 0)`
+  pop('s6-group', t, 21.1, .5)
+  const kd = pr(t, 21.5, 21.85), kx = pr(t, 22.7, 22.9)
+  put('s6-dialog', { s: mix(.85, 1, ease.outBack(kd)) * (1 - .06 * kx), o: clamp(kd * 3) * (1 - kx) })
+  $('s6-opt').style.background = t > 22.35 && t < 22.9 ? 'rgba(208,188,255,.18)' : ''
+  pop('s6-toast', t, 22.85, .45)
+  $('s6-toast').style.transform = `translateX(-50%) ${$('s6-toast').style.transform}`
+})
+
+// 7 · carousel of screens, one step per beat
+scene('s7', 23.55, 28, t => {
+  rise('s7-k', t, 24.05)
+  rise('s7-a', t, 24.12, .08)
+  let pos = 0
+  for (let i = 0; i < LIBRARY.length - 1; i++) pos += ease.outBack(pr(t, 24.5 + i * .5, 24.88 + i * .5))
+  carousel.forEach((c, j) => {
+    const d = j - pos, a = Math.abs(d), sd = Math.sign(d)
+    const x = sd * (a <= 1 ? a * 400 : 400 + (a - 1) * 290)
+    put(c, { x, z: -160 * Math.min(a, 2.5), ry: -34 * clamp(d, -1.5, 1.5), s: 1 - .1 * Math.min(a, 2), o: clamp(1.6 - .55 * a) })
+    c.style.zIndex = 100 - Math.round(a * 10)
+  })
+  const near = Math.round(pos), kl = 1 - Math.abs(pos - near) * 2
+  $('s7-label').textContent = LIBRARY[clamp(near, 0, LIBRARY.length - 1)][2]
+  put('s7-label', { y: (1 - kl) * 20, o: kl * pr(t, 24.3, 24.6) })
+  hearts.forEach(h => {
+    const k = pr(t, h.t0, h.t0 + 1.1)
+    put(h.el, { x: HEART.x - 22 + h.dx * ease.out(k) + Math.sin(k * 7 + h.dx) * 14, y: HEART.y - 22 - k * 400, s: mix(.3, h.s, ease.outBack(pr(t, h.t0, h.t0 + .35))), r: h.r * k, o: k > 0 && k < 1 ? 1 - k * k : 0 })
+  })
+})
+
+// 8 · ~4 MB counter
+scene('s8', 27.55, 30, t => {
+  ptsSize(t, 1.6)
+  rise('s8-k', t, 28.05)
+  const kc = ease.out(pr(t, 28, 28.5))
+  $('s8-col').style.transform = `translateY(${-kc * 80}%)`
+  put('s8-tilde', { o: pr(t, 28.05, 28.25) })
+  const km = pr(t, 28.5, 28.85)
+  put('s8-mb', { s: mix(1.6, 1, ease.outBack(km)), o: clamp(km * 4) })
+  const shake = Math.exp(-pr(t, 28.5, 28.9) * 5) * (t > 28.5 ? 1 : 0)
+  put('s8-cam', { x: Math.sin(t * 90) * 7 * shake, y: Math.cos(t * 77) * 5 * shake, s: 1 + .02 * pr(t, 28, 30) })
+  fadeUp('s8-sub', t, 29.0)
+})
+
+// 9 · privacy, one line per hit
+scene('s9', 30, 34.05, t => {
+  ptsPrivacy(t, 1 + 2.5 * ease.in(pr(t, 32, 34)))
+  ;['s9-1', 's9-2', 's9-3', 's9-4'].forEach((id, i) => {
+    rise(id, t, 30 + i * .5, .06)
+    $(id).style.opacity = i < 3 ? 1 - .45 * pr(t, 31.5, 31.9) : 1
+  })
+  fadeUp('s9-sub', t, 32.1)
+  ;['s9-b1', 's9-b2', 's9-b3'].forEach((id, i) => {
+    pop(id, t, 30 + i * .5, .4)
+    const k = ease.inOut(pr(t, 30.12 + i * .5, 30.32 + i * .5))
+    $(id).querySelector('i').style.transform = `rotate(-35deg) scaleX(${k})`
+    $(id).querySelector('svg').style.opacity = 1 - .5 * k
+  })
+  pop('s9-app', t, 30.05, .5)
+  pop('s9-server', t, 30.2, .5)
+  fadeUp('s9-l1', t, 30.3, .5)
+  fadeUp('s9-l2', t, 30.4, .5)
+  const on = t >= 31.5
+  $('s9-link').classList.toggle('on', on)
+  $('s9-link').style.backgroundPosition = `${(on ? t - 31.5 : 0) * 90}px 0`
+  put('s9-link', { o: pr(t, 30.3, 30.6), sy: on ? 1 + .6 * (1 - ease.out(pr(t, 31.5, 31.9))) : 1 })
+  const glow = on ? 1 - ease.out(pr(t, 31.5, 32.1)) : 0
+  put('s9-app', { s: 1 + .12 * glow })
+  $('s9-server').querySelectorAll('i').forEach((led, i) => { led.style.opacity = on ? .55 + .45 * Math.abs(Math.sin(t * 8 + i * 1.3)) : .25 })
+  const kx = ease.in(pr(t, 33.6, 34.05))
+  put('s9-cam', { s: 1 + .05 * ease.inOut(pr(t, 31.5, 33.6)) + .5 * kx, o: 1 - kx, b: 16 * kx })
+})
+
+// 10 · end card
+scene('s10', 33.95, 40.01, t => {
+  ptsEnd(t, .7)
+  $('s10-rays').style.transform = `rotate(${t * 6}deg)`
+  $('s10').style.opacity = pr(t, 33.95, 34.05)
+  pop('s10-icon', t, 34, .6)
+  const glint = pr(t, 38, 38.35)
+  words('s10-word').forEach((l, i, all) => {
+    l.style.transform = `translateY(${(1 - ease.outExpo(pr(t, 34.15 + i * .06, 34.7 + i * .06))) * 110}%)` +
+      (i === all.length - 1 ? ` rotate(${ease.inOut(glint) * 90}deg) scale(${1 + .3 * Math.sin(glint * Math.PI)})` : '')
+  })
+  fadeUp('s10-tag', t, 34.55)
+  pop('s10-url', t, 35, .5)
+  $('s10-shine').style.left = `${mix(-160, 560, ease.inOut(pr(t, 35.4, 36.1)))}px`
+  fadeUp('s10-foot', t, 35.45)
+  phoneIn('s10-and', t, 34.2, { r: -12, ry: 18 }, 0, 800)
+  phoneIn('s10-ios', t, 34.35, { r: 12, ry: -18 }, 1.5, 800)
+  put('s10-cam', { s: 1.06 - .06 * ease.out(pr(t, 34, 35.2)) })
+})
+
+// ------------------------------------------------------------------ transitions between scenes
+function transitions(t) {
+  const S = n => $('s' + n)
+  const show = (id, on) => { $(id).style.display = on ? 'block' : 'none' }
+  // 1 → 2: the wordmark's plus grows into an amber wipe, then the hook opens through a plus on the drop
+  show('wipe-a', t >= 3.62 && t < 4.45)
+  if (t >= 3.62 && t < 4.45) $('wipe-a').style.clipPath = plusClip(wipeO.x, wipeO.y, mix(wipeO.L, 3000, ease.inExpo(pr(t, 3.62, 3.98))), ease.inOut(pr(t, 3.62, 3.98)) * Math.PI / 2)
+  show('wipe-b', (t >= 4 && t < 4.45) || (t >= 27.55 && t < 28.05))
+  if (t >= 4 && t < 4.45) {
+    $('wipe-b').style.background = 'var(--indigo)'
+    $('wipe-b').style.clipPath = plusClip(960, 540, mix(10, 3000, ease.out(pr(t, 4, 4.36))), -Math.PI / 2 * (1 - ease.out(pr(t, 4, 4.36))))
+    S(2).style.clipPath = plusClip(960, 540, mix(0, 3000, ease.out(pr(t, 4.05, 4.45))), -Math.PI / 2 * (1 - ease.out(pr(t, 4.05, 4.45))))
+  }
+  // 2 → 3: an iris with an amber rim opens from the iPhone's play button
+  const ki = ease.inOut(pr(t, 7.55, 8)), io = { x: 1600, y: 760 }
+  show('iris', t >= 7.55 && t < 8)
+  if (t >= 7.55 && t < 8) {
+    const R = mix(0, 2300, ki)
+    S(3).style.clipPath = `circle(${R}px at ${io.x}px ${io.y}px)`
+    Object.assign($('iris').style, { left: `${io.x - R - 18}px`, top: `${io.y - R - 18}px`, width: `${2 * R + 36}px`, height: `${2 * R + 36}px` })
+  }
+  // 3 → 4: slanted amber and violet bands sweep right to left
+  const kb = ease.inOut(pr(t, 11.6, 12.05)), e = mix(2400, -500, kb)
+  show('band-a', t >= 11.6 && t < 12.05)
+  show('band-b', t >= 11.6 && t < 12.05)
+  if (t >= 11.6 && t < 12.05) {
+    const slant = (x0, w) => `polygon(${x0}px 0, ${x0 + w}px 0, ${x0 + w - 420}px 1080px, ${x0 - 420}px 1080px)`
+    S(4).style.clipPath = slant(e, 3000)
+    $('band-a').style.clipPath = slant(e - 150, 150)
+    $('band-b').style.clipPath = slant(e - 330, 180)
+  }
+  // 4 → 5: vertical push with motion blur
+  if (t >= 15.55 && t < 16) {
+    const k = ease.inOut(pr(t, 15.55, 16))
+    S(4).style.transform = `translateY(${-1080 * k}px)`
+    S(5).style.transform = `translateY(${1080 * (1 - k)}px)`
+    $('mby-b').setAttribute('stdDeviation', `0 ${(Math.sin(Math.PI * k) * 28).toFixed(1)}`)
+    S(4).style.filter = S(5).style.filter = 'url(#mby)'
+  }
+  // 5 → 6: cube turn
+  if (t >= 19.55 && t < 20) {
+    const k = ease.inOut(pr(t, 19.55, 20)), a = -90 * k
+    S(5).style.transform = `translateZ(-960px) rotateY(${a}deg) translateZ(960px)`
+    S(6).style.transform = `translateZ(-960px) rotateY(${a + 90}deg) translateZ(960px)`
+    S(5).style.filter = `brightness(${1 - .5 * k})`
+    S(6).style.filter = `brightness(${.6 + .4 * k})`
+  }
+  // 6 → 7: whip pan
+  if (t >= 23.55 && t < 24) {
+    const k = ease.inOut(pr(t, 23.55, 24))
+    S(6).style.transform = `translateX(${-1920 * k}px)`
+    S(7).style.transform = `translateX(${1920 * (1 - k)}px)`
+    $('mbx-b').setAttribute('stdDeviation', `${(Math.sin(Math.PI * k) * 40).toFixed(1)} 0`)
+    S(6).style.filter = S(7).style.filter = 'url(#mbx)'
+  }
+  // 7 → 8: amber plus opens from the middle, led by a violet one
+  if (t >= 27.55 && t < 28.05) {
+    const k = ease.inOut(pr(t, 27.55, 28)), k2 = ease.inOut(pr(t, 27.62, 28.05))
+    $('wipe-b').style.background = 'var(--violet)'
+    $('wipe-b').style.zIndex = 79
+    $('wipe-b').style.clipPath = plusClip(960, 560, mix(0, 3000, k), Math.PI / 2 * (1 - k))
+    S(8).style.clipPath = plusClip(960, 560, mix(0, 3000, k2), Math.PI / 2 * (1 - k2))
+  } else $('wipe-b').style.zIndex = 16
+  // 8 → 9: ink blinds
+  show('blinds', t >= 29.58 && t < 30)
+  if (t >= 29.58 && t < 30) $('blinds').querySelectorAll('i').forEach((b, i) => {
+    const k = ease.inOut(pr(t, 29.58 + i * .02, 29.84 + i * .02))
+    Object.assign(b.style, { top: `${i * 120}px`, width: `${1920 * k}px`, left: i % 2 ? `${1920 * (1 - k)}px` : '0' })
+  })
+  // 9 → 10: flash on the last drop
+  show('flash', t >= 33.85 && t < 34.5)
+  $('flash').style.opacity = t < 34 ? pr(t, 33.85, 34) * .9 : .9 * (1 - ease.out(pr(t, 34, 34.5)))
+  // camera shake on the drops
+  const shake = [4, 28, 34].reduce((m, d) => m + (t >= d ? Math.exp(-(t - d) * 9) : 0), 0)
+  $('world').style.transform = shake > .01 ? `translate(${Math.sin(t * 97) * 9 * shake}px, ${Math.cos(t * 83) * 7 * shake}px)` : ''
+}
+
+// ------------------------------------------------------------------ frame
+function render(t) {
+  scenes.forEach((s, i) => {
+    const on = t >= s.from && t < s.to
+    s.el.style.display = on ? 'block' : 'none'
+    s.el.style.zIndex = (i + 1) * 10
+    s.el.style.clipPath = s.el.style.transform = s.el.style.filter = ''
+    if (on) s.draw(t)
+  })
+  transitions(t)
+  const f = Math.floor(t * 60)
+  $('grain').style.backgroundPosition = `${(f * 73) % 256}px ${(f * 151) % 256}px`
+  $('fade').style.display = t < .4 ? 'block' : 'none'
+  $('fade').style.opacity = 1 - ease.out(pr(t, 0, .4))
+}
+
+async function boot() {
+  await document.fonts.load('800 100px Bricolage') // one variable font file; nothing is visible yet, so load it explicitly
+  document.querySelectorAll('[data-split]').forEach(el => { el.innerHTML = el.textContent.trim().split(/\s+/).map(w => `<span class="w">${w}</span>`).join(' ') })
+  document.querySelectorAll('.kicker').forEach(el => { el.innerHTML = `<span class="w"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="4.6" stroke-linecap="round" fill="none"/></svg>${el.innerHTML}</span>` })
+  document.querySelectorAll('.word span').forEach(s => s.classList.add('w'))
+  // carousel phones
+  LIBRARY.forEach(([kind, shot]) => {
+    const el = document.createElement('div')
+    el.className = `phone ${kind}`
+    Object.assign(el.dataset, { shot: `${SHOT_DIR[kind]}/${shot}.png`, x: 960, y: 590, h: 640 })
+    $('s7-ring').append(el)
+    carousel.push(el)
+  })
+  await Promise.all([...document.querySelectorAll('.phone')].map(buildPhone))
+  await Promise.all([...document.images].map(i => i.decode().catch(() => {})))
+  // twelve audio files
+  const r = rng(12)
+  for (let i = 0; i < 12; i++) {
+    const el = document.createElement('div')
+    el.className = 'file'
+    const bars = Array.from({ length: 11 }, (_, j) => { const h = 6 + r() * 26; return `<rect x="${j * 8.4}" y="${17 - h / 2}" width="4.6" height="${h}" rx="2.3"/>` }).join('')
+    el.innerHTML = `<div class="fi"><svg viewBox="0 0 92 34" fill="#FFC94D">${bars}</svg><b>${String(i + 1).padStart(2, '0')}.mp3</b></div>`
+    $('s3-files').append(el)
+    files.push({ el, rot: (r() - .5) * 16 })
+  }
+  // hearts for the favorites step
+  for (let i = 0; i < 9; i++) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    el.setAttribute('viewBox', '0 -960 960 960')
+    el.setAttribute('class', 'heart')
+    el.innerHTML = '<path d="M458-144q-11-4-19-12l-53-49Q262-320 171-424.5T80-643q0-90 60.5-150.5T290-854q51 0 101 24.5t89 80.5q44-56 91-80.5t99-24.5q89 0 149.5 60.5T880-643q0 114-91 218.5T574-205l-53 49q-8 8-19 12t-22 4q-11 0-22-4Z"/>'
+    $('s7-hearts').append(el)
+    hearts.push({ el, t0: 26.55 + i * .06, dx: (r() - .5) * 320, s: .6 + r() * .8, r: (r() - .5) * 60 })
+  }
+  for (let i = 0; i < 9; i++) $('blinds').append(document.createElement('i'))
+  // offline banner sits under the iPhone's status bar
+  const sw = $('s4-ios').screenW
+  Object.assign($('s4-banner').style, { top: `${sw * .13}px`, height: `${sw * .085}px`, padding: `0 ${sw * .05}px`, fontSize: `${sw * .034}px` })
+  // end card icon = the logo icon
+  $('s10-icon').append($('s1-tile').cloneNode(), $('s1-icon').querySelector('.glyph').cloneNode(true))
+  $('s10-icon').firstChild.removeAttribute('id')
+  ptsLogo = particles('s1-pts', 16, 3, ['#FFC94D', '#ffffff', '#7B5CFF'])
+  ptsPrivacy = particles('s9-pts', 18, 9, ['#FFC94D', '#7B5CFF', '#ffffff'])
+  ptsEnd = particles('s10-pts', 20, 21, ['#FFC94D', '#ffffff'])
+  ptsSize = particles('s8-pts', 16, 33, ['#1B1446', '#ffffff'])
+  $('s9-app').append($('s1-tile').cloneNode(), $('s1-icon').querySelector('.glyph').cloneNode(true))
+  $('s9-app').firstChild.removeAttribute('id')
+  const band = $('s1-icon').querySelector('.g-band')
+  bandLen = band.getTotalLength()
+  band.style.strokeDasharray = bandLen
+  // logo lockup: center icon + word, and start the amber wipe from the word's plus
+  render(3.62) // shows scene 1 so it can be measured
+  const ww = $('s1-word').offsetWidth, left = 960 - (300 + 40 + ww) / 2
+  iconShift = left + 150 - 960
+  $('s1-word').style.left = `${left + 340}px`
+  $('s1-tag').style.left = `${left + 340 + 14}px`
+  render(3.62)
+  const k = document.documentElement.classList.contains('render') ? 1 : scale
+  const sr = $('stage').getBoundingClientRect(), pr_ = $('s1-word').lastElementChild.getBoundingClientRect()
+  wipeO = { x: (pr_.left + pr_.width * .47 - sr.left) / k, y: (pr_.top + pr_.height * .5 - sr.top) / k, L: pr_.width * .45 / k }
+  return DURATION
+}
+window.frame = t => { render(t); return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))) }
+window.boot = boot
+
+// ------------------------------------------------------------------ preview
+let scale = 1
+const q = new URLSearchParams(location.search)
+if (q.has('render')) document.documentElement.classList.add('render')
+else {
+  const fit = () => {
+    scale = Math.min(innerWidth / 1920, (innerHeight - 48) / 1080)
+    Object.assign($('stage').style, { transform: `scale(${scale})`, left: `${(innerWidth - 1920 * scale) / 2}px`, top: `${(innerHeight - 48 - 1080 * scale) / 2}px` })
+  }
+  fit()
+  addEventListener('resize', fit)
+  const audio = new Audio('out/music.wav')
+  let t = +(q.get('t') || 0), playing = false, t0 = 0, wall = 0
+  const toggle = () => {
+    playing = !playing
+    $('play').textContent = playing ? 'Pause' : 'Play'
+    if (playing) { if (t >= DURATION) t = 0; t0 = t; wall = performance.now(); audio.currentTime = t; audio.play().catch(() => {}) } else audio.pause()
+  }
+  const seek = v => { t = clamp(v, 0, DURATION); t0 = t; wall = performance.now(); audio.currentTime = t }
+  $('play').onclick = toggle
+  $('seek').oninput = e => seek(+e.target.value)
+  addEventListener('keydown', e => {
+    if (e.key === ' ') { e.preventDefault(); toggle() }
+    if (e.key === 'ArrowRight') seek(t + (e.shiftKey ? .1 : 1))
+    if (e.key === 'ArrowLeft') seek(t - (e.shiftKey ? .1 : 1))
+  })
+  const tick = () => {
+    if (playing) {
+      t = audio.paused || audio.readyState < 2 ? t0 + (performance.now() - wall) / 1000 : audio.currentTime
+      if (t >= DURATION) { t = DURATION; toggle() }
+    }
+    render(t)
+    $('seek').value = t
+    $('clock').textContent = t.toFixed(2)
+    requestAnimationFrame(tick)
+  }
+  boot().then(() => { $('play').disabled = false; tick() })
+}
+</script>
+</body>
+</html>
