@@ -58,7 +58,7 @@ All answers "None"/"No" → 4+. No unrestricted web access, no user-generated co
 "Data Not Collected". The app sends data only to the server the user enters, which the developer doesn't operate or access (same reading as for Google Play).
 
 ## Copyright
-2026 Nikita Kolmogorov
+2026 Borodutch Labs Inc.
 
 ## What's New, 1.0.0
 First release: streaming, downloads, offline mode, synced progress and favorites, series, progress sharing between accounts.
