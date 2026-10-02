@@ -26,6 +26,13 @@ jobs:
           printf '%s' "$KEYSTORE_PROPERTIES" > keystore.properties
           printf '%s' "$UPLOAD_JKS" | base64 -d > upload.jks
       - run: ./gradlew bundleRelease
+      - name: Play release notes from the first paragraph of the GitHub release (Play allows 500 characters)
+        env:
+          BODY: ${{ github.event.release.body }}
+        run: |
+          mkdir whatsnew
+          python3 -c 'import os; print(os.environ["BODY"].replace("\r", "").strip().split("\n\n")[0][:500])' > whatsnew/whatsnew-en-US
+          cat whatsnew/whatsnew-en-US
       - uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -33,3 +40,4 @@ jobs:
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
           releaseName: ${{ github.event.release.name }}
           tracks: production
+          whatsNewDirectory: whatsnew
