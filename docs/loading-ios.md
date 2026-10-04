@@ -84,4 +84,3 @@ credential-dependent mutation is exercised.
 - Initial fixture attempts exposed/fixed accessibility-query assumptions, overlay
   controls covering tabs, fixture reinitialization, and the real library scroll-ID
   cancellation race. The passing suite uses bounded, explicit response gates.
-

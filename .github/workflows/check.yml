@@ -26,4 +26,4 @@ jobs:
         run: >-
           xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
           -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
-          -only-testing:UITests/ListLifecycle -only-testing:UITests/LoadingStates test
+          -only-testing:UITests/ListLifecycle -only-testing:UITests/LoadingLifecycle test
