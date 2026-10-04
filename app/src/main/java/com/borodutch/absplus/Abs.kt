@@ -11,6 +11,7 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -68,12 +69,24 @@ object Abs {
     lateinit var dir: File
     private lateinit var cacheDir: File
     var now: Now? = null
+    // Selected only after successful login. Retained metadata contains no account state.
+    @Volatile private var mediaServer: String? = null
+    @Volatile var mediaEpoch = 0L
+        private set
+    private fun scope(s: String) = MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
+    val mediaDir get() = File(dir, "servers/" + (mediaServer?.let(::scope) ?: "locked"))
+    private fun retainedFile(path: String) = File(File(mediaDir, "metadata"), scope(path))
+    private fun expanded(path: String) = path.startsWith("/api/items/") && path.endsWith("?expanded=1")
+    private val mediaLock = Any()
+    private fun selectMedia(s: String?) { mediaServer = s; mediaEpoch++; dlChanged() }
 
     fun init(c: Context) {
         if (::p.isInitialized) return
         p = c.getSharedPreferences("abs", 0)
         dir = c.getExternalFilesDir(null)!!
         cacheDir = File(c.filesDir, "json").apply { mkdirs() }
+        if (me != null && server.isNotEmpty()) selectMedia(server)
+        // Legacy unscoped bytes have no trustworthy owner. Keep them, but never adopt by ID.
         if (!p.contains("favq")) { // first run with server favorites: upload the local ones
             val q = JSONObject()
             JSONObject(p.getString("fav", "{}")).keys().forEach { q.put(it, true) }
@@ -87,8 +100,8 @@ object Abs {
     val server get() = p.getString("server", "")!!
     val me get() = p.getString("me", null)
 
-    private fun http(method: String, path: String, body: String?, hdr: Map<String, String>): String {
-        val c = URL(server + path).openConnection() as HttpURLConnection
+    private fun http(method: String, path: String, body: String?, hdr: Map<String, String>, base: String = server): String {
+        val c = URL(base + path).openConnection() as HttpURLConnection
         try {
             c.requestMethod = method
             c.connectTimeout = 10_000
@@ -124,19 +137,27 @@ object Abs {
 
     /** Logs in; main = the account this app runs as, otherwise a linked account for progress sharing. */
     fun login(url: String, user: String, pass: String, main: Boolean): String {
-        if (main) {
-            val s = url.trim().trimEnd('/')
-            p.edit().putString("server", if ("://" in s) s else "https://$s").commit()
-        }
+        val s = url.trim().trimEnd('/').let { if ("://" in it) it else "https://$it" }
+        val epoch = mediaEpoch
         val body = JSONObject().put("username", user.trim()).put("password", pass).toString()
         val r = try {
-            http("POST", "/login", body, mapOf("x-return-tokens" to "true"))
+            http("POST", "/login", body, mapOf("x-return-tokens" to "true"), if (main) s else server)
         } catch (e: HttpErr) {
             throw if (e.code == 401) IOException("Wrong username or password") else e
         }
-        val name = save(JSONObject(r).getJSONObject("user"))
-        if (main) p.edit().putString("me", name).commit()
-        return name
+        val u = JSONObject(r).getJSONObject("user")
+        if (u.str("accessToken").ifEmpty { u.str("token") }.isEmpty()) throw IOException("Missing access token")
+        return synchronized(mediaLock) {
+            if (epoch != mediaEpoch) throw Expired()
+            val name = save(u)
+            if (main) {
+                Dl.clear()
+                cacheDir.listFiles()?.forEach { it.delete() }
+                p.edit().putString("server", s).putString("me", name).commit()
+                selectMedia(s)
+            }
+            name
+        }
     }
 
     /** Forgets a linked account: its tokens, its shares, and its server session. */
@@ -150,11 +171,13 @@ object Abs {
 
     fun accounts() = p.all.keys.filter { it.startsWith("acct:") }.map { it.drop(5) }.filter { it != me }.sorted()
 
-    fun logout() {
+    fun logout() = synchronized(mediaLock) {
+        selectMedia(null)
         Dl.clear()
         p.edit().clear().commit()
         cacheDir.listFiles()?.forEach { it.delete() }
         now = null
+        progress = emptyMap()
     }
 
     private fun exp(t: String) = runCatching {
@@ -182,8 +205,39 @@ object Abs {
     // --- json cache, so screens render instantly and work offline
 
     private fun cacheFile(path: String) = File(cacheDir, path.replace(Regex("[^A-Za-z0-9]"), "_"))
-    fun cached(path: String) = cacheFile(path).takeIf { it.exists() }?.readText()
-    fun get(path: String) = api("GET", path).also { cacheFile(path).writeText(it) }
+    fun cached(path: String): String? = cacheFile(path).takeIf { it.exists() }?.readText()
+        ?: if (mediaServer == server && me != null && expanded(path)) retainedFile(path).takeIf { it.exists() }?.readText() else null
+
+    fun get(path: String): String {
+        val epoch = mediaEpoch
+        val data = api("GET", path)
+        synchronized(mediaLock) {
+            if (epoch != mediaEpoch) throw Expired()
+            cacheFile(path).writeText(data)
+            if (mediaServer == server && me != null && expanded(path)) {
+                val dst = retainedFile(path)
+                dst.parentFile!!.mkdirs()
+                val atomic = android.util.AtomicFile(dst)
+                val stream = atomic.startWrite()
+                try { stream.write(retainedItem(JSONObject(data)).toString().toByteArray()); atomic.finishWrite(stream) }
+                catch (e: Exception) { atomic.failWrite(stream); throw e }
+            }
+        }
+        return data
+    }
+
+    /** Explicit allowlist: no arbitrary server fields, user state or signed URLs survive logout. */
+    private fun retainedItem(j: JSONObject): JSONObject {
+        fun pick(o: JSONObject, vararg keys: String) = JSONObject().apply { keys.forEach { if (o.has(it)) put(it, o.get(it)) } }
+        fun audio(o: JSONObject) = pick(o, "ino", "duration", "startOffset").put("metadata", pick(o.optJSONObject("metadata") ?: JSONObject(), "ext", "size"))
+        val m = j.getJSONObject("media")
+        val safe = JSONObject().put("metadata", pick(m.getJSONObject("metadata"), "title", "authorName", "author", "description"))
+        m.optJSONArray("tracks")?.let { a -> safe.put("tracks", JSONArray().apply { for (i in 0 until a.length()) put(audio(a.getJSONObject(i))) }) }
+        m.optJSONArray("episodes")?.let { a -> safe.put("episodes", JSONArray().apply {
+            for (i in 0 until a.length()) { val e = a.getJSONObject(i); put(pick(e, "id", "title", "publishedAt").apply { e.optJSONObject("audioFile")?.let { put("audioFile", audio(it)) } }) }
+        }) }
+        return pick(j, "id", "mediaType").put("media", safe)
+    }
 
     // --- tracks & downloads
 
@@ -194,17 +248,23 @@ object Abs {
 
     fun tracks(a: JSONArray) = (0 until a.length()).map { a.getJSONObject(it).let { t -> track(t, t.optDouble("startOffset", 0.0)) } }
 
-    fun file(item: String, t: Track) = File(dir, "$item/${t.ino}${t.ext}")
-    fun done(item: String, t: Track) = file(item, t).length() == t.size
+    internal fun mediaFile(root: File, item: String, t: Track): File {
+        require(item.isNotEmpty() && item !in setOf(".", "..") && '/' !in item && 92.toChar() !in item)
+        val name = t.ino + t.ext
+        require(name.isNotEmpty() && name !in setOf(".", "..") && '/' !in name && 92.toChar() !in name)
+        return File(root, "audio/$item/$name")
+    }
+    fun file(item: String, t: Track) = mediaFile(mediaDir, item, t)
+    fun done(item: String, t: Track) = file(item, t).isFile && file(item, t).length() == t.size
     fun uri(item: String, t: Track): Uri =
         if (done(item, t)) Uri.fromFile(file(item, t)) else Uri.parse("$server/api/items/$item/file/${t.ino}")
 
-    private val dlMemo = HashMap<String, Boolean>()
+    private val dlMemo = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     fun dlChanged() = dlMemo.clear()
 
     /** book fully downloaded / podcast has a downloaded episode (judged from the item page's cached json) */
-    fun downloaded(id: String) = dlMemo.getOrPut(id) {
-        File(dir, id).exists() && runCatching {
+    fun downloaded(id: String) = dlMemo.getOrPut("$mediaEpoch:$id") {
+        File(mediaDir, "audio/$id").exists() && runCatching {
             val m = JSONObject(cached("/api/items/$id?expanded=1")!!).getJSONObject("media")
             m.optJSONArray("tracks")?.let { a -> tracks(a).all { done(id, it) } } ?: m.getJSONArray("episodes").let { e ->
                 (0 until e.length()).any { i -> e.getJSONObject(i).optJSONObject("audioFile")?.let { done(id, track(it, 0.0)) } == true }
@@ -213,12 +273,13 @@ object Abs {
     }
 
     /** item folders that hold finished files (a download in progress also leaves "*.part" files) */
-    fun downloads() = dir.listFiles { f -> f.isDirectory && f.list()?.any { !it.endsWith(".part") } == true }?.toList() ?: emptyList()
+    fun downloads() = File(mediaDir, "audio").listFiles { f -> f.isDirectory && f.list()?.any { !it.endsWith(".part") } == true }?.toList() ?: emptyList()
 
     /** title/author from the item page's cached json */
     fun cachedCard(id: String) = runCatching { Card.item(JSONObject(cached("/api/items/$id?expanded=1")!!)) }.getOrElse { Card(id, "Unknown item", "") }
 
     fun removeAll(item: File) {
+        if (item.parentFile != File(mediaDir, "audio")) return
         Dl.jobs.filter { it.n.item == item.name }.forEach { Dl.cancel(it.n) }
         item.listFiles()?.forEach { it.delete() }
         item.delete()

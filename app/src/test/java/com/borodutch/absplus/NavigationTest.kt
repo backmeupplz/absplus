@@ -186,8 +186,8 @@ class NavigationTest {
         Abs.offline = true
         repeat(200) { i ->
             val id = "download$i"
-            java.io.File(Abs.dir, id).mkdirs()
-            java.io.File(Abs.dir, "$id/audio").writeText("fixture")
+            java.io.File(Abs.mediaDir, "audio/$id").mkdirs()
+            java.io.File(Abs.mediaDir, "audio/$id/audio").writeText("fixture")
             val cache = Abs::class.java.getDeclaredMethod("cacheFile", String::class.java).apply { isAccessible = true }
                 .invoke(Abs, "/api/items/$id?expanded=1") as java.io.File
             cache.parentFile!!.mkdirs()
@@ -295,7 +295,7 @@ class NavigationTest {
             @Suppress("UNCHECKED_CAST")
             val refresh = onDl.get(a) as () -> Unit
             repeat(2) { i ->
-                Abs.removeAll(java.io.File(Abs.dir, "shelf$i"))
+                Abs.removeAll(java.io.File(Abs.mediaDir, "audio/shelf$i"))
                 refresh()
             }
             layout(a.content())
