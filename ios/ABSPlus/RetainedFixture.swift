@@ -40,7 +40,7 @@ struct RetainedFixture: View {
         let track = try await app.item("book").media.tracks![0].track()
         let rel = app.rel("late", track)
         let late = URLSession.shared.downloadTask(with: URL(string: a + "/late")!)
-        late.taskDescription = oldEpoch + "|" + rel
+        Downloader.shared.bind(late, rel)
         app.dlq = [Now(item: "late", ep: nil, title: "Late", author: "Fixture", tracks: [track])]
         app.inflight.insert(rel)
         app.logout()
@@ -59,12 +59,36 @@ struct RetainedFixture: View {
         try check(app.mediaDir == original && app.mediaEpoch != oldEpoch, "same-server selection")
         app.dlq = [Now(item: "late", ep: nil, title: "Late", author: "Fixture", tracks: [track])]
         app.inflight.insert(rel)
-        app.cancelling.remove(rel)
         let temp = fm.temporaryDirectory.appending(path: UUID().uuidString)
         try RetainedProtocol.audio.write(to: temp)
         Downloader.shared.urlSession(URLSession.shared, downloadTask: late, didFinishDownloadingTo: temp)
         try check(!fm.fileExists(atPath: dlDir.appending(path: rel).path), "late completion wrote media")
         try? fm.removeItem(at: temp)
+        // Cancel/requeue within one login: an old transfer cannot touch its replacement.
+        let n = Now(item: "replacement", ep: nil, title: "Replacement", author: "Fixture", tracks: [track])
+        let replacementRel = app.rel(n.item, track)
+        let old = URLSession.shared.downloadTask(with: URL(string: a + "/old")!)
+        let replacement = URLSession.shared.downloadTask(with: URL(string: a + "/replacement")!)
+        app.dlq = [n]
+        Downloader.shared.bind(old, replacementRel)
+        app.remove(n)
+        app.dlq = [n]
+        Downloader.shared.bind(replacement, replacementRel)
+        app.got[replacementRel] = 123
+        let description = replacement.taskDescription
+        try RetainedProtocol.audio.write(to: temp)
+        Downloader.shared.urlSession(URLSession.shared, downloadTask: old, didFinishDownloadingTo: temp)
+        Downloader.shared.urlSession(URLSession.shared, task: old, didCompleteWithError: URLError(.timedOut))
+        try check(!app.done(n.item, track), "cancelled transfer overwrote replacement")
+        try check(app.inflight.contains(replacementRel) && app.got[replacementRel] == 123 && app.transfers[replacementRel] == description && app.queued(n), "old completion changed replacement state")
+        // UI observation may empty dlq between didFinish and didComplete.
+        Downloader.shared.urlSession(URLSession.shared, downloadTask: replacement, didFinishDownloadingTo: temp)
+        app.dlChanged()
+        try check(!app.queued(n), "completed title not removed")
+        Downloader.shared.urlSession(URLSession.shared, task: replacement, didCompleteWithError: nil)
+        try check(!app.inflight.contains(replacementRel) && app.got[replacementRel] == nil && app.transfers[replacementRel] == nil, "terminal callback leaked state after queue removal")
+        app.remove(n)
+        let requestsBefore = RetainedProtocol.itemRequests.withLock { $0 }
         // No item request is permitted from here onward, even though login just succeeded.
         RetainedProtocol.state.withLock { $0.1 = true }
         app.offline = true
@@ -80,6 +104,18 @@ struct RetainedFixture: View {
             try check(audio.prepareToPlay() && audio.play(), "native local audio playback")
             audio.stop()
         }
+        // Exercise production AVQueuePlayer construction as well as the native decoder.
+        let book = try await app.item("book")
+        let now = Now(item: book.id, ep: nil, title: book.card.title, author: book.card.sub, tracks: book.media.tracks!.map { $0.track() })
+        player.start(now, 0, play: false)
+        for _ in 0..<40 where player.p.currentItem == nil { try await Task.sleep(for: .milliseconds(50)) }
+        guard let asset = player.p.currentItem?.asset as? AVURLAsset else { throw Msg(errorDescription: "production playback queue empty") }
+        try check(asset.url == app.url(now.item, now.tracks[0]), "production player did not resolve retained audio")
+        let playable = try await asset.load(.isPlayable)
+        try check(playable, "production asset is not playable")
+        player.p.removeAllItems()
+        player.now = nil
+        try check(RetainedProtocol.itemRequests.withLock { $0 } == requestsBefore, "offline playback requested item metadata")
         let reconstructed = Abs()
         try check(reconstructed.downloaded("book") && reconstructed.downloaded("pod"), "restart retained scope")
         app.logout()
@@ -87,6 +123,7 @@ struct RetainedFixture: View {
 }
 
 final class RetainedProtocol: URLProtocol, @unchecked Sendable {
+    static let itemRequests = OSAllocatedUnfairLock(initialState: 0)
     static let state = OSAllocatedUnfairLock(initialState: (false, false)) // fail login, offline
     static let audio: Data = {
         var d = Data()
@@ -99,6 +136,7 @@ final class RetainedProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host?.hasPrefix("retained-") == true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
+        if request.url?.query == "expanded=1" { Self.itemRequests.withLock { $0 += 1 } }
         let flags = Self.state.withLock { $0 }
         if flags.1 { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)); return }
         let login = request.url!.path == "/login"
