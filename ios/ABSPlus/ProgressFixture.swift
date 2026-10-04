@@ -147,12 +147,13 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
     static func check(_ ok: @autoclosure () -> Bool, _ message: String) throws {
         if !ok() { throw Msg(errorDescription: message) }
     }
-    static func wait(_ condition: () -> Bool) async throws {
+    static func wait(_ label: String = "condition", file: StaticString = #fileID, line: UInt = #line, _ condition: () -> Bool) async throws {
+        print("Progress fixture: waiting for \(label) at \(file):\(line)")
         for _ in 0..<500 {
             if condition() { return }
             try await Task.sleep(for: .milliseconds(10))
         }
-        throw Msg(errorDescription: "Timed out waiting for controlled request")
+        throw Msg(errorDescription: "Timed out waiting for \(label) at \(file):\(line)")
     }
     static func stop(_ a: Abs) async {
         a.progressTask?.cancel()
@@ -466,6 +467,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
     }
 
     static func run() async throws {
+        print("Progress fixture phase: offline journal and reconnect")
         URLProtocol.registerClass(ProgressServer.self)
         ProgressServer.state.withLock { $0 = .init() }
         let suite = "progress-fixture-" + UUID().uuidString
@@ -510,12 +512,18 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         try check(ProgressServer.state.withLock { $0.rows["own:pod/two"]?["currentTime"] as? Double } == 48, "episode identity")
         await stop(a)
 
+        print("Progress fixture phase: reviewRegressions")
         try await reviewRegressions(book)
+        print("Progress fixture phase: rereadRegressions")
         try await rereadRegressions(book)
+        print("Progress fixture phase: scopeRegressions")
         try await scopeRegressions(book)
+        print("Progress fixture phase: acknowledgmentRegressions")
         try await acknowledgmentRegressions(book)
+        print("Progress fixture phase: preparationRegressions")
         try await preparationRegressions(book)
 
+        print("Progress fixture phase: in-flight replay, retries and revocation")
         // Newer local event arrives while the old first-create PATCH is held.
         ProgressServer.state.withLock { $0.holdPatch = true }
         let race = Now(item: "race", ep: nil, title: "Race", author: "", tracks: book.tracks)
@@ -607,6 +615,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         a.push(ep2, 66, finished: false)
         a.unlink("linked")
         try check(a.progressDisk.pending.allSatisfy { $0.account == "own" }, "unlink failed")
+        print("Progress fixture phase: real player pause, completion and reread")
         // A real downloaded silent WAV drives AVQueuePlayer pause/end callbacks.
         // This also catches callbacks that accidentally still target the global app.
         let audioID = "progress-audio-" + UUID().uuidString
@@ -617,17 +626,19 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         let format = AVAudioFormat(standardFormatWithSampleRate: 8000, channels: 1)!
         do {
             let audio = try AVAudioFile(forWriting: wav, settings: format.settings)
-            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 24000)!
-            buffer.frameLength = 24000
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 320000)!
+            buffer.frameLength = 320000
             try audio.write(from: buffer)
         }
-        // The short WAV ends naturally; metadata stays >10s so rereads do not
-        // immediately hit ABS's default finished-within-ten-seconds threshold.
-        let track = Track(ino: "silent", ext: ".wav", size: a.size(wav), duration: 100, start: 0)
+        // Leave enough media for asynchronous login/pause and reread assertions.
+        // Seek near the end only when testing the real end notification. Real
+        // duration and metadata agree, with rereads outside the last ten seconds.
+        let track = Track(ino: "silent", ext: ".wav", size: a.size(wav), duration: 40, start: 0)
         let title = Now(item: audioID, ep: nil, title: "Silent fixture", author: "", tracks: [track])
         let playback = Player(source: a)
+        playback.p.defaultRate = 1 // independent of the device's saved playback speed
         playback.start(title, 0, generation: a.playbackGeneration)
-        try await wait { playback.pos > 0.3 }
+        try await wait("initial playback advances") { playback.pos > 0.3 }
         // Reauthentication invalidates old requests, not this same-account player.
         let playbackScope = a.playbackGeneration, requestScope = a.accountGeneration
         ProgressServer.state.withLock { $0.offline = false; $0.holdRefresh = true }
@@ -643,11 +654,13 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         try check(a.accts["own"]?.a == "own", "stale refresh replaced login credentials")
         ProgressServer.state.withLock { $0.offline = true }
         playback.p.pause()
-        try await wait { a.progressDisk.local[title.key]?.currentTime ?? 0 > 0 }
+        try await wait("same-account pause persists") { a.progressDisk.local[title.key]?.currentTime ?? 0 > 0 }
         let paused = try JSONDecoder().decode(ProgressDisk.self, from: Data(contentsOf: file))
         try check((paused.local[title.key]?.currentTime ?? 0) > 0 && paused.pending.contains { $0.key == title.key && !$0.finished }, "same-account reauth pause was not durable")
+        let soughtEnd = await playback.p.seek(to: CMTime(seconds: 39, preferredTimescale: 1000), toleranceBefore: .zero, toleranceAfter: .zero)
+        try check(soughtEnd, "could not seek to natural-end fixture segment")
         playback.play()
-        try await wait { a.progressDisk.local[title.key]?.isFinished == true }
+        try await wait("natural playback end persists") { a.progressDisk.local[title.key]?.isFinished == true }
         playback.clear()
         await stop(a)
         a = Abs(defaults: d, progressFile: file, accounts: a.accts)
@@ -660,14 +673,16 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         // Restoring a completed download must stay complete until explicit play.
         ProgressServer.state.withLock { $0.offline = true }
         let reread = Player(source: a)
+        reread.p.defaultRate = 1
         await reread.restore()
         try check(a.pct(title.key) == 1, "passive restore cleared completion")
-        try await wait { reread.p.currentItem != nil }
+        try await wait("completed download restores paused") { reread.p.currentItem != nil }
         reread.play()
-        try await wait { reread.pos > 0.3 && reread.pos < 2 }
+        try await wait("reread advances before end") { reread.pos > 0.3 }
         reread.p.pause()
-        try await wait { (a.progressDisk.local[title.key]?.currentTime ?? 0) > 0 && a.progressDisk.local[title.key]?.isFinished == false }
+        try await wait("reread pause persists unfinished position") { (a.progressDisk.local[title.key]?.currentTime ?? 0) > 0 && a.progressDisk.local[title.key]?.isFinished == false }
         let rereadTime = a.progressDisk.local[title.key]!.currentTime!
+        try check(rereadTime < 30, "reread must pause before the media completion threshold")
         reread.clear()
         await stop(a)
         a = Abs(defaults: d, progressFile: file, accounts: a.accts)
@@ -681,9 +696,11 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         // The actual old AVQueuePlayer keeps callbacks after a switch. None may
         // capture under a different user/server, or after logout + same-user login.
         for change in ["user", "server", "logout"] {
+            print("Progress fixture phase: old player after " + change)
             let oldPlayer = Player(source: a)
+            oldPlayer.p.defaultRate = 1
             oldPlayer.start(title, 0, generation: a.playbackGeneration)
-            try await wait { oldPlayer.pos > 0.3 }
+            try await wait("old player advances before " + change) { oldPlayer.pos > 0.3 }
             ProgressServer.state.withLock { $0.offline = false }
             let oldServer = a.server, oldUser = a.me!
             if change == "logout" { a.logout() }
@@ -691,7 +708,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                                   change == "user" ? "different" : oldUser, "fixture", main: true)
             ProgressServer.state.withLock { $0.offline = true }
             oldPlayer.p.pause()
-            try await wait { !oldPlayer.playing }
+            try await wait("old player pauses after " + change) { !oldPlayer.playing }
             oldPlayer.play()
             try await Task.sleep(for: .milliseconds(50))
             try check(oldPlayer.p.timeControlStatus == .paused, "old player resumed after " + change)
