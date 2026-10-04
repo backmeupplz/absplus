@@ -448,7 +448,7 @@ let resumeDir: URL = {
         var r = false
         if FileManager.default.fileExists(atPath: dlDir.appending(path: id).path),
            let data = cached("/api/items/\(id)?expanded=1"), let it = try? JSONDecoder().decode(Item.self, from: data) {
-            if let ts = it.media.tracks { r = ts.allSatisfy { done(id, $0.track()) } }
+            if let ts = it.media.tracks { r = !ts.isEmpty && ts.allSatisfy { done(id, $0.track()) } }
             else { r = (it.media.episodes ?? []).contains { $0.audioFile.map { done(id, $0.track(0)) } ?? false } }
         }
         dlMemo[id] = r
