@@ -283,6 +283,8 @@ class Main : AppCompatActivity() {
 
     private fun home() {
         begin()
+        retainPage = true
+        var all = listOf<Card>()
         var items = listOf<Card>()
         val cont = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
@@ -296,21 +298,37 @@ class Main : AppCompatActivity() {
         }
         val contTitle = section("Continue listening")
         val hist = col()
-        Abs.history().filter { !Abs.offline || Abs.downloaded(it.first.id) }.forEach { (c, at) ->
-            hist.addView(listRow(c, DateUtils.getRelativeTimeSpanString(at), { playCard(c) }) { push { item(c.id) } })
-        }
-        if (hist.childCount == 0) hist.addView(text("Nothing played on this device yet.", muted = true).pad(16, 4))
-        show(NestedScrollView(this).apply { addView(col(header("Home"), contTitle, cont, section("Recently played"), hist).pad(0, 0)) })
-        load("/api/me") { Abs.setMe(it); cont.adapter?.notifyDataSetChanged() }
-        load("/api/me/items-in-progress?limit=20") { j ->
-            val a = j.getJSONArray("libraryItems")
-            items = (0 until a.length()).map { a.getJSONObject(it) }.map { li ->
-                val c = Card.item(li)
-                li.optJSONObject("recentEpisode")?.let { Card(c.id, it.str("title"), c.title, it.getString("id")) } ?: c
-            }.let(::avail)
+        val page = NestedScrollView(this).apply { addView(col(header("Home"), contTitle, cont, section("Recently played"), hist).pad(0, 0)) }
+        fun refresh() {
+            val lm = cont.layoutManager as LinearLayoutManager
+            val first = lm.findFirstVisibleItemPosition()
+            val anchor = lm.findViewByPosition(first)
+            val key = (anchor?.tag as? Tile)?.key
+            val offset = anchor?.let { lm.getDecoratedLeft(it) - cont.paddingLeft }
+            items = avail(all)
             contTitle.isVisible = items.isNotEmpty()
             cont.isVisible = items.isNotEmpty()
             cont.adapter?.notifyDataSetChanged()
+            val at = items.indexOfFirst { it.key == key }
+            if (at >= 0 && offset != null) lm.scrollToPositionWithOffset(at, offset)
+            hist.removeAllViews()
+            Abs.history().filter { !Abs.offline || Abs.downloaded(it.first) }.forEach { (c, at) ->
+                hist.addView(listRow(c, DateUtils.getRelativeTimeSpanString(at), { playCard(c) }) { push { item(c.id) } })
+            }
+            if (hist.childCount == 0) hist.addView(text("Nothing played on this device yet.", muted = true).pad(16, 4))
+        }
+        onReturn = { refresh() }
+        onDl = onReturn
+        show(page)
+        refresh()
+        load("/api/me", retained = true) { Abs.setMe(it); cont.adapter?.notifyDataSetChanged() }
+        load("/api/me/items-in-progress?limit=20", retained = true) { j ->
+            val a = j.getJSONArray("libraryItems")
+            all = (0 until a.length()).map { a.getJSONObject(it) }.map { li ->
+                val c = Card.item(li)
+                li.optJSONObject("recentEpisode")?.let { Card(c.id, it.str("title"), c.title, it.getString("id")) } ?: c
+            }
+            refresh()
         }
     }
 
@@ -609,7 +627,7 @@ class Main : AppCompatActivity() {
     private class Tile(val cover: Cover, val badge: View, val prog: LinearProgressIndicator, val title: TextView, val sub: TextView, var key: String = "")
 
     /** offline: only what's playable without the server */
-    private fun avail(cards: List<Card>) = if (Abs.offline) cards.filter { Abs.downloaded(it.id) } else cards
+    private fun avail(cards: List<Card>) = if (Abs.offline) cards.filter { Abs.downloaded(it) } else cards
 
     // Each page owns its filtered snapshot and refreshes it with its viewport anchor.
     private fun grid(ratio: Float, cards: () -> List<Card>) = RecyclerView(this).apply {
@@ -652,7 +670,7 @@ class Main : AppCompatActivity() {
         Covers.load(cover, c.id)
         title.text = c.title
         sub.text = c.sub
-        badge.isVisible = Abs.downloaded(c.id)
+        badge.isVisible = Abs.downloaded(c)
         val p = Abs.pct(c.key) ?: 0.0
         prog.visibility = if (p > 0) View.VISIBLE else View.INVISIBLE
         prog.progress = (p * 1000).toInt()
