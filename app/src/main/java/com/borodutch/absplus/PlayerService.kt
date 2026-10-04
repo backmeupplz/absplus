@@ -8,8 +8,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.datasource.DataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
@@ -30,9 +29,7 @@ class PlayerService : MediaSessionService() {
         super.onCreate()
         Abs.init(this)
         // token is resolved per request on the loader thread, so it gets refreshed when it expires mid-book
-        val http = ResolvingDataSource.Factory(DefaultHttpDataSource.Factory()) {
-            it.withAdditionalHeaders(mapOf("Authorization" to "Bearer " + Abs.token()))
-        }
+        val http = DataSource.Factory { SessionDataSource() }
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http)))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)
@@ -59,7 +56,8 @@ class PlayerService : MediaSessionService() {
         val n = Abs.now ?: return
         if (p.currentMediaItem?.mediaId?.startsWith(n.key + "#") != true) return
         val pos = if (finished) n.duration else Abs.pos(p, n)
-        thread { Abs.push(n, pos, finished) }
+        val epoch = Abs.mediaEpoch
+        thread { runCatching { Abs.push(n, pos, finished, epoch) } }
     }
 
     override fun onGetSession(info: MediaSession.ControllerInfo) = session

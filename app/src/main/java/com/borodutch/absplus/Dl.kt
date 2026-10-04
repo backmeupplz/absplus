@@ -141,7 +141,7 @@ object Dl {
         f.parentFile!!.mkdirs()
         if (t.size > 0 && p.length() > t.size) p.delete() // not ours
         val base = measure(j, t)
-        val auth = Abs.token()
+        val auth = Abs.token(epoch = j.epoch)
         if (j.epoch != Abs.mediaEpoch || !jobs.contains(j)) throw Stop()
         // a range starting at the end makes the server answer 500, so a complete part goes straight to the rename
         if (t.size <= 0 || p.length() < t.size) resume(URL("${j.server}/api/items/${j.n.item}/file/${t.ino}/download"), auth, p) { have ->
@@ -161,13 +161,14 @@ object Dl {
     fun resume(url: URL, token: String, part: File, onBytes: (Long) -> Unit) {
         val c = url.openConnection() as HttpURLConnection
         try {
+            c.instanceFollowRedirects = false
             c.connectTimeout = 15_000
             c.readTimeout = 30_000
             c.setRequestProperty("Authorization", "Bearer $token")
             val have = part.length()
             if (have > 0) c.setRequestProperty("Range", "bytes=$have-")
             val code = c.responseCode
-            if (code >= 400) throw HttpErr(code)
+            if (code >= 300) throw HttpErr(code)
             val append = have > 0 && code == 206
             var n = if (append) have else 0L
             onBytes(n)

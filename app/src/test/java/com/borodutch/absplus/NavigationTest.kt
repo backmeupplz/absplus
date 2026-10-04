@@ -120,7 +120,7 @@ class NavigationTest {
             Abs.offline = false
             Abs.p.edit().putString("server", "http://127.0.0.1:${server.address.port}")
                 .putString("lib", "books").putString("me", "fixture")
-                .putString("acct:fixture", "{\"a\":\"fixture\",\"r\":\"\"}").commit()
+                .putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").put("server", "http://127.0.0.1:${server.address.port}").toString()).commit()
             a.call("tab", 1)
             val page = a.content().getChildAt(0)
             val grid = views(page).filterIsInstance<RecyclerView>().single()
@@ -183,6 +183,8 @@ class NavigationTest {
         val controller = Robolectric.buildActivity(Main::class.java).create()
         val a = controller.get()
         (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
+        Abs.p.edit().putString("server", "http://127.0.0.1:1").putString("me", "fixture").commit()
+        Abs::class.java.getDeclaredMethod("selectMedia", String::class.java).apply { isAccessible = true }.invoke(Abs, Abs.server)
         Abs.offline = true
         repeat(200) { i ->
             val id = "download$i"
@@ -255,7 +257,7 @@ class NavigationTest {
         try {
             // Cached routes render immediately; failed refreshes remain offline, not expired.
             Abs.p.edit().putString("server", "http://127.0.0.1:1").putString("me", "fixture")
-                .putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").toString()).commit()
+                .putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").put("server", "http://127.0.0.1:1").toString()).commit()
             Abs.offline = true
             Abs.dlChanged()
             a.call("tab", 2)
@@ -340,7 +342,7 @@ class NavigationTest {
             val favs = JSONObject()
             repeat(200) { favs.put("fav$it", Card("fav$it", "Title $it", "").json()) }
             Abs.p.edit().putString("server", "http://127.0.0.1:" + server.address.port)
-                .putString("me", "fixture").putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").toString())
+                .putString("me", "fixture").putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").put("server", "http://127.0.0.1:" + server.address.port).toString())
                 .putString("fav", favs.toString()).putString("favq", "{}").commit()
             a.call("tab", 3)
             val page = a.content().getChildAt(0)

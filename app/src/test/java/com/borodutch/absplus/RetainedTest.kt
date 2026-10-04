@@ -1,7 +1,7 @@
 package com.borodutch.absplus
 
 import android.content.Context
-import androidx.test.core.app.ApplicationProvider
+import org.robolectric.RuntimeEnvironment
 import com.sun.net.httpserver.HttpServer
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -19,7 +19,7 @@ import kotlin.concurrent.thread
 @Config(sdk = [35])
 class RetainedTest {
     @Test fun retainedBooksAndEpisodesRequireSuccessfulSameServerLogin() {
-        Abs.init(ApplicationProvider.getApplicationContext<Context>())
+        Abs.init(RuntimeEnvironment.getApplication())
         Abs.logout()
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)

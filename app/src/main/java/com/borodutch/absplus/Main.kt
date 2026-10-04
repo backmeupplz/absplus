@@ -249,7 +249,16 @@ class Main : AppCompatActivity() {
 
     // --- login
 
+    private var loginAttempt: Abs.LoginAttempt? = null
+
+    override fun onDestroy() {
+        loginAttempt?.cancel()
+        super.onDestroy()
+    }
+
     private fun login() {
+        loginAttempt?.cancel()
+        ctl?.clearMediaItems()
         screen = ++generation
         retainPage = false
         onReturn = null
@@ -262,7 +271,16 @@ class Main : AppCompatActivity() {
         val go = button("Sign in") {}
         go.setOnClickListener {
             go.isEnabled = false
-            bg({ Abs.login(url.str(), user.str(), pass.str(), true) }, { go.isEnabled = true; err(it) }) { if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 }
+            val attempt = Abs.beginLogin().also { loginAttempt = it }
+            val base = url.str(); val username = user.str(); val password = pass.str()
+            thread {
+                val result = runCatching { Abs.login(base, username, password, true, attempt) }
+                runOnUiThread {
+                    if (!isDestroyed && loginAttempt === attempt && !attempt.cancelled) {
+                        result.fold({ if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 }, { go.isEnabled = true; err(it) })
+                    }
+                }
+            }
         }
         val logo = ImageView(this).apply { setImageResource(R.drawable.logo) }.lp(dp(96), dp(96), m = 8)
         val c = col(
@@ -694,7 +712,8 @@ class Main : AppCompatActivity() {
         val fav = icon(if (Abs.isFav(c.id)) R.drawable.i_favorite_fill else R.drawable.i_favorite) {}
         fav.setOnClickListener {
             val on = Abs.toggleFav(c)
-            thread { Abs.pushFavs() }
+            val epoch = Abs.mediaEpoch
+            thread { runCatching { Abs.pushFavs(epoch) } }
             fav.icon = ContextCompat.getDrawable(this, if (on) R.drawable.i_favorite_fill else R.drawable.i_favorite)
             toast(if (on) "Added to favorites" else "Removed from favorites")
         }
@@ -840,6 +859,7 @@ class Main : AppCompatActivity() {
     // --- progress sharing
 
     private fun share(id: String, name: String) {
+        val epoch = Abs.mediaEpoch
         val accts = Abs.accounts()
         val cur = Abs.shares(id)
         val checked = BooleanArray(accts.size) { accts[it] in cur }
@@ -849,6 +869,7 @@ class Main : AppCompatActivity() {
         if (accts.isEmpty()) d.setMessage("Link another account on this server to keep your progress on this title in sync with it.")
         else d.setMultiChoiceItems(accts.toTypedArray(), checked) { _, i, c -> checked[i] = c }
             .setPositiveButton("Save") { _, _ ->
+                if (epoch != Abs.mediaEpoch) return@setPositiveButton
                 val sel = accts.filterIndexed { i, _ -> checked[i] }.toSet()
                 val added = sel - cur
                 if (added.isEmpty()) Abs.setShares(id, sel)
@@ -863,15 +884,28 @@ class Main : AppCompatActivity() {
     private fun addAccount(then: () -> Unit) {
         val user = field("Username")
         val pass = field("Password", "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
-        MaterialAlertDialogBuilder(this).setTitle("Link another account")
+        var attempt: Abs.LoginAttempt? = null
+        val dialog = MaterialAlertDialogBuilder(this).setTitle("Link another account")
             .setMessage("They sign in here once to allow it.")
             .setView(col(user, pass, pad = 20))
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Link") { _, _ ->
-                bg({ Abs.login(Abs.server, user.str(), pass.str(), false) }) {
-                    if (it == Abs.me) toast("That's you") else { toast("Linked $it"); then() }
+            .setPositiveButton("Link", null).create()
+        dialog.setOnDismissListener { attempt?.cancel() }
+        dialog.setOnShowListener {
+            val link = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            link.setOnClickListener {
+                link.isEnabled = false
+                val current = Abs.beginLogin().also { attempt = it }
+                val username = user.str(); val password = pass.str(); val base = Abs.server
+                bg({ Abs.login(base, username, password, false, current) }, { link.isEnabled = true; err(it) }) {
+                    if (!current.cancelled) {
+                        dialog.dismiss()
+                        if (it == Abs.me) toast("That's you") else { toast("Linked $it"); then() }
+                    }
                 }
-            }.show()
+            }
+        }
+        dialog.show()
     }
 
     // --- playback
@@ -908,13 +942,13 @@ class Main : AppCompatActivity() {
 
     private fun start(n: Now, t: Double, play: Boolean = true) {
         val c = ctl ?: return toast("Player not ready")
-        Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0) Abs.pos(c, old).let { p -> thread { Abs.push(old, p, false) } } }
+        Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0) Abs.pos(c, old).let { p -> val epoch = Abs.mediaEpoch; thread { runCatching { Abs.push(old, p, false, epoch) } } } }
         Abs.now = n
         Abs.saveNow(n)
         if (play) Abs.addHistory(n)
         val art = "${Abs.server}/api/items/${n.item}/cover?width=400&format=webp"
         val items = n.tracks.mapIndexed { i, tr ->
-            MediaItem.Builder().setMediaId("${n.key}#$i").setUri(Abs.uri(n.item, tr))
+            MediaItem.Builder().setMediaId("${n.key}#$i").setCustomCacheKey(Abs.mediaEpoch.toString()).setUri(Abs.uri(n.item, tr))
                 .setMediaMetadata(MediaMetadata.Builder().setTitle(n.title).setArtist(n.author).setArtworkUri(android.net.Uri.parse(art)).build()).build()
         }
         val (i, ms) = n.at(if (t > n.duration - 5) 0.0 else t)
@@ -1037,20 +1071,33 @@ class Main : AppCompatActivity() {
         }
     }
 
-    private fun <T> bg(work: () -> T, fail: (Throwable) -> Unit = ::err, done: (T) -> Unit) = thread {
-        val r = runCatching(work)
-        runOnUiThread { if (!isDestroyed) r.fold(done, fail) }
+    private fun <T> bg(work: () -> T, fail: (Throwable) -> Unit = ::err, done: (T) -> Unit): Thread {
+        val epoch = Abs.mediaEpoch
+        val owner = Abs.server to Abs.me
+        return thread {
+            val r = runCatching { Abs.sessionWork(epoch, work) }
+            runOnUiThread {
+                if (!isDestroyed && epoch == Abs.mediaEpoch && owner == (Abs.server to Abs.me)) {
+                    runCatching { Abs.inSession(epoch) { Abs.sessionWork(epoch) { r.fold(done, fail) } } }
+                        .exceptionOrNull()?.let { if (it !is StaleSession) err(it) }
+                }
+            }
+        }
     }
 
     private fun err(e: Throwable) {
+        if (e is StaleSession) return
         toast(e.message ?: e.toString())
         if (e is Expired) login()
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
 
-    private fun confirm(msg: String, yes: () -> Unit) = MaterialAlertDialogBuilder(this).setMessage(msg)
-        .setNegativeButton("Cancel", null).setPositiveButton("OK") { _, _ -> yes() }.show()
+    private fun confirm(msg: String, yes: () -> Unit): androidx.appcompat.app.AlertDialog {
+        val epoch = Abs.mediaEpoch
+        return MaterialAlertDialogBuilder(this).setMessage(msg)
+            .setNegativeButton("Cancel", null).setPositiveButton("OK") { _, _ -> if (epoch == Abs.mediaEpoch) yes() }.show()
+    }
 
     private fun field(hint: String, v: String = "", type: Int = 0) = TextInputLayout(this).apply {
         this.hint = hint

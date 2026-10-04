@@ -31,11 +31,14 @@ object Covers {
     private val missing = java.util.Collections.synchronizedSet(HashSet<String>()) // no cover on the server (this run only)
 
     fun load(iv: ImageView, id: String) {
+        val epoch = Abs.mediaEpoch
+        val base = Abs.server
+        val key = "$base|${Abs.me}|$id"
         iv.tag = id
-        mem.get(id)?.let { iv.setImageBitmap(it); return }
+        mem.get(key)?.let { iv.setImageBitmap(it); return }
         iv.setImageDrawable(null)
-        if (id in missing) return
-        val dir = File(iv.context.cacheDir, "covers")
+        if (key in missing) return
+        val dir = File(iv.context.cacheDir, "covers/" + java.security.MessageDigest.getInstance("SHA-256").digest("$base|${Abs.me}".toByteArray()).joinToString("") { "%02x".format(it) })
         pool.execute {
             val b = runCatching {
                 val f = File(dir, id)
@@ -43,17 +46,17 @@ object Covers {
                     f.delete()
                     dir.mkdirs()
                     val tmp = File(dir, "$id.tmp")
-                    val c = URL("${Abs.server}/api/items/$id/cover?width=400&format=webp").openConnection() as HttpURLConnection
+                    val c = URL("${base}/api/items/$id/cover?width=400&format=webp").openConnection() as HttpURLConnection
                     if (c.responseCode == 200) {
                         c.inputStream.use { i -> tmp.outputStream().use { i.copyTo(it) } }
                         tmp.renameTo(f)
-                    } else if (c.responseCode == 404) missing += id
+                    } else if (c.responseCode == 404) missing += key
                     c.disconnect()
                 }
                 BitmapFactory.decodeFile(f.path)
             }.getOrNull()
-            if (b != null) mem.put(id, b)
-            iv.post { if (iv.tag == id && b != null) iv.setImageBitmap(b) }
+            if (b != null) mem.put(key, b)
+            iv.post { if (epoch == Abs.mediaEpoch && iv.tag == id && b != null) iv.setImageBitmap(b) }
         }
     }
 }
