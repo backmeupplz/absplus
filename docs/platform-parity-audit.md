@@ -33,7 +33,7 @@ All file links below are pinned to the audited commit; line ranges in the matrix
 
 | Area | Android | iOS | Verdict / source evidence |
 |---|---|---|---|
-| Library detail/back | Retained page/query, stable bound-card/pixel anchor | Retained data/query, native stable scroll target | Both fixed #21; native fixtures passed. A-Main:189–225,319–385; I-Screens:62–120. Not proof for every shelf. |
+| Library detail/back | Retained page/query, stable bound-card/pixel anchor | Retained data/query, native stable scroll target | Both fixed #21; Android Robolectric/JVM and iOS simulator fixtures passed. A-Main:189–225,319–385; I-Screens:62–120. Not proof for every shelf. |
 | Search/filter/sort | Local case-insensitive title/author substring; library chips; offline filter | Local localized case-insensitive substring; title-menu picker; offline filter | Same basic scope; locale semantics differ. Both one title-sorted request, no selectable sort/pagination UI. A-Main:319–385; I-Screens:62–120. |
 | Home | Server continue-listening limit20, local recent history; play tap/detail long-press | Same sources; play/context-menu details | Core match; both have episode-level offline filtering gap. A-Main:284–315; I-Screens:5–58. |
 | Series | Book libraries, name-sorted series limit1000, shelf re-filters on return | Same query; shelf captures route cards | Core match; stale iOS shelf gap. A-Main:389–437; I-Screens:126–165; I-UI:240–267. |
@@ -54,8 +54,6 @@ Android system Back/chips/dialogs vs iOS edge-swipe/title menu/forms; Android ex
 Android app-private SharedPreferences (backup disabled) vs iOS device-only Keychain is a storage implementation difference, not proof other ordinary apps can read tokens. Both allow self-hosted HTTP, defaulting to HTTPS. Neither offers generic facets, user sort, chapters or sleep timer; shared absences are not new feature requests. Server-side truncation cannot be inferred merely from lack of a client pagination UI.
 
 ### Pinned source index
-
-
 
 - [A-Main](https://github.com/backmeupplz/absplus/blob/bf548dfd90c395efe33daceff944cf38dfad1fc0/app/src/main/java/com/borodutch/absplus/Main.kt) — `app/src/main/java/com/borodutch/absplus/Main.kt`
 - [A-Abs](https://github.com/backmeupplz/absplus/blob/bf548dfd90c395efe33daceff944cf38dfad1fc0/app/src/main/java/com/borodutch/absplus/Abs.kt) — `app/src/main/java/com/borodutch/absplus/Abs.kt`
@@ -110,7 +108,7 @@ Regression gap: existing CI does not assert this specific behavior; the ticket a
 
 ### [#33 — Isolate ABS+ credentials and cached state when changing servers](https://agentboard.icefish-betta.ts.net/#33)
 
-P1 security correctness, code-confirmed unsafe transition, no observed real credential leak. Both expired-session route opens login without logout; main login changes global server before success but preserves linked accounts keyed username. Android Abs.kt:126-139,143-148; iOS Abs.swift:201-222. Repro ONLY two disposable fixture hosts: loginA with linked account, expireA refresh, attempt/loginB, unlink old linked account -> A refresh token can targetB/logout. Acceptance never send old-host credentials to new host; failed login cannot commit host change; transactional host/account scope clears or partitions tokens, shares, queues/cache/favorites/download metadata safely; tests both platforms incl same username, failure/cancel, expiry and unlink. No real secrets in fixtures/logs; do not broadly delete retained media.
+P1 security correctness, code-confirmed unsafe transition, no observed real credential leak. Both expired-session route opens login without logout; main login changes global server before success but preserves linked accounts keyed username. Android Abs.kt:126-139,143-148; iOS Abs.swift:201-222. Repro ONLY two disposable fixture hosts: loginA with linked account, reject A refresh (HTTP401), successfully log in to B, unlink old A linked account -> A refresh token can targetB/logout. Acceptance never send old-host credentials to new host; failed login cannot commit host change; transactional host/account scope clears or partitions tokens, shares, queues/cache/favorites/download metadata safely; tests both platforms incl same username, failure/cancel, expiry and unlink. No real secrets in fixtures/logs; do not broadly delete retained media.
 
 Regression gap: existing CI does not assert this specific behavior; the ticket above owns implementation and its both-platform acceptance tests. Evidence is source-only except the isolated Foundation deletion primitive check for #27.
 
@@ -128,7 +126,7 @@ Regression gap: existing CI does not assert this specific behavior; the ticket a
 
 ### [#36 — Keep retained ABS+ downloads usable after logout and same-server login](https://agentboard.icefish-betta.ts.net/#36)
 
-P2 shared correctness. Logout says downloads kept, preserves audio but deletes expanded metadata needed by downloaded/cachedCard: Android Abs.kt:153-157,205-219; iOS Abs.swift:227-234,357-383. Repro download, logout, login same server online without opening title, offline: Android excludes it/iOS Unknown item unrenderable. Acceptance preserve or rebuild safe server-scoped media metadata, retained downloads usable after valid same-server login without per-title online visit; no cross-server leakage, coordinate server-scope ticket, fixtures on both platforms; do not promise authenticated offline login.
+P2 shared correctness. Logout says downloads kept, preserves audio but deletes expanded metadata needed by downloaded/cachedCard: Android Abs.kt:153-157,205-219; iOS Abs.swift:227-234,357-383. Repro download a non-favorite title, logout, relaunch, login same server online without opening that title, then go offline: Android excludes it/iOS Unknown item unrenderable. Acceptance preserve or rebuild safe server-scoped media metadata, retained downloads usable after valid same-server login without per-title online visit; no cross-server leakage, coordinate server-scope ticket, fixtures on both platforms; do not promise authenticated offline login.
 
 Regression gap: existing CI does not assert this specific behavior; the ticket above owns implementation and its both-platform acceptance tests. Evidence is source-only except the isolated Foundation deletion primitive check for #27.
 
@@ -151,9 +149,9 @@ Android cover requests lack bearer header unlike iOS; only a server/proxy requir
 
 At the immutable application snapshot, in an isolated worktree:
 
-- Android JDK21/SDK36: `./gradlew --offline --no-daemon testDebugUnitTest assembleDebug assembleRelease` **passed**, 11 tests (7 NavigationTest, 3 DlTest, 1 NowTest), zero failures/errors. Debug/release APKs built; release uses debug signing absent release secrets, not a distributable store release.
+- Android JDK21/SDK36: `./gradlew --offline --no-daemon testDebugUnitTest assembleDebug assembleRelease` **passed**, 11 Robolectric/JVM tests (7 NavigationTest, 3 DlTest, 1 NowTest), zero failures/errors. Debug/release APKs built; release uses debug signing absent release secrets, not a distributable store release.
 - iOS Xcode27/iOS27 dedicated disposable simulator: `xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus -destination "platform=iOS Simulator,id=<dedicated fixture simulator>" -derivedDataPath <isolated> -only-testing:UITests/ListLifecycle test` **passed**. One lifecycle test, including repeated toolbar/edge-swipe return, 500-title delayed fixture, query retention and new-library reset.
-- iOS generic Simulator Release build **passed**. No signing/upload/store operation.
+- iOS generic Simulator Release build **passed**. Simulator ad-hoc signing only; no distribution signing, upload or store operation.
 - Existing exact-main [Checks run 37210231180](https://github.com/backmeupplz/absplus/actions/runs/37210231180) passed both platforms. This is baseline evidence, separate from this report PR’s checks.
 - Isolated Foundation primitive fixture verified removing a nonempty directory removes its children. This supports #27, but is not app/UI playback/download verification. Android skip behavior traced to pinned [Media3 1.11.1 BasePlayer](https://github.com/androidx/media/blob/1.11.1/libraries/common/src/main/java/androidx/media3/common/BasePlayer.java), whose seekToOffset clamps the current MediaItem.
 
@@ -164,4 +162,3 @@ Local audit evidence: `/tmp/abs26-android.log`, `/tmp/abs26-ios.log`, `/tmp/abs2
 ## Bottom line
 
 The claim “Android fixes were not applied to iOS” is too broad: the two major recent changes (downloads and #21 navigation) touched both. The audit nevertheless found real mismatches in both directions and shared correctness defects; the follow-ups above are the canonical work. Android and iOS source/build labels differ, and latest public APK predates the navigation fix. Mobile release lag and implementation parity must be assessed separately.
-
