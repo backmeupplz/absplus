@@ -299,8 +299,11 @@ object Abs {
     fun downloaded(id: String) = dlMemo.getOrPut(id) {
         File(dir, id).exists() && runCatching {
             val m = JSONObject(cached("/api/items/$id?expanded=1")!!).getJSONObject("media")
-            m.optJSONArray("tracks")?.let { a -> tracks(a).all { done(id, it) } } ?: m.getJSONArray("episodes").let { e ->
-                (0 until e.length()).any { i -> e.getJSONObject(i).optJSONObject("audioFile")?.let { done(id, track(it, 0.0)) } == true }
+            m.optJSONArray("tracks")?.let { a -> a.length() > 0 && tracks(a).all { file(id, it).isFile && done(id, it) } } ?: m.getJSONArray("episodes").let { e ->
+                (0 until e.length()).any { i -> e.getJSONObject(i).optJSONObject("audioFile")?.let {
+                    val t = track(it, 0.0)
+                    file(id, t).isFile && done(id, t)
+                } == true }
             }
         }.getOrDefault(false)
     }
