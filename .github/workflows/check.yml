@@ -1,0 +1,30 @@
+name: Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew testDebugUnitTest assembleDebug
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and exercise list navigation
+        run: >-
+          xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
+          -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
+          -only-testing:UITests/ListLifecycle test

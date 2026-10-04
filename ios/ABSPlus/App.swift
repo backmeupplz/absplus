@@ -5,7 +5,15 @@ struct ABSPlusApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        WindowGroup { RootView() }
+        WindowGroup {
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
+                ListLifecycleFixture()
+            } else { RootView() }
+#else
+            RootView()
+#endif
+        }
     }
 }
 
