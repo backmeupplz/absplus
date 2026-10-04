@@ -318,8 +318,8 @@ object Abs {
     /** 0..1, or null if never started */
     fun pct(key: String) = (progressSync.local()[key] ?: progress[key])?.let { if (it.optBoolean("isFinished")) 1.0 else it.optDouble("progress", 0.0) }
 
-    fun push(n: Now, pos: Double, finished: Boolean) {
-        progressSync.record(n, pos, finished)
+    fun push(n: Now, pos: Double, finished: Boolean, intentionalPlayback: Boolean = false) {
+        progressSync.record(n, pos, finished, intentionalPlayback)
         progress = progress + progressSync.local()
     }
 

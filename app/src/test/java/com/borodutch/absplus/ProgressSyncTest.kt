@@ -28,6 +28,8 @@ class ProgressSyncTest {
     private val patches = CopyOnWriteArrayList<String>()
     private val requests = CopyOnWriteArrayList<String>()
     @Volatile private var disconnected = false
+    @Volatile private var failReadback = false
+    private var creationTime = 500_000L
     @Volatile private var status = 0
     @Volatile private var refreshStatus = 200
     @Volatile private var rejectOldToken = false
@@ -45,6 +47,7 @@ class ProgressSyncTest {
         Abs.openConnection = { if (disconnected) throw java.net.ConnectException("fixture offline") else JvmConnection(it) }
         Abs.progressSync.close()
         Abs.p.edit().clear().commit()
+        Abs.now = null
         server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { x ->
             val name = x.requestHeaders.getFirst("Authorization")?.removePrefix("Bearer ")?.removeSuffix("-fresh") ?: "owner"
@@ -66,11 +69,12 @@ class ProgressSyncTest {
                     getEntered?.countDown(); releaseGet?.await(5, TimeUnit.SECONDS)
                     body = remote[key]?.toString() ?: "{}"
                     if (!remote.containsKey(key)) code = 404
+                    else if (failReadback) code = 503
                 } else {
                     val value = JSONObject(x.requestBody.bufferedReader().readText())
                     patchEntered?.countDown(); releasePatch?.await(5, TimeUnit.SECONDS)
                     // ABS sets server time on first creation, but accepts lastUpdate on updates.
-                    if (!remote.containsKey(key)) value.put("lastUpdate", 500_000L)
+                    if (!remote.containsKey(key)) value.put("lastUpdate", creationTime)
                     remote[key] = value
                     patches += key
                 }
@@ -129,19 +133,21 @@ class ProgressSyncTest {
     private fun tick() { time += 1 }
 
     /** Exercise the real service capture path used by periodic play, pause and STATE_ENDED. */
-    private fun playbackEvent(n: Now, position: Double, finished: Boolean = false) {
+    private fun playbackEvent(n: Now, position: Double, finished: Boolean = false, playing: Boolean = false) {
         Abs.now = n
         val player = java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader, arrayOf(androidx.media3.common.Player::class.java)) { _, method, _ ->
             when (method.name) {
                 "getCurrentMediaItem" -> androidx.media3.common.MediaItem.Builder().setMediaId(n.key + "#0").build()
                 "getCurrentMediaItemIndex" -> 0
+                "getPlaybackState" -> if (finished) androidx.media3.common.Player.STATE_ENDED else androidx.media3.common.Player.STATE_READY
                 "getCurrentPosition" -> (position * 1000).toLong()
                 else -> error("Unexpected player read: " + method.name)
             }
         } as androidx.media3.common.Player
         val service = org.robolectric.Robolectric.buildService(PlayerService::class.java).get()
-        PlayerService::class.java.getDeclaredMethod("sync", androidx.media3.common.Player::class.java, Boolean::class.javaPrimitiveType)
-            .apply { isAccessible = true }.invoke(service, player, finished)
+        val listener = service.progressListener(player)
+        if (finished) listener.onPlaybackStateChanged(androidx.media3.common.Player.STATE_ENDED)
+        else listener.onIsPlayingChanged(playing)
     }
 
     @Test fun offlinePlayPauseFinishSurviveRestartAndReplayWithoutPlaying() {
@@ -245,6 +251,80 @@ class ProgressSyncTest {
         assertTrue(patches.isEmpty())
         assertTrue(pending().isEmpty())
         assertTrue(Abs.progress.isEmpty())
+    }
+
+    @Test fun passiveCompletionSurvivesButDeliberateOfflineRereadResumesAfterRestart() {
+        disconnected = true
+        for (n in listOf(book, episode)) {
+            playbackEvent(n, 100.0, finished = true)
+            tick(); playbackEvent(n, 0.0) // late pause, not a replay request
+            Abs.startProgress(false) { time }
+            tick(); playbackEvent(n, 0.0) // paused restoration
+            assertEquals(1.0, Abs.pct(n.key)!!, 0.0)
+            assertEquals(0.0, Abs.positions(n).first().time, 0.0)
+            tick(); playbackEvent(n, 0.0, playing = true) // real service playing transition
+            tick(); playbackEvent(n, 24.0) // pause after listening
+            Abs.startProgress(false) { time }
+            assertEquals(.24, Abs.pct(n.key)!!, 0.0)
+            assertEquals(24.0, Abs.positions(n).first().time, 0.0)
+            assertTrue(pending().filter { it.getString("key") == n.key }
+                .all { !it.getJSONObject("value").getBoolean("isFinished") })
+        }
+        disconnected = false
+        replay()
+        assertTrue(pending().isEmpty())
+        for (key in listOf("owner:book", "linked:book", "owner:podcast/episode", "linked:podcast/episode")) {
+            assertEquals(24.0, remote[key]!!.getDouble("currentTime"), 0.0)
+            assertFalse(remote[key]!!.optBoolean("isFinished"))
+        }
+    }
+
+    @Test fun successfulCreationAckSurvivesLaterEventsAndRestartWithClockSkew() {
+        for (n in listOf(book, episode)) {
+            creationTime = time + 1_000
+            Abs.setShares(n.item, emptySet())
+            Abs.push(n, 10.0, false); replay()
+            assertTrue(pending().isEmpty())
+            time += 500
+            Abs.push(n, 60.0, false)
+            Abs.startProgress(false) { time }
+            // Both foreground reads and replay must recognize this exact server acknowledgement.
+            assertEquals(60.0, Abs.positions(n).first().time, 0.0)
+            replay()
+            assertTrue(pending().isEmpty())
+            assertEquals(60.0, remote["owner:" + n.key]!!.getDouble("currentTime"), 0.0)
+        }
+        assertEquals(4, patches.size)
+    }
+
+    @Test fun unavailableReadbackRetainsAttemptUntilItsTimestampIsObserved() {
+        Abs.setShares(book.item, emptySet())
+        failReadback = true
+        Abs.push(book, 10.0, false); replay()
+        assertEquals(1, pending().size)
+        tick(); Abs.push(book, 60.0, false)
+        Abs.startProgress(false) { time }
+        failReadback = false
+        assertEquals(60.0, Abs.positions(book).first().time, 0.0)
+        // The first observation pinned the timestamp. A later writer at the same
+        // position is no longer accepted as that uncertain attempt.
+        remote["owner:book"]!!.put("lastUpdate", 900_000L)
+        assertEquals(10.0, Abs.positions(book).first().time, 0.0)
+        assertTrue(pending().isEmpty())
+        assertEquals(1, patches.size)
+    }
+
+    @Test fun successfulAckDoesNotMaskSamePayloadExternalWriteOnForegroundRead() {
+        for (n in listOf(book, episode)) {
+            Abs.setShares(n.item, emptySet())
+            Abs.push(n, 10.0, false); replay()
+            tick(); Abs.push(n, 60.0, false)
+            Abs.startProgress(false) { time }
+            remote["owner:" + n.key]!!.put("lastUpdate", time + 900_000)
+            assertEquals(10.0, Abs.positions(n).first().time, 0.0)
+            assertTrue(pending().isEmpty())
+        }
+        assertEquals(2, patches.size)
     }
 
     @Test fun acknowledgedPayloadDoesNotMaskALaterRemoteWriter() {

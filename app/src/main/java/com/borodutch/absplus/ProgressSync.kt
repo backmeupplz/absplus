@@ -47,15 +47,15 @@ internal class ProgressSync(
     }
 
     /** Synchronous at the playback event: persisted before network work is scheduled. */
-    fun record(n: Now, position: Double, finished: Boolean) = synchronized(lock) {
+    fun record(n: Now, position: Double, finished: Boolean, intentionalPlayback: Boolean = false) = synchronized(lock) {
         if (closed || !position.isFinite() || !n.duration.isFinite()) return@synchronized
         val me = owner() ?: return@synchronized
         if (!prefs.contains("acct:$me")) return@synchronized
         val j = journal()
         val old = entries(j).map { it.second }.filter { valid(it) && it.getString("name") == me && it.getString("key") == n.key }
         val at = maxOf(clock(), (old.maxOfOrNull { it.getJSONObject("value").getLong("lastUpdate") } ?: 0) + 1)
-        // Sticky finish: paused restoration of a completed title must not un-finish it.
-        val done = finished || old.any { it.getJSONObject("value").optBoolean("isFinished") }
+        // Passive restore/pause callbacks retain completion; actual playback starts a reread.
+        val done = finished || (!intentionalPlayback && old.any { it.getJSONObject("value").optBoolean("isFinished") })
         val pos = position.coerceIn(0.0, n.duration.coerceAtLeast(0.0))
         val value = JSONObject().put("currentTime", pos).put("duration", n.duration)
             .put("progress", if (done) 1.0 else if (n.duration > 0) pos / n.duration else 0.0)
@@ -68,6 +68,7 @@ internal class ProgressSync(
                 .put("item", n.item).put("key", n.key).put("value", value).put("dirty", true)
                 .put("tries", previous?.optInt("tries") ?: 0).put("next", previous?.optLong("next") ?: 0)
             previous?.optJSONObject("sent")?.let { e.put("sent", it) }
+            previous?.optJSONObject("ack")?.let { e.put("ack", it) }
             j.put(id, e)
         }
         store(j)
@@ -83,9 +84,17 @@ internal class ProgressSync(
         if (own != null) {
             val e = own.second
             val local = e.getJSONObject("value")
-            if (value.optLong("lastUpdate") <= local.optLong("lastUpdate") || matches(value, e.optJSONObject("sent"))) return@synchronized local
+            // Resolve an uncertain write once. Later same-payload writes must match this
+            // exact timestamp rather than borrowing an indefinitely retained sent payload.
+            if (matches(value, e.optJSONObject("sent"))) {
+                e.put("ack", value)
+                e.remove("sent")
+                store(j)
+            }
+            if (value.optLong("lastUpdate") <= local.optLong("lastUpdate") || acknowledged(value, e)) return@synchronized local
             e.put("value", value).put("dirty", false)
             e.remove("sent")
+            e.remove("ack")
             store(j)
         }
         value
@@ -93,6 +102,12 @@ internal class ProgressSync(
 
     private fun matches(a: JSONObject, b: JSONObject?) = b != null &&
         a.optDouble("currentTime", -1.0) == b.optDouble("currentTime", -2.0) && a.optBoolean("isFinished") == b.optBoolean("isFinished")
+
+    private fun acknowledged(remote: JSONObject, entry: JSONObject): Boolean {
+        val ack = entry.optJSONObject("ack")
+        return (ack != null && matches(remote, ack) && remote.optLong("lastUpdate") == ack.optLong("lastUpdate")) ||
+            matches(remote, entry.optJSONObject("sent"))
+    }
 
     /** Scheduler respects persisted exponential deadlines, even on reconnect or new playback. */
     fun wake(): Unit = synchronized(lock) {
@@ -124,10 +139,11 @@ internal class ProgressSync(
                 val path = "/api/me/progress/" + snapshot.getString("key")
                 val name = snapshot.getString("name")
                 val remote = try { JSONObject(request("GET", path, null, name) { authorized() }) } catch (e: HttpErr) { if (e.code == 404) null else throw e }
-                if (current() == null) continue
+                val latest = current() ?: continue
                 // ABS has no conditional PATCH: external writes between GET and PATCH cannot be made atomic here.
                 val conflict = remote != null && remote.optLong("lastUpdate") > value.getLong("lastUpdate") &&
-                    !matches(remote, snapshot.optJSONObject("sent")) && !matches(remote, value)
+                    !acknowledged(remote, latest) && !matches(remote, value)
+                var ack: JSONObject? = null
                 if (!conflict) {
                     // Persist attempt before PATCH: a lost response or first-record server timestamp
                     // can then be recognized on the next read, including after process death.
@@ -139,6 +155,10 @@ internal class ProgressSync(
                     val body = JSONObject(value.toString())
                     if (!body.optBoolean("isFinished")) body.remove("isFinished")
                     request("PATCH", path, body, name) { authorized() }
+                    // PATCH returns no progress row. Read back its server-created timestamp before
+                    // clearing the attempt, including if a newer local event arrived in flight.
+                    val confirmed = JSONObject(request("GET", path, null, name) { authorized() })
+                    if (matches(confirmed, value)) ack = confirmed
                 }
                 synchronized(lock) {
                     val j = journal(); val e = j.optJSONObject(id)
@@ -146,9 +166,11 @@ internal class ProgressSync(
                         if (e.getJSONObject("value").getLong("lastUpdate") == value.getLong("lastUpdate")) {
                             if (conflict) e.put("value", remote)
                             e.put("dirty", false).put("tries", 0).put("next", 0)
-                            e.remove("sent") // only uncertain/older in-flight writes need identity matching
                         }
-                        // A newer local event remains dirty; sent identifies the older acknowledgement.
+                        e.remove("sent")
+                        e.remove("ack")
+                        ack?.let { e.put("ack", it) }
+                        // A newer local event remains dirty; ack matches only this server timestamp.
                         store(j)
                     }
                 }

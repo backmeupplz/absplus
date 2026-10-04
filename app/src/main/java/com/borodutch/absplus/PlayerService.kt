@@ -40,25 +40,30 @@ class PlayerService : MediaSessionService() {
             .setSeekBackIncrementMs(30_000)
             .setSeekForwardIncrementMs(30_000)
             .build()
-        player.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) {
-                if (!playing && player.playbackState != Player.STATE_ENDED) sync(player)
-            }
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) sync(player, true)
-            }
-        })
+        player.addListener(progressListener(player))
         session = MediaSession.Builder(this, player)
             .setSessionActivity(PendingIntent.getActivity(this, 0, Intent(this, Main::class.java), PendingIntent.FLAG_IMMUTABLE))
             .build()
         h.post(tick)
     }
 
-    private fun sync(p: Player, finished: Boolean = false) {
+    // Shared by app controls and notification/headset play commands. Preparing a paused
+    // restore never emits playing=true, so only actual playback clears a finished title.
+    internal fun progressListener(player: Player) = object : Player.Listener {
+        override fun onIsPlayingChanged(playing: Boolean) {
+            if (playing) sync(player, intentionalPlayback = true)
+            else if (player.playbackState != Player.STATE_ENDED) sync(player)
+        }
+        override fun onPlaybackStateChanged(state: Int) {
+            if (state == Player.STATE_ENDED) sync(player, true)
+        }
+    }
+
+    private fun sync(p: Player, finished: Boolean = false, intentionalPlayback: Boolean = false) {
         val n = Abs.now ?: return
         if (p.currentMediaItem?.mediaId?.startsWith(n.key + "#") != true) return
         val pos = if (finished) n.duration else Abs.pos(p, n)
-        Abs.push(n, pos, finished)
+        Abs.push(n, pos, finished, intentionalPlayback)
     }
 
     override fun onGetSession(info: MediaSession.ControllerInfo) = session
