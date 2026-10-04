@@ -64,3 +64,7 @@ Three reproduced review findings were corrected without changing the platform bo
 - Cover binding always replaces both tag and request token before any early return, including blank item/server. A delayed image fixture binds two views to blank ID/server, restores the server, and waits for a third view's shared request to complete; neither blank placeholder can be overwritten.
 
 The original 24 tests remain in the suite, including all seven #21 navigation regressions. These four added regressions close the specific review coverage gaps; the real-device/audio/OS limitations above remain unchanged.
+
+## Independent regression sensitivity
+
+At reviewed head `9c9807f`, swapping only `Main.kt` to the pre-fix `bf548df` version compiled and made `detailMalformedResponseIsRetryableAndOfflineCacheIsNotBlank` fail on the missing visible “Loading title…” assertion. Restoring the reviewed production file passed the identical test. No test edits or assertion weakening were used; the detached experiment checkout was restored clean.
