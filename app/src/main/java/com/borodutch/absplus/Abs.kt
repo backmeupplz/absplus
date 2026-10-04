@@ -183,7 +183,13 @@ object Abs {
 
     private fun cacheFile(path: String) = File(cacheDir, path.replace(Regex("[^A-Za-z0-9]"), "_"))
     fun cached(path: String) = cacheFile(path).takeIf { it.exists() }?.readText()
-    fun get(path: String) = api("GET", path).also { cacheFile(path).writeText(it) }
+    fun get(path: String): String {
+        val owner = server to me
+        return api("GET", path).also {
+            JSONObject(it)
+            if (owner == (server to me)) cacheFile(path).writeText(it)
+        }
+    }
 
     // --- tracks & downloads
 
@@ -252,9 +258,9 @@ object Abs {
     /** First = where this account should resume; the rest = linked accounts that listened more recently elsewhere. */
     fun positions(n: Now): List<Pos> {
         val local = p.getString("pos:${n.key}", null)?.split(',')?.let { Pos("You", it[0].toDouble(), it[1].toLong()) }
-        val mine = listOfNotNull(local, me?.let { remote(it, n.key) }?.let { Pos("You", it.time, it.at) })
+        val mine = listOfNotNull(local, me?.takeUnless { offline }?.let { remote(it, n.key) }?.let { Pos("You", it.time, it.at) })
             .maxByOrNull { it.at } ?: Pos("You", 0.0, 0)
-        return listOf(mine) + shares(n.item).mapNotNull { remote(it, n.key) }
+        return listOf(mine) + (if (offline) emptySet() else shares(n.item)).mapNotNull { remote(it, n.key) }
             .filter { it.at > mine.at && abs(it.time - mine.time) > 30 }
     }
 
@@ -335,7 +341,12 @@ object Abs {
     /** title/author for a favorite added on another device; call off the main thread */
     @Synchronized
     fun fillFav(id: String) {
-        val c = Card.item(JSONObject(get("/api/items/$id")))
+        fillFavCard(Card.item(JSONObject(get("/api/items/$id"))))
+    }
+
+    @Synchronized
+    fun fillFavCard(c: Card) {
+        val id = c.id
         val o = JSONObject(p.getString("fav", "{}"))
         if (o.has(id)) p.edit().putString("fav", o.put(id, c.json()).toString()).apply()
     }

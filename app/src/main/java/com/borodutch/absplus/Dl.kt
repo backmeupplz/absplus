@@ -31,6 +31,7 @@ object Dl {
     class Job(val n: Now) {
         val total = n.tracks.sumOf { it.size }
         @Volatile var got = 0L
+        @Volatile var error: String? = null
         @Volatile var waiting = false // couldn't reach the server, will retry
     }
 
@@ -59,7 +60,16 @@ object Dl {
 
     /** (re)starts the background service when there is something to download */
     fun start(c: Context) {
-        if (jobs.isNotEmpty()) runCatching { ContextCompat.startForegroundService(c, Intent(c, DlService::class.java)) }
+        if (jobs.isNotEmpty()) runCatching { ContextCompat.startForegroundService(c, Intent(c, DlService::class.java)) }.onFailure {
+            jobs.firstOrNull()?.error = "Download paused. Tap Retry."
+            onChange?.invoke("Could not start download. Try again.")
+        }
+    }
+
+    fun retry(c: Context, j: Job) {
+        j.error = null
+        j.waiting = false
+        start(c)
     }
 
     /** forgets a title's download and deletes whatever of it is on disk */
@@ -88,6 +98,7 @@ object Dl {
             var wait = 2_000L
             while (true) {
                 val j = synchronized(this) { jobs.firstOrNull().also { if (it == null) worker = null } } ?: break
+                if (j.error != null) { synchronized(this) { worker = null }; break }
                 try {
                     for (t in j.n.tracks) if (!Abs.done(j.n.item, t)) {
                         wake.acquire(30 * 60_000L)
@@ -96,17 +107,18 @@ object Dl {
                     finish(j, null)
                     wait = 2_000
                 } catch (_: Stop) {
-                } catch (e: Expired) { // signed out: the queue waits for the next start
+                } catch (e: Expired) { // keep the paused entry retryable
+                    j.error = "Sign in again to resume download"
                     synchronized(this) { worker = null }
                     break
                 } catch (e: HttpErr) {
-                    if (e.code in 400..499 && e.code !in setOf(401, 408, 429)) finish(j, "Couldn't download “${j.n.title}” (${e.message})")
+                    if (e.code in 400..499 && e.code !in setOf(401, 408, 429)) { j.error = "Couldn't download (${e.message})"; onChange?.invoke(j.error) }
                     else wait = pause(j, wait)
                 } catch (e: IOException) {
                     wait = pause(j, wait)
                 }
             }
-            wake.release()
+            if (wake.isHeld) wake.release()
             onChange?.invoke(null)
             s.stop()
         }
@@ -155,6 +167,7 @@ object Dl {
         try {
             c.connectTimeout = 15_000
             c.readTimeout = 30_000
+            onBytes(part.length()) // cancellation before opening a socket
             c.setRequestProperty("Authorization", "Bearer $token")
             val have = part.length()
             if (have > 0) c.setRequestProperty("Range", "bytes=$have-")

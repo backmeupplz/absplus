@@ -85,10 +85,21 @@ class Main : AppCompatActivity() {
     private var ctl: MediaController? = null
     private val h = Handler(Looper.getMainLooper())
     private var generation = 0
+    private var loadRows = LinearLayoutHolder()
+    private class LinearLayoutHolder {
+        var box: LinearLayout? = null
+        var owner = 0
+        val requests = HashMap<String, Any>()
+        val statuses = HashMap<String, LoadStatus>()
+    }
+    private var playRequest = 0
+    private var pendingPlay: String? = null
+    private var playStatus: LoadStatus? = null
+    private var pinging = false
     private var screen = 0 // visible page identity; retained pages still receive their own results
     // Retain the view, data and controls rather than re-running a list builder on Back.
     private class Page(val render: () -> Unit, val view: View?, val generation: Int,
-        val library: String?, val offline: Boolean, val resume: (() -> Unit)?)
+        val library: String?, val offline: Boolean, val resume: (() -> Unit)?, val loads: LinearLayoutHolder)
     private var retainPage = false
     private var onReturn: (() -> Unit)? = null
     private val stack = ArrayDeque<Page>()
@@ -123,8 +134,8 @@ class Main : AppCompatActivity() {
             labelVisibilityMode = com.google.android.material.navigation.NavigationBarView.LABEL_VISIBILITY_LABELED
         }
         banner = row(
-            text("Offline · showing downloads only", M.attr.textAppearanceLabelLarge).apply { setTextColor(color(M.attr.colorOnErrorContainer)) }.lp(0, -2, 1f),
-            button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) { thread { Abs.ping() } }
+            text("Offline · saved content available", M.attr.textAppearanceLabelLarge).apply { setTextColor(color(M.attr.colorOnErrorContainer)) }.lp(0, -2, 1f),
+            button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) { retryConnection() }
                 .apply { setTextColor(color(M.attr.colorOnErrorContainer)) },
         ).pad(16, 0).apply { setBackgroundColor(color(M.attr.colorErrorContainer)); visibility = View.GONE }
         setContentView(col(content.lp(-1, 0, 1f), banner, dlBar, mini, nav))
@@ -139,7 +150,8 @@ class Main : AppCompatActivity() {
         super.onStart()
         val f = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlayerService::class.java))).buildAsync()
         fut = f
-        f.addListener({ ctl = runCatching { f.get() }.getOrNull(); restore(); tick.run() }, mainExecutor)
+        f.addListener({ if (fut === f && !isDestroyed) { ctl = runCatching { f.get() }.getOrNull(); restore() } }, mainExecutor)
+        tick.run()
         Dl.onChange = { msg ->
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
@@ -157,6 +169,10 @@ class Main : AppCompatActivity() {
         fut?.let { MediaController.releaseFuture(it) }
         fut = null
         ctl = null
+        playRequest++
+        pendingPlay = null
+        playStatus?.success()
+        playStatus = null
         super.onStop()
     }
 
@@ -179,10 +195,24 @@ class Main : AppCompatActivity() {
             if (Abs.offline != wasOffline) { // connectivity flipped: re-render with/without the downloads-only filter
                 wasOffline = Abs.offline
                 banner.isVisible = wasOffline
-                if (Abs.me != null && nav.isVisible) cur()
+                // Do not rebuild a list or erase its query/anchor for a background connectivity change.
             }
-            if (Abs.offline && ++ticks % 10 == 0) thread { Abs.ping() }
+            if (Abs.offline && ++ticks % 10 == 0) retryConnection()
             h.postDelayed(this, 1000)
+        }
+    }
+
+    private fun retryConnection() {
+        if (pinging) return
+        pinging = true
+        val retry = (banner as ViewGroup).getChildAt(1) as MaterialButton
+        retry.isEnabled = false
+        retry.text = "Connecting…"
+        bg({ Abs.ping() }, { pinging = false; retry.isEnabled = true; retry.text = "Retry" }) {
+            pinging = false
+            retry.isEnabled = true
+            retry.text = "Retry"
+            banner.isVisible = Abs.offline
         }
     }
 
@@ -196,7 +226,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun push(s: () -> Unit) {
-        stack.addLast(Page(cur, content.getChildAt(0).takeIf { retainPage }, screen, Abs.p.getString("lib", null), Abs.offline, onReturn))
+        stack.addLast(Page(cur, content.getChildAt(0).takeIf { retainPage }, screen, Abs.p.getString("lib", null), Abs.offline, onReturn, loadRows))
         cur = s
         back.isEnabled = true
         s()
@@ -210,11 +240,20 @@ class Main : AppCompatActivity() {
             cur() // an explicit context change must not reuse the old list
         } else {
             screen = page.generation
+            playRequest++
+            pendingPlay = null
+            playStatus?.success()
+            playStatus = null
+            loadRows = page.loads
             retainPage = true
             onDl = page.resume
             onDlTick = null
             onReturn = page.resume
             show(page.view)
+            page.loads.box?.let { box ->
+                (box.parent as? ViewGroup)?.removeView(box)
+                content.addView(box, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+            }
             // Update badges/progress without replacing data, controls or layout managers.
             fun refresh(v: View) {
                 if (v is RecyclerView) v.adapter?.notifyDataSetChanged()
@@ -227,6 +266,11 @@ class Main : AppCompatActivity() {
 
     private fun begin() {
         screen = ++generation
+        playRequest++
+        pendingPlay = null
+        playStatus?.success()
+        playStatus = null
+        loadRows = LinearLayoutHolder().also { it.owner = screen }
         retainPage = false
         onReturn = null
         onDl = null
@@ -237,6 +281,45 @@ class Main : AppCompatActivity() {
     private fun show(v: View) {
         content.removeAllViews()
         content.addView(v)
+    }
+
+    /** Each page owns its status rows, including while retained behind details. */
+    private fun status(label: String): LoadStatus {
+        var box = loadRows.box
+        if (box == null) {
+            box = col()
+            loadRows.box = box
+            // Overlay feedback instead of changing the RecyclerView viewport as requests settle.
+            if (loadRows.owner == screen) content.addView(box, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        }
+        return LoadStatus(label).also { box.addView(it.view) }
+    }
+
+    private inner class LoadStatus(private val label: String) {
+        private val message = text("", M.attr.textAppearanceBodySmall, muted = true).apply {
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        private val spinner = CircularProgressIndicator(this@Main).apply {
+            isIndeterminate = true; indicatorSize = dp(20); trackThickness = dp(2)
+        }
+        private val retry = button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) {}
+        val view = row(spinner.lp(dp(28), dp(28)), message.lp(0, -2, 1f), retry).pad(16, 4).apply {
+            setBackgroundColor(color(M.attr.colorSurface))
+        }
+        fun loading(retained: Boolean) {
+            view.isVisible = true; spinner.isVisible = true; retry.isVisible = false
+            message.text = if (retained) "Updating $label…" else "Loading $label…"
+        }
+        fun success() { view.isVisible = false }
+        fun failed(retained: Boolean, e: Throwable, again: () -> Unit) {
+            view.isVisible = true; spinner.isVisible = false; retry.isVisible = true
+            message.text = if (Abs.offline) {
+                if (retained) "Offline · showing saved $label" else "Offline · $label unavailable"
+            } else if (retained) "Couldn't update $label. Showing saved content." else "Couldn't load $label."
+            val expired = e is Expired || e is HttpErr && e.code == 401
+            if (expired) { message.text = "Session expired. Sign in again."; retry.text = "Sign in" } else retry.text = "Retry"
+            retry.setOnClickListener { if (expired) login() else again() }
+        }
     }
 
     private fun header(title: String) =
@@ -251,6 +334,11 @@ class Main : AppCompatActivity() {
 
     private fun login() {
         screen = ++generation
+        playRequest++
+        pendingPlay = null
+        playStatus?.success()
+        playStatus = null
+        loadRows = LinearLayoutHolder().also { it.owner = screen }
         retainPage = false
         onReturn = null
         stack.clear()
@@ -261,8 +349,14 @@ class Main : AppCompatActivity() {
         val pass = field("Password", "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
         val go = button("Sign in") {}
         go.setOnClickListener {
+            if (!go.isEnabled) return@setOnClickListener
             go.isEnabled = false
-            bg({ Abs.login(url.str(), user.str(), pass.str(), true) }, { go.isEnabled = true; err(it) }) { if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 }
+            go.text = "Signing in…"
+            val gen = screen
+            val server = url.str(); val username = user.str(); val password = pass.str()
+            bg({ Abs.login(server, username, password, true) }, {
+                if (gen == screen) { go.isEnabled = true; go.text = "Sign in"; err(it) }
+            }) { if (gen == screen) { if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 } }
         }
         val logo = ImageView(this).apply { setImageResource(R.drawable.logo) }.lp(dp(96), dp(96), m = 8)
         val c = col(
@@ -295,20 +389,22 @@ class Main : AppCompatActivity() {
             })
         }
         val contTitle = section("Continue listening")
+        val empty = text("Nothing to continue listening to.", muted = true).pad(16, 4).apply { isVisible = false }
         val hist = col()
         Abs.history().filter { !Abs.offline || Abs.downloaded(it.first.id) }.forEach { (c, at) ->
             hist.addView(listRow(c, DateUtils.getRelativeTimeSpanString(at), { playCard(c) }) { push { item(c.id) } })
         }
         if (hist.childCount == 0) hist.addView(text("Nothing played on this device yet.", muted = true).pad(16, 4))
-        show(NestedScrollView(this).apply { addView(col(header("Home"), contTitle, cont, section("Recently played"), hist).pad(0, 0)) })
-        load("/api/me") { Abs.setMe(it); cont.adapter?.notifyDataSetChanged() }
-        load("/api/me/items-in-progress?limit=20") { j ->
+        show(NestedScrollView(this).apply { addView(col(header("Home"), contTitle, cont, empty, section("Recently played"), hist).pad(0, 0)) })
+        load("/api/me", label = "progress") { Abs.setMe(it); cont.adapter?.notifyDataSetChanged() }
+        load("/api/me/items-in-progress?limit=20", label = "continue listening") { j ->
             val a = j.getJSONArray("libraryItems")
             items = (0 until a.length()).map { a.getJSONObject(it) }.map { li ->
                 val c = Card.item(li)
                 li.optJSONObject("recentEpisode")?.let { Card(c.id, it.str("title"), c.title, it.getString("id")) } ?: c
             }.let(::avail)
-            contTitle.isVisible = items.isNotEmpty()
+            empty.isVisible = items.isEmpty()
+            contTitle.isVisible = true
             cont.isVisible = items.isNotEmpty()
             cont.adapter?.notifyDataSetChanged()
         }
@@ -325,6 +421,8 @@ class Main : AppCompatActivity() {
             val r = dp(28).toFloat()
             setBoxCornerRadii(r, r, r, r)
         }
+        val empty = text("", muted = true).pad(16, 4).apply { isVisible = false }
+        var loaded = false
         var all = listOf<Card>()
         var shown = all
         val sel = Abs.p.getString("lib", null)
@@ -336,6 +434,8 @@ class Main : AppCompatActivity() {
             val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
             val q = search.str().trim()
             shown = avail(if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.sub.contains(q, true) })
+            empty.text = if (q.isNotEmpty()) "No matching titles." else if (Abs.offline) "Nothing downloaded on this device." else "No titles in this library."
+            empty.isVisible = loaded && shown.isEmpty()
             g.adapter?.notifyDataSetChanged()
             if (!preservePosition) lm.scrollToPositionWithOffset(0, 0)
             else if (key != null && offset != null) {
@@ -345,8 +445,9 @@ class Main : AppCompatActivity() {
         }
         search.editText!!.doAfterTextChanged { filter(preservePosition = false) }
         if (Abs.offline) { // every downloaded item, whatever its library
-            show(col(header("Downloaded"), search.lp(m = 0).pad(16, 4), g.lp(-1, 0, 1f)))
+            show(col(header("Downloaded"), search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f)))
             onReturn = {
+                loaded = true
                 all = Abs.downloads().map { Abs.cachedCard(it.name) }
                 filter()
             }
@@ -354,9 +455,10 @@ class Main : AppCompatActivity() {
             return onReturn!!.invoke()
         }
         show(col(header("Library"), HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0),
-            search.lp(m = 0).pad(16, 4), g.lp(-1, 0, 1f)))
-        load("/api/libraries", retained = sel != null) { j ->
+            search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f)))
+        load("/api/libraries", retained = sel != null, label = "libraries") { j ->
             val libs = j.getJSONArray("libraries")
+            if (libs.length() == 0 && sel == null) { empty.text = "No libraries available."; empty.isVisible = true }
             chips.removeAllViews()
             for (i in 0 until libs.length()) {
                 val l = libs.getJSONObject(i)
@@ -376,12 +478,13 @@ class Main : AppCompatActivity() {
             }
         }
         if (sel == null) return
-        load("/api/libraries/$sel/items?minified=1&sort=media.metadata.title", retained = true) { j ->
+        load("/api/libraries/$sel/items?minified=1&sort=media.metadata.title", retained = true, label = "titles") { j ->
             val r = j.getJSONArray("results")
+            loaded = true
             all = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
             filter()
         }
-        load("/api/me") { Abs.setMe(it); g.adapter?.notifyDataSetChanged() }
+        load("/api/me", retained = true, label = "progress") { Abs.setMe(it); g.adapter?.notifyDataSetChanged() }
     }
 
     // --- series (from the server's book libraries)
@@ -389,17 +492,22 @@ class Main : AppCompatActivity() {
     private fun series() {
         begin()
         val box = col()
-        val empty = text("No series on the server yet.", muted = true).pad(16, 4)
+        var seriesVersion = 0
+        val empty = text("No series on the server yet.", muted = true).pad(16, 4).apply { isVisible = false }
         show(NestedScrollView(this).apply { addView(col(header("Series"), box, empty)) })
-        load("/api/libraries") { j ->
+        load("/api/libraries", label = "libraries") { j ->
+            val version = ++seriesVersion
             val libs = j.getJSONArray("libraries").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.filter { it.str("mediaType") == "book" }
             val boxes = libs.map { col() }
+            val completed = BooleanArray(libs.size)
+            empty.isVisible = libs.isEmpty()
             box.removeAllViews()
             boxes.forEach { box.addView(it) }
             libs.forEachIndexed { i, l ->
                 val id = l.getString("id")
                 val ratio = Abs.p.getFloat("ratio:$id", 1f)
-                load("/api/libraries/$id/series?limit=1000&sort=name") { sj ->
+                load("/api/libraries/$id/series?limit=1000&sort=name", label = l.getString("name") + " series") seriesResult@{ sj ->
+                    if (version != seriesVersion) return@seriesResult
                     val a = sj.getJSONArray("results")
                     boxes[i].removeAllViews()
                     if (libs.size > 1 && a.length() > 0) boxes[i].addView(section(l.getString("name")))
@@ -409,7 +517,8 @@ class Main : AppCompatActivity() {
                         val name = se.getString("name")
                         boxes[i].addView(listRow(Card(books.firstOrNull()?.id ?: "", name, ""), "${books.size} books", null) { push { shelf(name, books, ratio) } })
                     }
-                    empty.isVisible = boxes.all { it.childCount == 0 }
+                    completed[i] = true
+                    empty.isVisible = completed.all { it } && boxes.all { it.childCount == 0 }
                 }
             }
         }
@@ -443,6 +552,7 @@ class Main : AppCompatActivity() {
         retainPage = true
         val owner = screen
         var favs = avail(Abs.favs())
+        var membershipLoaded = false
         val empty = text("Tap ♡ on a book or podcast to keep it here.", muted = true).pad(16, 4)
         val g = grid(1f) { favs }
         fun refresh() {
@@ -451,7 +561,7 @@ class Main : AppCompatActivity() {
             val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
             val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
             favs = avail(Abs.favs())
-            empty.isVisible = favs.isEmpty()
+            empty.isVisible = membershipLoaded && favs.isEmpty()
             g.adapter?.notifyDataSetChanged()
             val at = favs.indexOfFirst { it.key == key }
             if (at >= 0 && offset != null) lm.scrollToPositionWithOffset(at, offset)
@@ -460,10 +570,17 @@ class Main : AppCompatActivity() {
         onDl = onReturn
         show(col(header("Favorites"), empty, g.lp(-1, 0, 1f)))
         refresh()
-        load("/api/me", retained = true) { me ->
+        empty.isVisible = false
+        load("/api/me", retained = true, label = "favorites") { me ->
+            membershipLoaded = true
             Abs.setMe(me)
             refresh()
-            favs.filter { it.title.isEmpty() }.forEach { c -> bg({ Abs.fillFav(c.id) }, {}) { if (ownsPage(owner, true)) refresh() } }
+            favs.filter { it.title.isEmpty() }.forEach { c ->
+                load("/api/items/${c.id}", retained = true, label = "favorite details") { item ->
+                    Abs.fillFavCard(Card.item(item))
+                    if (ownsPage(owner, true)) refresh()
+                }
+            }
         }
     }
 
@@ -558,8 +675,9 @@ class Main : AppCompatActivity() {
         (prog.layoutParams as LinearLayout.LayoutParams).topMargin = dp(6)
         val r = row(
             cover,
+            button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) { Dl.retry(this, j); downloads() }.apply { isVisible = j.error != null },
             col(text(j.n.title, M.attr.textAppearanceTitleSmall, 2), meta, prog).pad(14, 0).lp(0, -2, 1f),
-            icon(R.drawable.i_close) { confirm("Cancel downloading “${j.n.title}”?") { Dl.cancel(j.n); Abs.dlChanged(); downloads() } }
+            icon(R.drawable.i_close) { confirm("Cancel downloading “${j.n.title}”?") { Dl.cancel(j.n); Dl.start(this); Abs.dlChanged(); downloads() } }
                 .apply { contentDescription = "Cancel download" },
         ).pad(16, 8)
         r.setBackgroundResource(res(android.R.attr.selectableItemBackground))
@@ -574,6 +692,7 @@ class Main : AppCompatActivity() {
 
     /** "45% · 47 of 105 MB", "Queued" or "Waiting for connection" */
     private fun dlStatus(j: Dl.Job) = when {
+        j.error != null -> j.error!!
         j !== Dl.jobs.firstOrNull() -> "Queued"
         j.waiting -> "Waiting for connection"
         else -> "${(Dl.pct(j) * 100).toInt()}% · ${mb(j.got)} of ${mb(j.total)}"
@@ -581,7 +700,7 @@ class Main : AppCompatActivity() {
 
     /** determinate while bytes are coming in, indeterminate while queued or waiting */
     private fun progress(p: com.google.android.material.progressindicator.BaseProgressIndicator<*>, j: Dl.Job) {
-        val known = j === Dl.jobs.firstOrNull() && !j.waiting && j.total > 0
+        val known = j === Dl.jobs.firstOrNull() && !j.waiting && j.error == null && j.total > 0
         if (p.isIndeterminate == known) { // can't switch modes while shown
             val v = p.visibility
             p.visibility = View.INVISIBLE
@@ -667,7 +786,7 @@ class Main : AppCompatActivity() {
         begin()
         val rv = RecyclerView(this).apply { layoutManager = LinearLayoutManager(context) }
         show(col(subHeader(""), rv.lp(-1, 0, 1f)))
-        load("/api/items/$id?expanded=1") { renderItem(rv, it) }
+        load("/api/items/$id?expanded=1", label = "title") { renderItem(rv, it) }
     }
 
     private fun renderItem(rv: RecyclerView, j: JSONObject) {
@@ -693,8 +812,23 @@ class Main : AppCompatActivity() {
 
         val fav = icon(if (Abs.isFav(c.id)) R.drawable.i_favorite_fill else R.drawable.i_favorite) {}
         fav.setOnClickListener {
+            if (!fav.isEnabled) return@setOnClickListener
+            fav.isEnabled = false
             val on = Abs.toggleFav(c)
-            thread { Abs.pushFavs() }
+            val state = status("favorites sync")
+            val owner = screen
+            var syncing = false
+            fun sync() {
+                if (syncing) return
+                syncing = true
+                fav.isEnabled = false
+                state.loading(true)
+                bg({ Abs.pushFavs(); check(!JSONObject(Abs.p.getString("favq", "{}")).has(c.id)) }, { e ->
+                    syncing = false
+                    if (owner == screen) { fav.isEnabled = true; state.failed(true, e, ::sync) }
+                }) { syncing = false; if (owner == screen) { fav.isEnabled = true; state.success() } }
+            }
+            sync()
             fav.icon = ContextCompat.getDrawable(this, if (on) R.drawable.i_favorite_fill else R.drawable.i_favorite)
             toast(if (on) "Added to favorites" else "Removed from favorites")
         }
@@ -716,6 +850,7 @@ class Main : AppCompatActivity() {
             onDlTick = { updDl() }
             val play = button(if (p > 0 && p < 1) "Resume" else "Play", R.drawable.i_play_arrow_fill) { play(n) }
             play.isEnabled = ts.isNotEmpty()
+            if (ts.isEmpty()) head.addView(text("No audio available.", muted = true))
             head.addView(row(play.lp(-2, -2), dl, fav, share).apply { gravity = Gravity.CENTER }.pad(0, 8))
         } else {
             val a = m.getJSONArray("episodes")
@@ -737,7 +872,9 @@ class Main : AppCompatActivity() {
         if (!book) head.addView(text("Episodes", M.attr.textAppearanceTitleMedium).lp().pad(0, 8))
         head.layoutParams = RecyclerView.LayoutParams(-1, -2)
         val one = Rv({ 1 }, { head.also { (it.parent as? ViewGroup)?.removeView(it) } }, { _, _ -> })
+        val position = rv.layoutManager?.onSaveInstanceState()
         rv.adapter = epAdapter?.let { ConcatAdapter(one, it) } ?: one
+        position?.let { rv.layoutManager?.onRestoreInstanceState(it) }
     }
 
     private class EpRow(val title: TextView, val meta: TextView, val dl: View, val play: MaterialButton)
@@ -780,7 +917,8 @@ class Main : AppCompatActivity() {
 
     /** done -> remove, queued or downloading -> cancel, otherwise (incl. partial) -> download what's missing */
     private fun bindDl(v: View, n: Now) = (v.tag as DlView).run {
-        val done = n.tracks.all { Abs.done(n.item, it) }
+        val done = n.tracks.isNotEmpty() && n.tracks.all { Abs.done(n.item, it) }
+        btn.isEnabled = n.tracks.isNotEmpty()
         val j = if (done) null else Dl.job(n.key)
         btn.icon = ContextCompat.getDrawable(this@Main, if (done) R.drawable.i_download_done_fill else if (j != null) R.drawable.i_stop else R.drawable.i_download)
         btn.contentDescription = if (done) "Remove download" else if (j != null) "Cancel download" else "Download"
@@ -800,7 +938,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun removeDl(n: Now, busy: Boolean = false) = confirm(if (busy) "Cancel downloading “${n.title}”?" else "Remove the download of “${n.title}”?") {
-        if (busy) Dl.cancel(n) else Abs.remove(n.tracks.map { Abs.file(n.item, it) })
+        if (busy) { Dl.cancel(n); Dl.start(this) } else Abs.remove(n.tracks.map { Abs.file(n.item, it) })
         Abs.dlChanged()
         onDl?.invoke()
         updateDl()
@@ -863,20 +1001,37 @@ class Main : AppCompatActivity() {
     private fun addAccount(then: () -> Unit) {
         val user = field("Username")
         val pass = field("Password", "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
-        MaterialAlertDialogBuilder(this).setTitle("Link another account")
-            .setMessage("They sign in here once to allow it.")
-            .setView(col(user, pass, pad = 20))
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Link") { _, _ ->
-                bg({ Abs.login(Abs.server, user.str(), pass.str(), false) }) {
-                    if (it == Abs.me) toast("That's you") else { toast("Linked $it"); then() }
+        val message = text("They sign in here once to allow it.", muted = true)
+        val d = MaterialAlertDialogBuilder(this).setTitle("Link another account")
+            .setView(col(message, user, pass, pad = 20))
+            .setNegativeButton("Cancel", null).setPositiveButton("Link", null).create()
+        val gen = screen
+        var running = false
+        d.show()
+        run {
+            val go = d.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
+            go.setOnClickListener {
+                if (running) return@setOnClickListener
+                running = true; go.isEnabled = false; go.text = "Linking…"
+                d.setCancelable(false)
+                d.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).isEnabled = false
+                val username = user.str(); val password = pass.str()
+                bg({ Abs.login(Abs.server, username, password, false) }, {
+                    running = false; go.isEnabled = true; go.text = "Link"
+                    d.setCancelable(true)
+                    d.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).isEnabled = true
+                    message.text = it.message ?: "Couldn't link account. Try again."
+                }) {
+                    d.dismiss()
+                    if (gen == screen) { if (it == Abs.me) toast("That's you") else { toast("Linked $it"); then() } }
                 }
-            }.show()
+            }
+        }
     }
 
     // --- playback
 
-    private fun playCard(c: Card) = bg({
+    private fun playCard(c: Card) = preparePlay(c.key) {
         val path = "/api/items/${c.id}?expanded=1"
         val j = JSONObject(Abs.cached(path) ?: Abs.get(path))
         val m = j.getJSONObject("media")
@@ -886,15 +1041,39 @@ class Main : AppCompatActivity() {
             val e = (0 until a.length()).map { a.getJSONObject(it) }.first { it.getString("id") == c.ep }
             Now(c.id, c.ep, e.str("title"), Card.item(j).title, listOf(Abs.track(e.getJSONObject("audioFile"), 0.0)))
         }
-    }) { play(it) }
+    }
 
-    private fun play(n: Now) {
-        if (n.tracks.isEmpty()) return toast("No audio")
-        bg({ Abs.positions(n) }) { ps ->
+    private fun play(n: Now) = preparePlay(n.key) { n }
+
+    private fun preparePlay(key: String, get: () -> Now) {
+        if (pendingPlay == key) return
+        pendingPlay = key
+        val request = ++playRequest
+        val gen = screen
+        playStatus?.success()
+        val state = status("audio")
+        playStatus = state
+        state.loading(false)
+        bg({
+            val n = get()
+            check(n.tracks.isNotEmpty()) { "No audio" }
+            n to Abs.positions(n)
+        }, { e ->
+            if (request != playRequest || gen != screen) state.success()
+            if (request == playRequest && gen == screen) {
+                pendingPlay = null
+                state.failed(false, e) { state.success(); preparePlay(key, get) }
+            }
+        }) { (n, ps) ->
+            if (request != playRequest || gen != screen) { state.success(); return@bg }
+            pendingPlay = null
+            state.success()
+            if (ctl == null) { state.failed(false, IllegalStateException("Player not ready")) { state.success(); preparePlay(key, get) }; return@bg }
             if (ps.size == 1) start(n, ps[0].time)
             else MaterialAlertDialogBuilder(this).setTitle("Resume “${n.title}” from")
-                .setItems(ps.map { "${it.who} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i -> start(n, ps[i].time) }
-                .show()
+                .setItems(ps.map { "${it.who} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i ->
+                    if (request == playRequest && gen == screen) start(n, ps[i].time)
+                }.setNegativeButton("Cancel", null).show()
         }
     }
 
@@ -903,7 +1082,8 @@ class Main : AppCompatActivity() {
         val c = ctl ?: return
         if (c.mediaItemCount > 0 || Abs.me == null) return
         val n = Abs.now ?: Abs.loadNow() ?: return
-        bg({ Abs.positions(n).first().time }) { t -> if (ctl === c && c.mediaItemCount == 0) start(n, t, play = false) }
+        val request = playRequest
+        bg({ Abs.positions(n).first().time }, {}) { t -> if (request == playRequest && pendingPlay == null && ctl === c && c.mediaItemCount == 0) start(n, t, play = false) }
     }
 
     private fun start(n: Now, t: Double, play: Boolean = true) {
@@ -937,7 +1117,7 @@ class Main : AppCompatActivity() {
         miniCover = Cover(this).lp(dp(44), dp(44))
         miniTitle = text("", M.attr.textAppearanceTitleSmall, 1)
         miniSub = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
-        miniPlay = icon(R.drawable.i_play_arrow_fill) { ctl?.let { Util.handlePlayPauseButtonAction(it) } }
+        miniPlay = icon(R.drawable.i_play_arrow_fill) { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }
         miniProg = LinearProgressIndicator(this).apply { max = 1000; trackThickness = dp(2) }
         return MaterialCardView(this, null, M.attr.materialCardViewFilledStyle).apply {
             addView(col(row(miniCover, col(miniTitle, miniSub).pad(12, 0).lp(0, -2, 1f), miniPlay).pad(8, 6), miniProg))
@@ -955,7 +1135,12 @@ class Main : AppCompatActivity() {
         val playing = !Util.shouldShowPlayButton(c)
         if (miniCover.tag != n.item) Covers.load(miniCover, n.item)
         miniTitle.text = n.title
-        miniSub.text = n.author
+        miniSub.text = when {
+            c.playerError != null -> "Playback failed · tap play to retry"
+            c.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> "Buffering…"
+            else -> n.author
+        }
+        miniPlay.contentDescription = if (c.playerError != null) "Retry playback" else if (playing) "Pause" else "Play"
         miniPlay.icon = ContextCompat.getDrawable(this, if (playing) R.drawable.i_pause_fill else R.drawable.i_play_arrow_fill)
         miniProg.progress = (pos / n.duration * 1000).toInt()
         sheet?.invoke(c, n, pos, playing)
@@ -980,7 +1165,7 @@ class Main : AppCompatActivity() {
         }
         val el = text("", M.attr.textAppearanceLabelMedium, muted = true)
         val rem = text("", M.attr.textAppearanceLabelMedium, muted = true)
-        val play = icon(R.drawable.i_play_arrow_fill, M.attr.materialIconButtonFilledStyle) { ctl?.let { Util.handlePlayPauseButtonAction(it) } }.apply {
+        val play = icon(R.drawable.i_play_arrow_fill, M.attr.materialIconButtonFilledStyle) { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }.apply {
             iconSize = dp(36)
             iconPadding = 0
             iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START // with no text this centers the icon
@@ -1012,6 +1197,7 @@ class Main : AppCompatActivity() {
         sheet = { c, now, pos, playing ->
             if (now.key != n.key) d.dismiss()
             if (!dragging) slider.value = pos.toFloat().coerceIn(0f, slider.valueTo)
+            sub.text = when { c.playerError != null -> "Playback failed · tap play to retry"; c.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> "Buffering…"; else -> now.author }
             el.text = Abs.fmt(pos)
             rem.text = "-" + Abs.fmt(max(0.0, now.duration - pos))
             play.icon = ContextCompat.getDrawable(this, if (playing) R.drawable.i_pause_fill else R.drawable.i_play_arrow_fill)
@@ -1028,13 +1214,42 @@ class Main : AppCompatActivity() {
         it.generation == gen && it.offline == Abs.offline && it.library == Abs.p.getString("lib", null)
     }
 
-    /** Renders cached JSON instantly, then refreshes from the server. */
-    private fun load(path: String, retained: Boolean = false, render: (JSONObject) -> Unit) {
-        val gen = screen
-        val old = Abs.cached(path)?.also { render(JSONObject(it)) }
-        bg({ Abs.get(path) }, { if ((old == null && !Abs.offline) || it is Expired) err(it) }) {
-            if (ownsPage(gen, retained) && it != old) render(JSONObject(it))
+    /** Cache-first rendering with a page-owned, retryable terminal state. */
+    private fun load(path: String, retained: Boolean = false, label: String = "content", render: (JSONObject) -> Unit) {
+        val rows = loadRows
+        val gen = rows.owner
+        val account = Abs.server to Abs.me
+        val requestId = Any()
+        rows.requests[path] = requestId
+        rows.statuses.remove(path)?.let { (it.view.parent as? ViewGroup)?.removeView(it.view) }
+        val state = status(label)
+        rows.statuses[path] = state
+        var rendered: String? = null
+        var running = false
+        fun deliver(raw: String) {
+            if (raw != rendered) {
+                val current = loadRows
+                loadRows = rows
+                try { render(JSONObject(raw)); rendered = raw } finally { if (loadRows === rows) loadRows = current }
+            }
         }
+        // Cache is a small local snapshot. A damaged snapshot must not prevent the network retry.
+        runCatching { Abs.cached(path)?.let(::deliver) }
+        fun request() {
+            if (running || rows.requests[path] !== requestId || account != (Abs.server to Abs.me) || !ownsPage(gen, retained)) return
+            running = true
+            state.loading(rendered != null)
+            bg({ Abs.get(path) }, { e ->
+                running = false
+                if (rows.requests[path] === requestId && account == (Abs.server to Abs.me) && ownsPage(gen, retained)) state.failed(rendered != null, e, ::request)
+            }) { raw ->
+                running = false
+                if (rows.requests[path] === requestId && account == (Abs.server to Abs.me) && ownsPage(gen, retained)) {
+                    runCatching { deliver(raw) }.fold({ state.success() }, { state.failed(rendered != null, it, ::request) })
+                }
+            }
+        }
+        request()
     }
 
     private fun <T> bg(work: () -> T, fail: (Throwable) -> Unit = ::err, done: (T) -> Unit) = thread {

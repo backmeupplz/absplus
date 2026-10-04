@@ -30,32 +30,61 @@ object Covers {
     private val pool = Executors.newFixedThreadPool(4)
     private val missing = java.util.Collections.synchronizedSet(HashSet<String>()) // no cover on the server (this run only)
 
+    private val pending = HashMap<String, MutableList<Pair<java.lang.ref.WeakReference<ImageView>, Any>>>()
+
     fun load(iv: ImageView, id: String) {
+        val server = Abs.server
+        if (server.isBlank() || id.isBlank()) { iv.setImageResource(R.drawable.i_auto_stories); iv.contentDescription = "No cover available"; return }
+        val key = "$server/$id"
         iv.tag = id
-        mem.get(id)?.let { iv.setImageBitmap(it); return }
-        iv.setImageDrawable(null)
-        if (id in missing) return
-        val dir = File(iv.context.cacheDir, "covers")
+        // A distinct bind token also protects against A → B → A reuse and server switches.
+        val binding = Any()
+        iv.setTag(R.id.cover_request, binding)
+        mem.get(key)?.let { iv.setImageBitmap(it); iv.contentDescription = "Cover"; return }
+        iv.setImageResource(R.drawable.i_auto_stories)
+        iv.contentDescription = "Loading cover"
+        if (key in missing) { iv.contentDescription = "No cover available"; return }
+        synchronized(pending) {
+            val waiting = pending[key]
+            if (waiting != null) { waiting += java.lang.ref.WeakReference(iv) to binding; return }
+            pending[key] = mutableListOf(java.lang.ref.WeakReference(iv) to binding)
+        }
+        val dir = File(iv.context.cacheDir, "covers/" + java.security.MessageDigest.getInstance("SHA-256")
+            .digest(server.toByteArray()).joinToString("") { "%02x".format(it) })
         pool.execute {
+            val active = synchronized(pending) { pending[key]?.any { (ref, token) -> ref.get()?.let { it.getTag(R.id.cover_request) === token } == true } == true }
+            if (!active || server != Abs.server) { synchronized(pending) { pending.remove(key) }; return@execute }
             val b = runCatching {
                 val f = File(dir, id)
-                if (f.length() == 0L) { // also drops empty "no cover" markers written by older versions
-                    f.delete()
+                var bitmap = if (f.length() > 0L) BitmapFactory.decodeFile(f.path) else null
+                if (bitmap == null) {
                     dir.mkdirs()
-                    val tmp = File(dir, "$id.tmp")
-                    val c = URL("${Abs.server}/api/items/$id/cover?width=400&format=webp").openConnection() as HttpURLConnection
-                    if (c.responseCode == 200) {
-                        c.inputStream.use { i -> tmp.outputStream().use { i.copyTo(it) } }
-                        tmp.renameTo(f)
-                    } else if (c.responseCode == 404) missing += id
-                    c.disconnect()
+                    val tmp = File.createTempFile("cover", ".tmp", dir)
+                    val c = URL("$server/api/items/$id/cover?width=400&format=webp").openConnection() as HttpURLConnection
+                    try {
+                        c.connectTimeout = 10_000; c.readTimeout = 15_000
+                        if (c.responseCode == 200) {
+                            c.inputStream.use { i -> tmp.outputStream().use { i.copyTo(it) } }
+                            bitmap = BitmapFactory.decodeFile(tmp.path)
+                            if (bitmap != null) tmp.renameTo(f)
+                        } else if (c.responseCode == 404) missing += key
+                    } finally { c.disconnect(); tmp.delete() }
                 }
-                BitmapFactory.decodeFile(f.path)
+                bitmap
             }.getOrNull()
-            if (b != null) mem.put(id, b)
-            iv.post { if (iv.tag == id && b != null) iv.setImageBitmap(b) }
+            if (b != null) mem.put(key, b)
+            val targets = synchronized(pending) { pending.remove(key).orEmpty() }
+            targets.forEach { (ref, token) -> ref.get()?.let { target ->
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    if (Abs.server == server && target.tag == id && target.getTag(R.id.cover_request) === token) {
+                        if (b != null) { target.setImageBitmap(b); target.contentDescription = "Cover" }
+                        else target.contentDescription = if (key in missing) "No cover available" else "Cover unavailable"
+                    }
+                }
+            } }
         }
     }
+
 }
 
 /** Rounded cover image; height = width * ratio (ratio 0 = natural size). */
