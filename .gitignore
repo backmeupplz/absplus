@@ -1,5 +1,6 @@
 local.properties
 .gradle/
+.kotlin/
 build/
 app/build/
 keystore.properties
@@ -8,5 +9,6 @@ demo-server.credentials
 play/README.md
 shots/
 ios/build/
+ios/build-release/
 appstore/README.md
 promo/out/

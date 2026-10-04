@@ -25,6 +25,7 @@ android {
             }
         }
     }
+    testOptions { unitTests.isIncludeAndroidResources = true }
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -40,4 +41,5 @@ dependencies {
     implementation("androidx.media3:media3-session:1.11.1")
     implementation("com.google.android.material:material:1.14.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.16.1")
 }

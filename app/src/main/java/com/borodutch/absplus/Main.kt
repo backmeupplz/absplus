@@ -84,8 +84,14 @@ class Main : AppCompatActivity() {
     private var fut: ListenableFuture<MediaController>? = null
     private var ctl: MediaController? = null
     private val h = Handler(Looper.getMainLooper())
-    private var screen = 0 // bumped per screen so stale async results are dropped
-    private val stack = ArrayDeque<() -> Unit>()
+    private var generation = 0
+    private var screen = 0 // visible page identity; retained pages still receive their own results
+    // Retain the view, data and controls rather than re-running a list builder on Back.
+    private class Page(val render: () -> Unit, val view: View?, val generation: Int,
+        val library: String?, val offline: Boolean, val resume: (() -> Unit)?)
+    private var retainPage = false
+    private var onReturn: (() -> Unit)? = null
+    private val stack = ArrayDeque<Page>()
     private var cur: () -> Unit = {}
     private var onDl: (() -> Unit)? = null // current screen's reaction to a download finishing, starting or being cancelled
     private var onDlTick: (() -> Unit)? = null // ...and to download progress (every second while something downloads)
@@ -156,7 +162,14 @@ class Main : AppCompatActivity() {
 
     override fun onConfigurationChanged(c: android.content.res.Configuration) {
         super.onConfigurationChanged(c)
-        if (Abs.me != null) cur() // re-layout grids for the new width
+        if (Abs.me != null) {
+            fun resize(v: View) {
+                if (v is RecyclerView) (v.layoutManager as? GridLayoutManager)?.spanCount = max(4, resources.displayMetrics.widthPixels / dp(96))
+                else if (v is ViewGroup) for (i in 0 until v.childCount) resize(v.getChildAt(i))
+            }
+            stack.forEach { it.view?.let(::resize) }
+            if (retainPage) resize(content) else cur()
+        } // re-layout retained grids without throwing away their search or viewport
     }
 
     private val tick = object : Runnable {
@@ -183,20 +196,39 @@ class Main : AppCompatActivity() {
     }
 
     private fun push(s: () -> Unit) {
-        stack.addLast(cur)
+        stack.addLast(Page(cur, content.getChildAt(0).takeIf { retainPage }, screen, Abs.p.getString("lib", null), Abs.offline, onReturn))
         cur = s
         back.isEnabled = true
         s()
     }
 
     private fun pop() {
-        cur = stack.removeLastOrNull() ?: return
+        val page = stack.removeLastOrNull() ?: return
+        cur = page.render
         back.isEnabled = stack.isNotEmpty()
-        cur()
+        if (page.view == null || page.library != Abs.p.getString("lib", null) || page.offline != Abs.offline) {
+            cur() // an explicit context change must not reuse the old list
+        } else {
+            screen = page.generation
+            retainPage = true
+            onDl = page.resume
+            onDlTick = null
+            onReturn = page.resume
+            show(page.view)
+            // Update badges/progress without replacing data, controls or layout managers.
+            fun refresh(v: View) {
+                if (v is RecyclerView) v.adapter?.notifyDataSetChanged()
+                else if (v is ViewGroup) for (i in 0 until v.childCount) refresh(v.getChildAt(i))
+            }
+            refresh(page.view)
+            onReturn?.invoke()
+        }
     }
 
     private fun begin() {
-        screen++
+        screen = ++generation
+        retainPage = false
+        onReturn = null
         onDl = null
         onDlTick = null
         nav.isVisible = true
@@ -218,7 +250,9 @@ class Main : AppCompatActivity() {
     // --- login
 
     private fun login() {
-        screen++
+        screen = ++generation
+        retainPage = false
+        onReturn = null
         stack.clear()
         back.isEnabled = false
         nav.isVisible = false
@@ -284,6 +318,7 @@ class Main : AppCompatActivity() {
 
     private fun library() {
         begin()
+        retainPage = true
         val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true }
         val search = field("Search titles & authors").apply {
             startIconDrawable = ContextCompat.getDrawable(context, R.drawable.i_search)
@@ -294,20 +329,33 @@ class Main : AppCompatActivity() {
         var shown = all
         val sel = Abs.p.getString("lib", null)
         val g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
-        fun filter() {
+        fun filter(preservePosition: Boolean = true) {
+            val lm = g.layoutManager as GridLayoutManager
+            val first = lm.findFirstVisibleItemPosition()
+            val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
+            val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
             val q = search.str().trim()
-            shown = if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.sub.contains(q, true) }
+            shown = avail(if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.sub.contains(q, true) })
             g.adapter?.notifyDataSetChanged()
+            if (!preservePosition) lm.scrollToPositionWithOffset(0, 0)
+            else if (key != null && offset != null) {
+                val at = shown.indexOfFirst { it.key == key }
+                if (at >= 0) lm.scrollToPositionWithOffset(at, offset)
+            }
         }
-        search.editText!!.doAfterTextChanged { filter() }
+        search.editText!!.doAfterTextChanged { filter(preservePosition = false) }
         if (Abs.offline) { // every downloaded item, whatever its library
             show(col(header("Downloaded"), search.lp(m = 0).pad(16, 4), g.lp(-1, 0, 1f)))
-            all = Abs.downloads().map { Abs.cachedCard(it.name) }
-            return filter()
+            onReturn = {
+                all = Abs.downloads().map { Abs.cachedCard(it.name) }
+                filter()
+            }
+            onDl = onReturn
+            return onReturn!!.invoke()
         }
         show(col(header("Library"), HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0),
             search.lp(m = 0).pad(16, 4), g.lp(-1, 0, 1f)))
-        load("/api/libraries") { j ->
+        load("/api/libraries", retained = sel != null) { j ->
             val libs = j.getJSONArray("libraries")
             chips.removeAllViews()
             for (i in 0 until libs.length()) {
@@ -328,7 +376,7 @@ class Main : AppCompatActivity() {
             }
         }
         if (sel == null) return
-        load("/api/libraries/$sel/items?minified=1&sort=media.metadata.title") { j ->
+        load("/api/libraries/$sel/items?minified=1&sort=media.metadata.title", retained = true) { j ->
             val r = j.getJSONArray("results")
             all = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
             filter()
@@ -371,28 +419,51 @@ class Main : AppCompatActivity() {
 
     private fun shelf(name: String, cards: List<Card>, ratio: Float) {
         begin()
-        show(col(subHeader(name), grid(ratio) { cards }.lp(-1, 0, 1f)))
+        retainPage = true
+        var shown = avail(cards)
+        val g = grid(ratio) { shown }
+        onReturn = {
+            val lm = g.layoutManager as GridLayoutManager
+            val first = lm.findFirstVisibleItemPosition()
+            val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
+            val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
+            shown = avail(cards)
+            g.adapter?.notifyDataSetChanged()
+            val at = shown.indexOfFirst { it.key == key }
+            if (at >= 0 && offset != null) lm.scrollToPositionWithOffset(at, offset)
+        }
+        onDl = onReturn
+        show(col(subHeader(name), g.lp(-1, 0, 1f)))
     }
 
     // --- favorites (synced via the server, see Abs.favs)
 
     private fun favorites() {
         begin()
-        var favs = Abs.favs()
+        retainPage = true
+        val owner = screen
+        var favs = avail(Abs.favs())
         val empty = text("Tap ♡ on a book or podcast to keep it here.", muted = true).pad(16, 4)
         val g = grid(1f) { favs }
         fun refresh() {
-            favs = Abs.favs()
+            val lm = g.layoutManager as GridLayoutManager
+            val first = lm.findFirstVisibleItemPosition()
+            val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
+            val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
+            favs = avail(Abs.favs())
             empty.isVisible = favs.isEmpty()
             g.adapter?.notifyDataSetChanged()
+            val at = favs.indexOfFirst { it.key == key }
+            if (at >= 0 && offset != null) lm.scrollToPositionWithOffset(at, offset)
         }
+        onReturn = { refresh() }
+        onDl = onReturn
         show(col(header("Favorites"), empty, g.lp(-1, 0, 1f)))
         refresh()
-        load("/api/me") { me ->
+        load("/api/me", retained = true) { me ->
             Abs.setMe(me)
             refresh()
-            val gen = screen
-            favs.filter { it.title.isEmpty() }.forEach { c -> bg({ Abs.fillFav(c.id) }, {}) { if (gen == screen) refresh() } }
+            favs.filter { it.title.isEmpty() }.forEach { c -> bg({ Abs.fillFav(c.id) }, {}) { if (ownsPage(owner, true)) refresh() } }
         }
     }
 
@@ -524,14 +595,13 @@ class Main : AppCompatActivity() {
 
     // --- tiles & rows
 
-    private class Tile(val cover: Cover, val badge: View, val prog: LinearProgressIndicator, val title: TextView, val sub: TextView)
+    private class Tile(val cover: Cover, val badge: View, val prog: LinearProgressIndicator, val title: TextView, val sub: TextView, var key: String = "")
 
     /** offline: only what's playable without the server */
     private fun avail(cards: List<Card>) = if (Abs.offline) cards.filter { Abs.downloaded(it.id) } else cards
 
-    private fun grid(ratio: Float, all: () -> List<Card>) = RecyclerView(this).apply {
-        var memo: Pair<List<Card>, List<Card>>? = null
-        val cards = { all().let { a -> memo?.takeIf { it.first === a }?.second ?: avail(a).also { memo = a to it } } }
+    // Each page owns its filtered snapshot and refreshes it with its viewport anchor.
+    private fun grid(ratio: Float, cards: () -> List<Card>) = RecyclerView(this).apply {
         layoutManager = GridLayoutManager(context, max(4, resources.displayMetrics.widthPixels / dp(96)))
         clipToPadding = false
         pad(10, 4)
@@ -567,6 +637,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun bindTile(v: View, c: Card) = (v.tag as Tile).run {
+        key = c.key
         Covers.load(cover, c.id)
         title.text = c.title
         sub.text = c.sub
@@ -953,12 +1024,16 @@ class Main : AppCompatActivity() {
 
     // --- helpers
 
+    private fun ownsPage(gen: Int, retained: Boolean) = gen == screen || retained && stack.any {
+        it.generation == gen && it.offline == Abs.offline && it.library == Abs.p.getString("lib", null)
+    }
+
     /** Renders cached JSON instantly, then refreshes from the server. */
-    private fun load(path: String, render: (JSONObject) -> Unit) {
+    private fun load(path: String, retained: Boolean = false, render: (JSONObject) -> Unit) {
         val gen = screen
         val old = Abs.cached(path)?.also { render(JSONObject(it)) }
         bg({ Abs.get(path) }, { if ((old == null && !Abs.offline) || it is Expired) err(it) }) {
-            if (gen == screen && it != old) render(JSONObject(it))
+            if (ownsPage(gen, retained) && it != old) render(JSONObject(it))
         }
     }
 

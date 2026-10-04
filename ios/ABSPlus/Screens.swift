@@ -63,6 +63,8 @@ struct LibraryView: View {
     @State private var libs: [Library] = []
     @State private var all: [Card] = []
     @State private var q = ""
+    @State private var loadedLibrary = ""
+    @State private var visibleTitle: String?
     @AppStorage("lib") private var sel = ""
 
     var body: some View {
@@ -72,6 +74,11 @@ struct LibraryView: View {
         ScrollView {
             CardGrid(cards: shown, ratio: app.offline ? 1 : ratio(sel))
         }
+        // Native targets retain the visible identity and its offset when results move.
+        // Do not force .top: that would discard a partially scrolled row.
+        .scrollPosition(id: $visibleTitle)
+        .onChange(of: "\(sel):\(app.offline):\(query)") { visibleTitle = nil }
+        .id("\(sel):\(app.offline):\(query)") // only a new list context resets the viewport
         .navigationTitle(app.offline ? "Downloaded" : libs.first { $0.id == sel }?.name ?? "Library")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarTitleMenu {
@@ -91,12 +98,25 @@ struct LibraryView: View {
                 if !libs.contains(where: { $0.id == sel }) { sel = libs.first?.id ?? "" }
             }
         }
-        .task(id: sel) { all = []; await reload() }
+        .task(id: sel) {
+            // SwiftUI restarts this task after popping details, even with the same id.
+            // Emptying the grid then collapses its content and clamps the scroll to zero.
+            if loadedLibrary != sel {
+                loadedLibrary = sel
+                all = []
+                q = ""
+            }
+            await reload()
+        }
     }
 
     private func reload() async {
-        guard !sel.isEmpty else { return }
-        await app.load("/api/libraries/\(sel)/items?minified=1&sort=media.metadata.title") { (r: Results<Item>) in all = r.results.map(\.card) }
+        let library = sel
+        guard !library.isEmpty else { return }
+        await app.load("/api/libraries/\(library)/items?minified=1&sort=media.metadata.title") { (r: Results<Item>) in
+            guard !Task.isCancelled, sel == library else { return }
+            all = r.results.map(\.card)
+        }
         await app.load("/api/me") { (m: Me) in app.setMe(m) }
     }
 }
