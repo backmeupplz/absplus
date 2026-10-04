@@ -398,6 +398,17 @@ let resumeDir: URL = {
         return r
     }
 
+    /// Episode cards require their own file, not a downloaded sibling.
+    func downloaded(_ card: Card) -> Bool {
+        guard let ep = card.ep else { return downloaded(card.id) }
+        _ = dlv
+        if let m = dlMemo[card.key] { return m }
+        let it = cached("/api/items/\(card.id)?expanded=1").flatMap { try? JSONDecoder().decode(Item.self, from: $0) }
+        let r = it?.media.episodes?.first { $0.id == ep }?.audioFile.map { done(card.id, $0.track(0)) } ?? false
+        dlMemo[card.key] = r
+        return r
+    }
+
     /// item folders that hold downloaded files, with their size
     func downloads() -> [(id: String, size: Int64)] {
         _ = dlv

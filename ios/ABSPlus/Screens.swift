@@ -9,7 +9,7 @@ struct HomeView: View {
 
     var body: some View {
         let cont = avail(items)
-        let hist = app.hist.filter { !app.offline || app.downloaded($0.card.id) }
+        let hist = app.hist.filter { !app.offline || app.downloaded($0.card) }
         List {
             if !cont.isEmpty {
                 Section("Continue listening") {
@@ -40,6 +40,7 @@ struct HomeView: View {
                             PlayButton { await player.playCard(h.card) }
                         }
                     }
+                    .accessibilityIdentifier("history-" + h.card.key)
                 }
             }
         }
