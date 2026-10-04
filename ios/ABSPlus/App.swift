@@ -7,7 +7,9 @@ struct ABSPlusApp: App {
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
+            if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
+                AccessibilityFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--offline-home-test") {
                 OfflineHomeFixture()
