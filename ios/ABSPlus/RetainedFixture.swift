@@ -85,6 +85,7 @@ struct RetainedFixture: View {
         Downloader.shared.urlSession(URLSession.shared, task: replacement, didCompleteWithError: nil)
         try check(!app.inflight.contains(replacementRel) && app.got[replacementRel] == nil && app.transfers[replacementRel] == nil, "terminal callback leaked state after queue removal")
         app.remove(n)
+        try await cancellationChecks(track, a)
         let requestsBefore = RetainedProtocol.itemRequests.withLock { $0 }
         // No item request is permitted from here onward, even though login just succeeded.
         RetainedProtocol.state.withLock { $0.1 = true }
@@ -117,11 +118,100 @@ struct RetainedFixture: View {
         try check(reconstructed.downloaded("book") && reconstructed.downloaded("pod"), "restart retained scope")
         app.logout()
     }
+
+    @MainActor private func cancellationChecks(_ track: Track, _ server: String) async throws {
+        func check(_ ok: Bool, _ message: String) throws { if !ok { throw Msg(errorDescription: message) } }
+        func expireToken() {
+            app.accts["fixture"] = Tok(a: "fixture.eyJleHAiOjB9.signature", r: "fixture")
+        }
+        func waitForRefresh() async throws {
+            for _ in 0..<100 {
+                if RetainedProtocol.refresh.withLock({ $0.pending != nil }) { return }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            throw Msg(errorDescription: "refresh did not suspend")
+        }
+        func releaseRefresh() {
+            let pending = RetainedProtocol.refresh.withLock { state in
+                let pending = state.pending; state = (false, nil); return pending
+            }
+            pending?.respond()
+        }
+        defer { releaseRefresh() }
+        let n = Now(item: "auth-cancel", ep: nil, title: "Auth cancel", author: "Fixture", tracks: [track])
+        let rel = app.rel(n.item, track)
+        // Exercise the real token refresh suspension, both removal and same-key requeue.
+        for requeue in [false, true] {
+            expireToken()
+            RetainedProtocol.refresh.withLock { $0 = (true, nil) }
+            let pending = Task { await app.download(n) }
+            try await waitForRefresh()
+            let oldID = app.queueID(n)
+            app.remove(n)
+            if requeue { app.dlq.append(n); try check(app.queueID(n) != oldID, "requeue reused request identity") }
+            releaseRefresh()
+            await pending.value
+            try check(app.transfers[rel] == nil && !app.inflight.contains(rel) && !app.done(n.item, track), "cancelled refresh started a transfer")
+            app.remove(n)
+        }
+
+        let retry = Now(item: "retry-budget", ep: nil, title: "Retry", author: "Fixture", tracks: [track])
+        let rr = app.rel(retry.item, track)
+        let failure = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost, userInfo: ["NSURLSessionDownloadTaskResumeData": Data([0])])
+        func failTransfer() {
+            let task = URLSession.shared.downloadTask(with: URL(string: server + "/retry")!)
+            Downloader.shared.bind(task, rr)
+            Downloader.shared.urlSession(URLSession.shared, task: task, didCompleteWithError: failure)
+        }
+        // No await in this loop: cancellation happens before the scheduled retry gets a turn.
+        for _ in 0..<5 {
+            app.dlq.append(retry)
+            failTransfer()
+            try check(app.queued(retry), "fresh cancellation attempt inherited retry budget")
+            app.remove(retry)
+        }
+        app.dlq.append(retry)
+        for _ in 0..<20 { await Task.yield() }
+        try check(app.transfers[rr] == nil && !app.inflight.contains(rr), "scheduled old retry claimed a requeued title")
+        // Automatic retries within one queue identity still exhaust their original budget.
+        for _ in 0..<3 { failTransfer(); try check(app.queued(retry), "automatic retry stopped early") }
+        failTransfer()
+        try check(!app.queued(retry), "automatic retries lost their bounded budget")
+        app.remove(retry)
+
+        // An admitted retry can itself suspend in authentication and then be cancelled.
+        app.dlq.append(retry)
+        expireToken()
+        RetainedProtocol.refresh.withLock { $0 = (true, nil) }
+        failTransfer()
+        try await waitForRefresh()
+        app.remove(retry)
+        app.dlq.append(retry)
+        releaseRefresh()
+        for _ in 0..<20 { await Task.yield() }
+        try check(app.transfers[rr] == nil && !app.inflight.contains(rr), "retry resumed after cancellation during authentication")
+        app.remove(retry)
+
+        // Same-host successful main login replaces a session even without logout.
+        for _ in 0..<5 {
+            app.dlq.append(retry)
+            expireToken()
+            RetainedProtocol.refresh.withLock { $0 = (true, nil) }
+            failTransfer()
+            try check(app.queued(retry), "relogin inherited retry budget")
+            try await waitForRefresh()
+            try await app.login(server, "fixture", "fixture", main: true)
+            releaseRefresh()
+            for _ in 0..<20 { await Task.yield() }
+            try check(app.dlq.isEmpty && app.transfers.isEmpty && !app.inflight.contains(rr), "relogin revived old retry")
+        }
+    }
 }
 
 final class RetainedProtocol: URLProtocol, @unchecked Sendable {
     static let itemRequests = OSAllocatedUnfairLock(initialState: 0)
     static let state = OSAllocatedUnfairLock(initialState: (false, false)) // fail login, offline
+    static let refresh = OSAllocatedUnfairLock(initialState: (blocked: false, pending: Optional<RetainedProtocol>.none))
     static let audio: Data = {
         var d = Data()
         func text(_ s: String) { d.append(contentsOf: s.utf8) }
@@ -133,10 +223,17 @@ final class RetainedProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host?.hasPrefix("retained-") == true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
+        if request.url?.path == "/auth/refresh", Self.refresh.withLock({ state in
+            if state.blocked { state.pending = self; return true }
+            return false
+        }) { return }
+        respond()
+    }
+    func respond() {
         if request.url?.query == "expanded=1" { Self.itemRequests.withLock { $0 += 1 } }
         let flags = Self.state.withLock { $0 }
         if flags.1 { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)); return }
-        let login = request.url!.path == "/login"
+        let login = ["/login", "/auth/refresh"].contains(request.url!.path)
         let pod = request.url!.path.hasSuffix("/pod")
         let audio: [String: Any] = ["ino": "1", "duration": 1, "metadata": ["ext": ".wav", "size": Self.audio.count], "token": "secret"]
         let media: [String: Any] = pod

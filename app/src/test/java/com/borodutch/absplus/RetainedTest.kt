@@ -17,6 +17,53 @@ import kotlin.concurrent.thread
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RetainedTest {
+    @Test fun mainLoginReplacementCannotRestorePreviousQueue() {
+        val context = RuntimeEnvironment.getApplication()
+        Abs.init(context)
+        Abs.logout()
+        val servers = List(2) { HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            createContext("/login") { x ->
+                val body = """{"user":{"username":"fixture","accessToken":"fixture"}}""".toByteArray()
+                x.sendResponseHeaders(200, body.size.toLong())
+                x.responseBody.use { it.write(body) }
+            }
+            start()
+        } }
+        val a = "http://127.0.0.1:${servers[0].address.port}"
+        val b = "http://localhost:${servers[1].address.port}"
+        val n = Now("queued", null, "Queued", "Fixture", listOf(Track("1", ".wav", 7, 1.0, 0.0)))
+        try {
+            Abs.login(a, "fixture", "fixture", true)
+            for (destination in listOf(a, b)) {
+                Dl.add(context, n)
+                assertTrue(Abs.p.getString("dlq", "")!!.contains("queued"))
+                // A normal same-session process recreation must still resume its queue.
+                Dl.jobs.clear()
+                Dl.load()
+                assertNotNull(Dl.job(n.key))
+                val old = Dl.job(n.key)!!
+                Abs.login(destination, "fixture", "fixture", true)
+                assertTrue(Dl.jobs.isEmpty())
+                assertEquals("[]", Abs.p.getString("dlq", null))
+                // Relaunch reads prefs, not the cleared in-memory list.
+                Dl.jobs.clear()
+                Dl.load()
+                assertTrue(Dl.jobs.isEmpty())
+                Dl.add(context, n)
+                val fresh = Dl.job(n.key)!!
+                assertNotEquals(old.epoch, fresh.epoch)
+                assertEquals(destination, fresh.server)
+                Dl::class.java.getDeclaredMethod("finish", Dl.Job::class.java, String::class.java)
+                    .apply { isAccessible = true }.invoke(Dl, old, null)
+                assertSame(fresh, Dl.job(n.key))
+                Dl.clear()
+            }
+        } finally {
+            Abs.logout()
+            servers.forEach { it.stop(0) }
+        }
+    }
+
     @Test fun retainedBooksAndEpisodesRequireSuccessfulSameServerLogin() {
         Abs.init(RuntimeEnvironment.getApplication())
         Abs.logout()

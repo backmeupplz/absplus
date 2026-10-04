@@ -74,8 +74,8 @@ object Dl {
         Abs.remove(n.tracks.map { Abs.file(n.item, it) })
     }
 
-    /** on logout: stop downloading, keep the files */
-    fun clear() = synchronized(this) { jobs.clear() }
+    /** On logout or main-login replacement: forget queued work, keep the files. */
+    fun clear() = synchronized(this) { jobs.clear(); save() }
 
     private fun part(f: File) = File(f.path + ".part")
 

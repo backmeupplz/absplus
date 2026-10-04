@@ -131,7 +131,14 @@ let resumeDir: URL = {
     var inflight = Set<String>()
     var dlv = 0
     /// titles being downloaded, oldest first; kept across launches so unfinished ones carry on
-    var dlq: [Now] = [] { didSet { store("dlq", dlq) } }
+    var dlq: [Now] = [] { didSet {
+        let keys = Set(dlq.map(\.key))
+        queueIDs = queueIDs.filter { keys.contains($0.key) }
+        for key in keys where queueIDs[key] == nil { queueIDs[key] = UUID() }
+        store("dlq", dlq)
+    } }
+    @ObservationIgnored private var queueIDs: [String: UUID] = [:]
+    func queueID(_ n: Now) -> UUID? { queueIDs[n.key] }
     /// bytes received so far per download path
     var got: [String: Int64] = [:]
     /// Current transfer description per path; persisted independently of the mutable title queue.
@@ -159,6 +166,7 @@ let resumeDir: URL = {
         hist = load("hist") ?? []
         shares = load("shares") ?? [:]
         dlq = load("dlq") ?? []
+        for n in dlq { queueIDs[n.key] = UUID() }
         transfers = load("transfers") ?? [:]
         if me == nil && !accts.isEmpty { // the Keychain outlives a reinstall
             accts = [:]
@@ -228,7 +236,7 @@ let resumeDir: URL = {
         guard epoch == mediaEpoch else { throw CancellationError() }
         let name = try save(r)
         if main {
-            cancel(Set(transfers.keys))
+            cancel(Set(transfers.keys).union(dlq.flatMap { n in n.tracks.map { rel(n.item, $0) } }))
             dlq = []
             try? FileManager.default.removeItem(at: cacheDir)
             try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
@@ -249,7 +257,7 @@ let resumeDir: URL = {
     var accounts: [String] { accts.keys.filter { $0 != me }.sorted() }
 
     func logout() {
-        cancel(Set(transfers.keys)) // downloads stop, files stay
+        cancel(Set(transfers.keys).union(dlq.flatMap { n in n.tracks.map { rel(n.item, $0) } })) // downloads stop, files stay
         selectMedia(nil)
         dlq = []
         try? FileManager.default.removeItem(at: resumeDir) // resume archives contain authorization headers
@@ -359,11 +367,12 @@ let resumeDir: URL = {
     }
 
     /// starts the files of a queued title that are neither on disk nor on their way, continuing interrupted ones
-    func fetch(_ n: Now) async {
+    func fetch(_ n: Now, queueID expected: UUID? = nil) async {
+        guard let id = queueID(n), expected == nil || expected == id else { return }
         let epoch = mediaEpoch
         do {
             let auth = "Bearer " + (try await token(fresh: 1800)) // long enough for the system's own retries
-            guard epoch == mediaEpoch, me != nil else { return }
+            guard epoch == mediaEpoch, me != nil, queueID(n) == id else { return }
             for t in n.tracks where !done(n.item, t) && !inflight.contains(rel(n.item, t)) {
                 let r = rel(n.item, t)
                 let url = URL(string: "\(server)/api/items/\(n.item)/file/\(t.ino)/download")!
@@ -376,12 +385,13 @@ let resumeDir: URL = {
                 }
             }
             dlChanged()
-        } catch { say(error) }
+        } catch { if epoch == mediaEpoch, queueID(n) == id { say(error) } }
     }
 
     /// after a relaunch: carry on with queued titles that have files left and nothing transferring
     func resumeQueue() async {
-        for n in dlq { await fetch(n) }
+        let pending = dlq.compactMap { n in queueID(n).map { (n, $0) } }
+        for (n, id) in pending { await fetch(n, queueID: id) }
     }
 
     func queued(_ n: Now) -> Bool { dlq.contains { $0.key == n.key } }
@@ -449,6 +459,7 @@ let resumeDir: URL = {
     }
 
     private func cancel(_ rels: Set<String>) {
+        Downloader.shared.resetRetries(rels)
         let descriptions = Set(rels.compactMap { transfers.removeValue(forKey: $0) })
         inflight.subtract(rels)
         rels.forEach { got[$0] = nil; try? FileManager.default.removeItem(at: resumeFile($0)) }
@@ -583,6 +594,9 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
     var bgDone: (() -> Void)?
     private var reported: [String: Date] = [:]
     private var tries: [String: Int] = [:]
+    @MainActor func resetRetries(_ rels: Set<String>) {
+        for rel in rels { tries[rel] = nil; reported[rel] = nil }
+    }
     lazy var session: URLSession = {
         let c = URLSessionConfiguration.background(withIdentifier: "com.borodutch.absplus.dl")
         c.sessionSendsLaunchEvents = true
@@ -660,9 +674,10 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
                 tries[rel, default: 0] += 1
                 if let resume, code != 401 { try? resume.write(to: app.resumeFile(rel)) }
                 let epoch = app.mediaEpoch
+                let id = app.queueID(n)
                 Task {
-                    guard app.mediaEpoch == epoch, app.queued(n), app.transfers[rel] == nil else { return }
-                    await app.fetch(n)
+                    guard app.mediaEpoch == epoch, let id, app.queueID(n) == id, app.transfers[rel] == nil else { return }
+                    await app.fetch(n, queueID: id)
                 }
                 return
             }
