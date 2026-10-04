@@ -134,8 +134,8 @@ let resumeDir: URL = {
     var dlq: [Now] = [] { didSet { store("dlq", dlq) } }
     /// bytes received so far per download path
     var got: [String: Int64] = [:]
-    /// download paths the user cancelled, so their transfers aren't picked up again
-    @ObservationIgnored var cancelling = Set<String>()
+    /// Current transfer description per path; persisted independently of the mutable title queue.
+    @ObservationIgnored var transfers: [String: String] = [:] { didSet { store("transfers", transfers) } }
     @ObservationIgnored private var dlMemo: [String: Bool] = [:]
     @ObservationIgnored private var refreshing: [String: Task<String, Error>] = [:]
     @ObservationIgnored private var pushingFavs = false
@@ -159,6 +159,7 @@ let resumeDir: URL = {
         hist = load("hist") ?? []
         shares = load("shares") ?? [:]
         dlq = load("dlq") ?? []
+        transfers = load("transfers") ?? [:]
         if me == nil && !accts.isEmpty { // the Keychain outlives a reinstall
             accts = [:]
             kcWrite([:])
@@ -227,7 +228,7 @@ let resumeDir: URL = {
         guard epoch == mediaEpoch else { throw CancellationError() }
         let name = try save(r)
         if main {
-            cancel(inflight)
+            cancel(Set(transfers.keys))
             dlq = []
             try? FileManager.default.removeItem(at: cacheDir)
             try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
@@ -248,7 +249,7 @@ let resumeDir: URL = {
     var accounts: [String] { accts.keys.filter { $0 != me }.sorted() }
 
     func logout() {
-        cancel(inflight) // downloads stop, files stay
+        cancel(Set(transfers.keys)) // downloads stop, files stay
         selectMedia(nil)
         dlq = []
         try? FileManager.default.removeItem(at: resumeDir) // resume archives contain authorization headers
@@ -338,7 +339,8 @@ let resumeDir: URL = {
 
     private func component(_ s: String) -> String {
         // IDs/extensions are path components, not server-provided relative paths.
-        s.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "invalid"
+        if s == "." || s == ".." { return s.replacingOccurrences(of: ".", with: "%2E") }
+        return s.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "._-"))) ?? "invalid"
     }
     func rel(_ item: String, _ t: Track) -> String { "servers/\(mediaScope)/audio/\(component(item))/\(component(t.ino + t.ext))" }
     func file(_ item: String, _ t: Track) -> URL { dlDir.appending(path: rel(item, t)) }
@@ -447,10 +449,9 @@ let resumeDir: URL = {
     }
 
     private func cancel(_ rels: Set<String>) {
-        cancelling.formUnion(rels.intersection(inflight))
+        let descriptions = Set(rels.compactMap { transfers.removeValue(forKey: $0) })
         inflight.subtract(rels)
         rels.forEach { got[$0] = nil; try? FileManager.default.removeItem(at: resumeFile($0)) }
-        let descriptions = Set(rels.map { mediaEpoch + "|" + $0 })
         Downloader.shared.session.getAllTasks { ts in ts.filter { descriptions.contains($0.taskDescription ?? "") }.forEach { $0.cancel() } }
     }
 
@@ -596,18 +597,24 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
             r.setValue(auth, forHTTPHeaderField: "Authorization")
             t = session.downloadTask(with: r)
         }
-        t.taskDescription = app.mediaEpoch + "|" + rel
-        app.cancelling.remove(rel)
-        app.inflight.insert(rel)
+        bind(t, rel)
         t.resume()
+    }
+
+    /// A new transfer of the same path must never inherit its cancelled predecessor's callbacks.
+    @MainActor func bind(_ task: URLSessionTask, _ rel: String) {
+        let description = app.mediaEpoch + "|" + UUID().uuidString + "|" + rel
+        task.taskDescription = description
+        app.transfers[rel] = description
+        app.inflight.insert(rel)
     }
 
     @MainActor private func activeRel(_ task: URLSessionTask) -> String? {
         guard app.me != nil, let desc = task.taskDescription else { return nil }
         let parts = desc.components(separatedBy: "|")
-        guard parts.count == 2, parts[0] == app.mediaEpoch,
-              app.dlq.contains(where: { n in n.tracks.contains { app.rel(n.item, $0) == parts[1] } }), !app.cancelling.contains(parts[1]) else { return nil }
-        return parts[1]
+        guard parts.count == 3, parts[0] == app.mediaEpoch,
+              app.transfers[parts[2]] == desc else { return nil }
+        return parts[2]
     }
 
     /// picks up downloads still running from an earlier launch
@@ -645,13 +652,18 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
         reported[rel] = nil
         MainActor.assumeIsolated {
             app.inflight.remove(rel)
-            let mine = app.cancelling.remove(rel) != nil
+            app.transfers[rel] = nil
+            app.got[rel] = nil
             let n = app.dlq.first { q in q.tracks.contains { app.rel(q.item, $0) == rel } }
             // force-quit, a dropped connection or an expired token: continue the file (start over after a 401)
-            if !mine, let n, resume != nil || code == 401, tries[rel, default: 0] < 3 {
+            if let n, resume != nil || code == 401, tries[rel, default: 0] < 3 {
                 tries[rel, default: 0] += 1
                 if let resume, code != 401 { try? resume.write(to: app.resumeFile(rel)) }
-                Task { await app.fetch(n) }
+                let epoch = app.mediaEpoch
+                Task {
+                    guard app.mediaEpoch == epoch, app.queued(n), app.transfers[rel] == nil else { return }
+                    await app.fetch(n)
+                }
                 return
             }
             tries[rel] = nil

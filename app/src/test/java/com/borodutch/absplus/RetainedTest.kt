@@ -1,7 +1,6 @@
 package com.borodutch.absplus
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
+import org.robolectric.RuntimeEnvironment
 import com.sun.net.httpserver.HttpServer
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -19,8 +18,11 @@ import kotlin.concurrent.thread
 @Config(sdk = [35])
 class RetainedTest {
     @Test fun retainedBooksAndEpisodesRequireSuccessfulSameServerLogin() {
-        Abs.init(ApplicationProvider.getApplicationContext<Context>())
+        Abs.init(RuntimeEnvironment.getApplication())
         Abs.logout()
+        val originalDir = Abs.dir
+        val fixtureDir = java.nio.file.Files.createTempDirectory("retained-fixture").toFile()
+        Abs.dir = fixtureDir
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
         var fail = false
@@ -89,6 +91,10 @@ class RetainedTest {
             assertFalse(worker.isAlive)
             Abs.login(url, "fixture", "fixture", true)
             assertNull(Abs.cached("/api/items/late?expanded=1"))
-        } finally { release.countDown(); s.stop(0); Abs.logout() }
+        } finally {
+            release.countDown(); s.stop(0); Abs.logout()
+            Abs.dir = originalDir
+            fixtureDir.deleteRecursively()
+        }
     }
 }
