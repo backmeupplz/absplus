@@ -10,6 +10,11 @@ import UIKit
     var now: Now?
     var pos: Double = 0
     var playing = false
+    var preparing: String?
+    var buffering = false
+    var playbackError: String?
+    @ObservationIgnored private var requestID = UUID()
+    @ObservationIgnored private var queueID = UUID()
     var speed: Float = UserDefaults.standard.object(forKey: "speed") as? Float ?? 1
     /// a choice of resume positions to offer (linked accounts are ahead)
     var choices: (Now, [Pos])?
@@ -85,6 +90,7 @@ import UIKit
     private func status() {
         let was = playing
         playing = p.timeControlStatus != .paused
+        buffering = p.timeControlStatus == .waitingToPlayAtSpecifiedRate
         if was && !playing && p.currentItem != nil { sync() }
         info()
     }
@@ -103,7 +109,9 @@ import UIKit
     private func failed(_ e: Error?) {
         guard let n = now else { return }
         if Date().timeIntervalSince(lastRetry) < 30 {
-            app.toast = "Playback failed: \(e?.localizedDescription ?? "unknown error")"
+            buffering = false
+            playbackError = "Playback failed: \(e?.localizedDescription ?? "unknown error")"
+            app.toast = playbackError
             return
         }
         lastRetry = Date()
@@ -120,6 +128,12 @@ import UIKit
     // --- control
 
     func play() {
+        if playbackError != nil, let n = now {
+            playbackError = nil
+            let (i, off) = n.at(pos)
+            Task { await queue(n, i, off, play: true) }
+            return
+        }
         try? AVAudioSession.sharedInstance().setActive(true)
         if p.currentItem == nil, let n = now { // finished: start over
             Task { await queue(n, 0, 0, play: true) }
@@ -155,6 +169,7 @@ import UIKit
     func nextSpeed() { setSpeed(Self.speeds[((Self.speeds.firstIndex(of: speed) ?? -1) + 1) % Self.speeds.count]) }
 
     func clear() {
+        requestID = UUID(); queueID = UUID(); preparing = nil; choices = nil; buffering = false; playbackError = nil
         p.removeAllItems()
         index = [:]
         now = nil
@@ -164,31 +179,55 @@ import UIKit
     // --- starting a title
 
     func playCard(_ c: Card) async {
+        guard preparing != c.key else { return }
+        let request = UUID()
+        requestID = request
+        preparing = c.key
+        choices = nil
+        defer { if requestID == request { preparing = nil } }
         do {
             let it = try await app.item(c.id)
+            guard requestID == request, !Task.isCancelled else { return }
+            let n: Now
             if let ep = c.ep {
                 guard let e = it.media.episodes?.first(where: { $0.id == ep }), let af = e.audioFile else { throw Msg(errorDescription: "Episode not found") }
-                await play(Now(item: c.id, ep: ep, title: e.title ?? "", author: it.card.title, tracks: [af.track(0)]))
+                n = Now(item: c.id, ep: ep, title: e.title ?? "", author: it.card.title, tracks: [af.track(0)])
             } else {
-                await play(Now(item: c.id, ep: nil, title: c.title, author: c.sub, tracks: (it.media.tracks ?? []).map { $0.track() }))
+                n = Now(item: c.id, ep: nil, title: c.title, author: c.sub, tracks: (it.media.tracks ?? []).map { $0.track() })
             }
-        } catch { app.say(error) }
+            await prepare(n, request)
+        } catch { if requestID == request { app.say(error) } }
     }
 
     func play(_ n: Now) async {
+        guard preparing != n.key else { return }
+        let request = UUID()
+        requestID = request
+        preparing = n.key
+        choices = nil
+        defer { if requestID == request { preparing = nil } }
+        await prepare(n, request)
+    }
+
+    private func prepare(_ n: Now, _ request: UUID) async {
         if n.tracks.isEmpty { app.toast = "No audio"; return }
         let ps = await app.positions(n)
+        guard requestID == request, !Task.isCancelled else { return }
         if ps.count == 1 { start(n, ps[0].time) } else { choices = (n, ps) }
     }
 
     /// After an app restart: put the last title back in the player, paused, at its latest position.
     func restore() async {
         guard now == nil, app.me != nil, let n = app.loadNow() else { return }
+        let request = requestID
         let t = await app.positions(n).first?.time ?? 0
-        if now == nil { start(n, t, play: false) }
+        if now == nil && requestID == request && !Task.isCancelled && app.me != nil { start(n, t, play: false) }
     }
 
     func start(_ n: Now, _ t: Double, play: Bool = true) {
+        guard !n.tracks.isEmpty else { app.toast = "No audio"; return }
+        queueID = UUID()
+        playbackError = nil
         if let old = now, old.key != n.key, p.currentItem != nil {
             let at = pos
             Task { await app.push(old, at, finished: false) }
@@ -206,8 +245,12 @@ import UIKit
     }
 
     private func queue(_ n: Now, _ i: Int, _ off: Double, play: Bool) async {
+        guard now == n, !Task.isCancelled else { return }
+        let request = UUID()
+        queueID = request
+        buffering = play
         let auth = (try? await app.token()).map { ["Authorization": "Bearer " + $0] } ?? [:]
-        guard now == n else { return }
+        guard now == n, queueID == request, !Task.isCancelled else { return }
         p.removeAllItems()
         index = [:]
         for k in i..<n.tracks.count {
@@ -219,6 +262,7 @@ import UIKit
         }
         idx = i
         if off > 0 { _ = await p.seek(to: CMTime(seconds: off, preferredTimescale: 1000)) }
+        guard now == n, queueID == request, !Task.isCancelled else { return }
         pos = n.tracks[i].start + off
         if play {
             try? AVAudioSession.sharedInstance().setActive(true)

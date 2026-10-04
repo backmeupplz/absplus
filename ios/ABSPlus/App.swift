@@ -7,7 +7,9 @@ struct ABSPlusApp: App {
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
+            if ProcessInfo.processInfo.arguments.contains("--loading-test") {
+                LoadingFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
             } else { RootView() }
 #else
@@ -47,7 +49,7 @@ struct RootView: View {
                         HStack {
                             Text("Offline · showing downloads only").font(.footnote.weight(.semibold))
                             Spacer()
-                            Button("Retry") { Task { await app.ping() } }.font(.footnote.weight(.semibold))
+                            Button(app.pinging ? "Connecting…" : "Retry") { Task { await app.ping() } }.font(.footnote.weight(.semibold)).disabled(app.pinging)
                         }
                         .padding(.horizontal, 16).padding(.vertical, 8)
                         .foregroundStyle(.white)
@@ -59,6 +61,7 @@ struct RootView: View {
                     Downloader.shared.restore()
                     await player.restore()
                     try? await Task.sleep(for: .seconds(2)) // interrupted transfers report back with their resume data first
+                    guard !Task.isCancelled else { return }
                     await app.resumeQueue()
                 }
             }
@@ -77,6 +80,7 @@ struct RootView: View {
         .task(id: app.toast) {
             guard app.toast != nil else { return }
             try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
             app.toast = nil
         }
         .task(id: app.offline) { // try to get back online every 10s
@@ -100,6 +104,8 @@ struct LoginView: View {
     @State private var user = ""
     @State private var pass = ""
     @State private var busy = false
+    @State private var request: Task<Void, Never>?
+    @State private var error: String?
 
     var body: some View {
         ScrollView {
@@ -118,12 +124,13 @@ struct LoginView: View {
                 .padding(14)
                 .background(.fill.tertiary, in: .rect(cornerRadius: 12))
                 Button(action: signIn) {
-                    Group { if busy { ProgressView() } else { Text("Sign in") } }.frame(maxWidth: .infinity)
+                    Group { if busy { ProgressView().accessibilityLabel("Signing in") } else { Text("Sign in") } }.frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .disabled(busy || url.isEmpty || user.isEmpty)
                 .padding(.top, 8)
+                if let error { Text(error).foregroundStyle(.red).accessibilityIdentifier("login.error") }
                 Text("You need an Audiobookshelf server to sign in to.")
                     .font(.footnote).foregroundStyle(.secondary).padding(.top, 8)
             }
@@ -133,14 +140,18 @@ struct LoginView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .onSubmit(signIn)
+        .onDisappear { request?.cancel(); busy = false }
     }
 
     private func signIn() {
         guard !busy, !url.isEmpty, !user.isEmpty else { return }
         busy = true
-        Task {
+        error = nil
+        request = Task {
             defer { busy = false }
-            do { _ = try await app.login(url, user, pass, main: true) } catch { app.say(error) }
+            do { _ = try await app.login(url, user, pass, main: true) } catch {
+                if !Task.isCancelled { self.error = error.localizedDescription }
+            }
         }
     }
 }
@@ -155,6 +166,7 @@ struct MiniPlayer: View {
                     Text(n.author).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 0)
+                if player.buffering { ProgressView().accessibilityLabel("Buffering audio") }
                 Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").font(.title3) }
                     .accessibilityLabel(player.playing ? "Pause" : "Play")
                 Button { player.skip(30) } label: { Image(systemName: "goforward.30").font(.title3) }
@@ -183,6 +195,11 @@ struct FullPlayer: View {
                 VStack(spacing: 4) {
                     Text(n.title).font(.title2.bold()).multilineTextAlignment(.center).lineLimit(2)
                     Text(n.author).font(.headline).foregroundStyle(.secondary).lineLimit(1)
+                }
+                if player.buffering { ProgressView("Buffering audio…") }
+                if let error = player.playbackError {
+                    Text(error).font(.footnote).foregroundStyle(.red)
+                    Button("Retry playback") { player.play() }
                 }
                 VStack(spacing: 2) {
                     Slider(value: Binding(get: { t }, set: { drag = $0 }), in: 0...max(1, n.duration)) { editing in

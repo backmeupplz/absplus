@@ -167,7 +167,9 @@ let resumeDir: URL = {
     // --- http
 
     private func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:]) async throws -> Data {
-        guard let url = URL(string: server + path) else { throw Msg(errorDescription: "Invalid server URL") }
+        let context = server
+        let account = me
+        guard let url = URL(string: context + path) else { throw Msg(errorDescription: "Invalid server URL") }
         var r = URLRequest(url: url, timeoutInterval: 20)
         r.httpMethod = method
         hdr.forEach { r.setValue($1, forHTTPHeaderField: $0) }
@@ -177,17 +179,26 @@ let resumeDir: URL = {
         }
         do {
             let (data, resp) = try await URLSession.shared.data(for: r)
+            try Task.checkCancellation()
+            guard server == context, me == account else { throw CancellationError() }
             offline = false
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code >= 400 { throw HttpErr(code: code) }
             return data
         } catch let e as URLError where e.code != .cancelled {
+            guard server == context, me == account else { throw CancellationError() }
             offline = true
             throw e
         }
     }
 
-    func ping() async { _ = try? await http("GET", "/ping") }
+    var pinging = false
+    func ping() async {
+        guard !pinging, !Task.isCancelled else { return }
+        pinging = true
+        defer { pinging = false }
+        _ = try? await http("GET", "/ping")
+    }
 
     // --- accounts
 
@@ -210,6 +221,7 @@ let resumeDir: URL = {
         } catch let e as HttpErr where e.code == 401 {
             throw Msg(errorDescription: "Wrong username or password")
         }
+        try Task.checkCancellation()
         let name = try save(r)
         if main { me = name; expired = false }
         return name
@@ -225,6 +237,8 @@ let resumeDir: URL = {
     var accounts: [String] { accts.keys.filter { $0 != me }.sorted() }
 
     func logout() {
+        refreshing.values.forEach { $0.cancel() }
+        refreshing = [:]
         cancel(inflight) // downloads stop, files stay
         dlq = []
         d.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
@@ -252,7 +266,10 @@ let resumeDir: URL = {
         let t = Task {
             defer { refreshing[name] = nil }
             do {
-                try save(try await http("POST", "/auth/refresh", [:], ["x-refresh-token": a.r]))
+                let data = try await http("POST", "/auth/refresh", [:], ["x-refresh-token": a.r])
+                try Task.checkCancellation()
+                guard accts[name]?.r == a.r else { throw CancellationError() }
+                try save(data)
                 return accts[name]?.a ?? ""
             } catch let e as HttpErr where e.code == 401 && name == me {
                 throw Expired()
@@ -274,19 +291,28 @@ let resumeDir: URL = {
     func cached(_ path: String) -> Data? { try? Data(contentsOf: cacheFile(path)) }
     func get(_ path: String) async throws -> Data {
         let data = try await api("GET", path)
+        try Task.checkCancellation()
         try? data.write(to: cacheFile(path))
         return data
     }
 
     /// Renders cached JSON instantly, then refreshes from the server.
-    func load<T: Decodable>(_ path: String, _ render: (T) -> Void) async {
+    @discardableResult
+    func load<T: Decodable>(_ path: String, _ render: (T) -> Void) async -> String? {
+        guard !Task.isCancelled else { return nil }
         let old = cached(path)
         if let old, let v = try? JSONDecoder().decode(T.self, from: old) { render(v) }
         do {
-            let new = try await get(path)
-            if new != old { render(try JSONDecoder().decode(T.self, from: new)) }
+            let new = try await api("GET", path)
+            try Task.checkCancellation()
+            let value = try JSONDecoder().decode(T.self, from: new)
+            try? new.write(to: cacheFile(path))
+            if new != old { render(value) }
+            return nil
         } catch {
-            if (old == nil && !offline) || error is Expired { say(error) }
+            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return nil }
+            if error is Expired { say(error) }
+            return error.localizedDescription
         }
     }
 
@@ -319,6 +345,7 @@ let resumeDir: URL = {
     func fetch(_ n: Now) async {
         do {
             let auth = "Bearer " + (try await token(fresh: 1800)) // long enough for the system's own retries
+            guard queued(n), !Task.isCancelled else { return }
             for t in n.tracks where !done(n.item, t) && !inflight.contains(rel(n.item, t)) {
                 let r = rel(n.item, t)
                 let url = URL(string: "\(server)/api/items/\(n.item)/file/\(t.ino)/download")!
@@ -331,7 +358,10 @@ let resumeDir: URL = {
                 }
             }
             dlChanged()
-        } catch { say(error) }
+        } catch {
+            say(error)
+            dlq.removeAll { $0.key == n.key }
+        }
     }
 
     /// after a relaunch: carry on with queued titles that have files left and nothing transferring
@@ -497,10 +527,12 @@ let resumeDir: URL = {
     }
 
     /// title/author for a favorite added on another device
-    func fillFav(_ id: String) async {
-        guard let data = try? await get("/api/items/\(id)?expanded=1"), let c = try? JSONDecoder().decode(Item.self, from: data).card,
-              let i = fav.firstIndex(where: { $0.id == id }) else { return }
-        fav[i] = c
+    @discardableResult
+    func fillFav(_ id: String) async -> String? {
+        await load("/api/items/\(id)?expanded=1") { (item: Item) in
+            guard let i = fav.firstIndex(where: { $0.id == id }) else { return }
+            fav[i] = item.card
+        }
     }
 
     func addHistory(_ n: Now) {
