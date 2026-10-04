@@ -9,6 +9,8 @@ struct ABSPlusApp: App {
 #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
                 DownloadRetryFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
+                AccessibilityFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--offline-home-test") {
