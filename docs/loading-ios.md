@@ -112,11 +112,45 @@ Favorites now skips populated cards unless that specific metadata request previo
 failed after rendering cache. A populated-Favorites UI fixture checks zero item
 metadata requests across repeated tab visits.
 
-The Home context-menu fixture also exposed a native List/horizontal-shelf issue:
-long-pressing the second title showed the first tile's Play action. The shelf now
-records the touched tile with a simultaneous (nonexclusive) gesture and uses that
-identity for context Play/Details and preview. The regression selects the second
-menu action by its item-specific accessibility identifier, checks preparation of
-that exact title, then navigates away before releasing metadata. A separate
-same-screen test switches from the first pending title to the second and verifies
-only the second starts.
+The Home context-menu fixture exposed a native List/horizontal-shelf issue:
+long-pressing the second title showed the first tile's Play action. Home now uses
+a native vertical ScrollView/LazyVStack rather than hosting the whole shelf in one
+List cell. Each tile owns its context Play/Details and preview directly. There is
+no shared touch target or custom drag recognizer: horizontal scrolling and non-touch
+menu ownership do not depend on a previous gesture. The five-card fixture swipes
+to the fifth card, returns, and switches menus between the second and first tiles.
+The existing second-title Play regression still checks that exact preparation and
+cancels it by leaving Home. The same-screen switching test verifies only the latest
+selected title starts. An additional right-click-after-touch test is runnable on
+iPad. The assigned iPhone simulator rejects XCTest rightClick with “Pointer events
+are not supported for this device”; that test explicitly skips on iPhone rather
+than treating touch simulation as pointer proof. Physical VoiceOver, keyboard and
+pointer activation remain unverified.
+
+Direct playback metadata now validates Item before cache commit, just like screen
+loads; invalid existing cached bytes fall through to a network request. The real
+Home Play regression uses --invalid-item-response (HTTP 200 `{}` once, then a valid
+Item), checks the failed response was not cached, taps Play again and verifies a
+second metadata request, a valid cache, and actual local AVQueuePlayer playback.
+--invalid-item-cache separately seeds old wrong-schema bytes and verifies Home Play
+refetches and replaces them. Neither test opens Details to repair the cache first.
+
+
+## Native shelf/cache follow-up verification (2026-10-04)
+
+- Assigned iPhone simulator `81418EFF-A619-4374-9F0D-7C1B5D3E12B0`, isolated
+  DerivedData `/tmp/abs25-native-derived`; Debug app and UI tests compiled.
+- `/tmp/abs25-native-all.xcresult`: all 20 supported cases passed (LoadingLifecycle
+  9, ListLifecycle 1, OfflineHome 1, PlaybackPreparation 9). The additional pointer
+  probe failed only because this iPhone rejects pointer events. No product assertion
+  failed in that run; the pointer test now explicitly skips unsupported iPhones.
+- Final rebuilt focused suite `/tmp/abs25-native-final.xcresult`: **4 passed,
+  1 explicit pointer skip, 0 failures**, TEST SUCCEEDED. Covers fifth-card swipe,
+  second/first menu ownership and Details, second-title Play/cancellation, wrong-schema
+  HTTP 200 then valid retry, and invalid existing-cache recovery.
+- Release simulator build (arm64 + x86_64) succeeded;
+  `/tmp/abs25-native-release.log`. No Android, CI or release configuration changes.
+- Initial focused run had one test-query failure: ItemView renders its title in
+  content, not the navigation bar. The corrected assertion checks the rendered
+  first title and absence of the second title; shelf/menu assertions were retained.
+- Physical-device VoiceOver, keyboard and pointer activation were unavailable.

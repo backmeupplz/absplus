@@ -1,12 +1,13 @@
 import XCTest
+import UIKit
 
 /// Real production views, URLSession metadata/positions and AVQueuePlayer with a
 /// local silent WAV. Gates make Back/switching deterministic without real media.
 final class PlaybackPreparation: XCTestCase {
-    private func launch() -> XCUIApplication {
+    private func launch(_ arguments: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--loading-test", "--playback"]
+        app.launchArguments = ["--loading-test", "--playback"] + arguments
         app.launch()
         app.buttons["Release fixture requests"].tap()
         XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12))
@@ -132,6 +133,64 @@ final class PlaybackPreparation: XCTestCase {
             app.tabBars.buttons["Home"].tap()
         }
     }
+    func testHomeShelfScrollsToFifthAndMenusStayWithTheirTiles() {
+        let app = launch()
+        let firstX = app.buttons["continue.first"].frame.minX
+        app.buttons["continue.other"].swipeLeft()
+        XCTAssertTrue(app.buttons["continue.fifth"].isHittable, "Five-card shelf must scroll horizontally")
+        XCTAssertLessThan(app.buttons["continue.first"].frame.minX, firstX)
+        app.buttons["continue.fourth"].swipeRight()
+        XCTAssertTrue(app.buttons["continue.first"].isHittable)
+        app.buttons["continue.other"].press(forDuration: 1)
+        XCTAssertTrue(app.buttons["context.play.other"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["context.play.first"].exists)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.75)).tap()
+        app.buttons["continue.first"].press(forDuration: 1)
+        XCTAssertTrue(app.buttons["context.play.first"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["context.play.other"].exists)
+        app.buttons["Details"].tap()
+        XCTAssertTrue(app.buttons["Play"].firstMatch.waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Loaded title"].exists)
+        XCTAssertFalse(app.staticTexts["Other title"].exists)
+    }
+
+    func testHomePointerMenuDoesNotReuseLastTouchedTile() throws {
+        // XCTest rejects pointer events on iPhone; keep this runnable on iPad.
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .pad, "Pointer events require an iPad simulator; physical keyboard/VoiceOver remain manual coverage.")
+        let app = launch()
+        app.buttons["continue.other"].press(forDuration: 1)
+        XCTAssertTrue(app.buttons["context.play.other"].waitForExistence(timeout: 5))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.75)).tap()
+        app.buttons["continue.first"].rightClick()
+        XCTAssertTrue(app.buttons["context.play.first"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["context.play.other"].exists)
+    }
+
+    func testHomePlayRetriesWrongSchemaWithoutCachingIt() {
+        let app = launch(["--invalid-item-response"])
+        app.buttons["Release positions"].tap()
+        app.buttons["continue.first"].tap()
+        state(app, "preparing: first")
+        state(app, "Current: none; preparing: none; playing: false")
+        app.buttons["Check metadata"].tap()
+        XCTAssertEqual(app.staticTexts["fixture.metadata"].label, "Metadata requests: 1; cache: absent")
+        app.buttons["continue.first"].tap()
+        state(app, "Current: first; preparing: none; playing: true")
+        app.buttons["Check metadata"].tap()
+        XCTAssertEqual(app.staticTexts["fixture.metadata"].label, "Metadata requests: 2; cache: valid")
+    }
+
+    func testHomePlayRefetchesInvalidExistingItemCache() {
+        let app = launch(["--invalid-item-cache"])
+        app.buttons["Check metadata"].tap()
+        XCTAssertEqual(app.staticTexts["fixture.metadata"].label, "Metadata requests: 0; cache: invalid")
+        app.buttons["Release positions"].tap()
+        app.buttons["continue.first"].tap()
+        state(app, "Current: first; preparing: none; playing: true")
+        app.buttons["Check metadata"].tap()
+        XCTAssertEqual(app.staticTexts["fixture.metadata"].label, "Metadata requests: 1; cache: valid")
+    }
+
     func testHomeSwitchDuringMetadataStartsOnlyLatestTitle() {
         let app = launch()
         app.buttons["Hold fixture requests"].tap()

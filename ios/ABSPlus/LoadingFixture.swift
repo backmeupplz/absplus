@@ -7,6 +7,8 @@ struct LoadingFixture: View {
     private static var configured = false
     @State private var positionCount = 0
     @State private var favoriteCount = -1
+    @State private var metadataCount = 0
+    @State private var metadataCache = "unchecked"
     init() {
         guard !Self.configured else { return }
         Self.configured = true
@@ -45,6 +47,11 @@ struct LoadingFixture: View {
             }
             app.hist = [Hist(card: Card(id: "other", title: "Recent title", sub: "Fixture author"), at: ms())]
         }
+        if ProcessInfo.processInfo.arguments.contains("--invalid-item-cache") {
+            let path = "/api/items/first?expanded=1"
+            let name = String(path.map { $0.isLetter || $0.isNumber ? $0 : "_" })
+            try! Data("{}".utf8).write(to: app.cacheDir.appending(path: name))
+        }
         if ProcessInfo.processInfo.arguments.contains("--cached") {
             let path = "/api/libraries/fixture/items?minified=1&sort=media.metadata.title"
             let name = String(path.map { $0.isLetter || $0.isNumber ? $0 : "_" })
@@ -72,6 +79,15 @@ struct LoadingFixture: View {
                 Text("Current: \(player.now?.key ?? "none"); preparing: \(player.preparing ?? "none"); playing: \(player.playing ? "true" : "false")")
                     .accessibilityIdentifier("fixture.playback")
                 Text("Position requests: \(positionCount)").accessibilityIdentifier("fixture.positions")
+                if ProcessInfo.processInfo.arguments.contains("--invalid-item-response") || ProcessInfo.processInfo.arguments.contains("--invalid-item-cache") {
+                    Button("Check metadata") {
+                        metadataCount = LoadingProtocol.counts.withLock { $0["/api/items/first", default: 0] }
+                        if let data = app.cached("/api/items/first?expanded=1") {
+                            metadataCache = (try? JSONDecoder().decode(Item.self, from: data)) == nil ? "invalid" : "valid"
+                        } else { metadataCache = "absent" }
+                    }
+                    Text("Metadata requests: \(metadataCount); cache: \(metadataCache)").accessibilityIdentifier("fixture.metadata")
+                }
             }
             if ProcessInfo.processInfo.arguments.contains("--populated-favorites") {
                 Button("Check favorite requests") { favoriteCount = LoadingProtocol.counts.withLock { $0["/api/items/favorite", default: 0] } }
@@ -110,7 +126,9 @@ final class LoadingProtocol: URLProtocol, @unchecked Sendable {
         let fail = args.contains("--failure") && count == 1 && isContent
         let offline = args.contains("--offline") && isContent
         let body: [String: Any]
-        if position {
+        if args.contains("--invalid-item-response") && path == "/api/items/first" && count == 1 {
+            body = [:] // HTTP 200, valid JSON, invalid Item schema.
+        } else if position {
             body = ["libraryItemId": path.components(separatedBy: "/")[4], "currentTime": 0, "lastUpdate": 0]
         } else if path == "/api/libraries" {
             body = ["libraries": args.contains("--no-libraries") ? [] : [["id": "fixture", "name": "Fixture Library", "mediaType": "book"], ["id": "other", "name": "Other Library", "mediaType": "book"]]]
@@ -121,7 +139,7 @@ final class LoadingProtocol: URLProtocol, @unchecked Sendable {
         } else if path.hasSuffix("/series") {
             body = ["results": empty ? [] : [["id": "series", "name": "Loaded series", "books": [Self.item("first", "Loaded title")]]]]
         } else if path.contains("items-in-progress") {
-            body = ["libraryItems": empty ? [] : playback ? [Self.item("first", "Loaded title"), Self.item("other", "Other title")] : [Self.item("first", "Loaded title")]]
+            body = ["libraryItems": empty ? [] : playback ? [Self.item("first", "Loaded title"), Self.item("other", "Other title"), Self.item("third", "Third title"), Self.item("fourth", "Fourth title"), Self.item("fifth", "Fifth title")] : [Self.item("first", "Loaded title")]]
         } else if path == "/login" {
             body = ["user": ["username": "loading-fixture", "accessToken": "fixture"]]
         } else {

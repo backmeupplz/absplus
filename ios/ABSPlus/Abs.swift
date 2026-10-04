@@ -289,12 +289,6 @@ let resumeDir: URL = {
         cacheDir.appending(path: String(path.map { $0.isLetter || $0.isNumber ? $0 : "_" }))
     }
     func cached(_ path: String) -> Data? { try? Data(contentsOf: cacheFile(path)) }
-    func get(_ path: String) async throws -> Data {
-        let data = try await api("GET", path)
-        try Task.checkCancellation()
-        try? data.write(to: cacheFile(path))
-        return data
-    }
 
     /// Renders cached JSON instantly, then refreshes from the server.
     @discardableResult
@@ -318,9 +312,13 @@ let resumeDir: URL = {
 
     func item(_ id: String) async throws -> Item {
         let path = "/api/items/\(id)?expanded=1"
-        let data: Data
-        if let c = cached(path) { data = c } else { data = try await get(path) }
-        return try JSONDecoder().decode(Item.self, from: data)
+        try Task.checkCancellation()
+        if let data = cached(path), let item = try? JSONDecoder().decode(Item.self, from: data) { return item }
+        let data = try await api("GET", path)
+        try Task.checkCancellation()
+        let item = try JSONDecoder().decode(Item.self, from: data)
+        try? data.write(to: cacheFile(path))
+        return item
     }
 
     // --- tracks & downloads

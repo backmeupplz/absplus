@@ -5,16 +5,17 @@ import SwiftUI
 struct HomeView: View {
     @State private var items: [Card] = []
     @State private var playback = PlaybackRequest()
-    @State private var contextCard: Card?
     @State private var loading = Loading()
     @Environment(Nav.self) private var nav
 
     var body: some View {
         let cont = avail(items)
         let hist = app.hist.filter { !app.offline || app.downloaded($0.card) }
-        List {
-            if !cont.isEmpty {
-                Section("Continue listening") {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 20) {
+                if !cont.isEmpty {
+                    Text("Continue listening").font(.headline).padding(.horizontal, 20)
+                    // Outside a List cell, each tile owns its native context menu.
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(alignment: .top, spacing: 12) {
                             ForEach(cont, id: \.key) { c in
@@ -23,37 +24,35 @@ struct HomeView: View {
                                     .accessibilityIdentifier("continue.\(c.key)")
                                     .overlay { if player.preparing == c.key { ProgressView("Preparing…").padding(8).background(.regularMaterial) } }
                                     .disabled(player.preparing == c.key)
-                                    // List hosts the horizontal shelf in one native cell. Its
-                                    // context menu otherwise captures the first tile's actions.
-                                    .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in contextCard = c })
                                     .contextMenu {
-                                        let selected = contextCard ?? c
-                                        Text(selected.title)
-                                        Button("Play", systemImage: "play.fill") { playback.play(selected) }
-                                            .accessibilityIdentifier("context.play.\(selected.key)")
-                                        Button("Details", systemImage: "info.circle") { nav.open(.item(selected.id)) }
+                                        Text(c.title)
+                                        Button("Play", systemImage: "play.fill") { playback.play(c) }
+                                            .accessibilityIdentifier("context.play.\(c.key)")
+                                        Button("Details", systemImage: "info.circle") { nav.open(.item(c.id)) }
                                     } preview: {
-                                        Tile(card: contextCard ?? c).frame(width: 116).padding()
+                                        Tile(card: c).frame(width: 116).padding()
                                     }
                             }
                         }
                         .padding(.horizontal, 20)
                     }
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
                 }
-            }
-            Section("Recently played") {
-                if hist.isEmpty && loading.finished && !cont.isEmpty { Text("Nothing played on this device yet.").foregroundStyle(.secondary) }
-                ForEach(hist, id: \.card.key) { h in
-                    NavigationLink(value: Route.item(h.card.id)) {
-                        Row(card: h.card, meta: Date(timeIntervalSince1970: h.at / 1000).formatted(.relative(presentation: .named))) {
-                            PlayButton(busy: player.preparing == h.card.key) { playback.play(h.card) }
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Recently played").font(.headline)
+                    if hist.isEmpty && loading.finished && !cont.isEmpty { Text("Nothing played on this device yet.").foregroundStyle(.secondary) }
+                    ForEach(hist, id: \.card.key) { h in
+                        NavigationLink(value: Route.item(h.card.id)) {
+                            Row(card: h.card, meta: Date(timeIntervalSince1970: h.at / 1000).formatted(.relative(presentation: .named))) {
+                                PlayButton(busy: player.preparing == h.card.key) { playback.play(h.card) }
+                            }
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("history-" + h.card.key)
                     }
-                    .accessibilityIdentifier("history-" + h.card.key)
                 }
+                .padding(.horizontal, 20)
             }
+            .padding(.vertical, 16)
         }
         .overlay { LoadingFeedback(state: loading, empty: cont.isEmpty && hist.isEmpty, title: "Nothing played yet", retry: reload) }
         .onDisappear { loading.cancel(); playback.cancel() }
