@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import CryptoKit
 
 struct Track: Codable, Hashable {
     var ino: String, ext: String, size: Int64, duration: Double, start: Double
@@ -27,27 +28,28 @@ struct Pos { var who: String, time: Double, at: Double }
 // --- server json (only the fields we use)
 
 /// "ino" is a string on current servers; accept a number too
-struct Flex: Decodable, Hashable {
+struct Flex: Codable, Hashable {
     var s: String
+    func encode(to e: Encoder) throws { var c = e.singleValueContainer(); try c.encode(s) }
     init(from d: Decoder) throws {
         let c = try d.singleValueContainer()
         if let v = try? c.decode(String.self) { s = v } else { s = String(try c.decode(Int64.self)) }
     }
 }
 
-struct AudioFile: Decodable {
-    struct M: Decodable { var ext: String?, size: Int64? }
+struct AudioFile: Codable {
+    struct M: Codable { var ext: String?, size: Int64? }
     var ino: Flex, metadata: M?, duration: Double?, startOffset: Double?
     func track(_ start: Double? = nil) -> Track {
         Track(ino: ino.s, ext: metadata?.ext ?? "", size: metadata?.size ?? 0, duration: duration ?? 0, start: start ?? startOffset ?? 0)
     }
 }
 
-struct Episode: Decodable { var id: String, title: String?, publishedAt: Double?, audioFile: AudioFile? }
+struct Episode: Codable { var id: String, title: String?, publishedAt: Double?, audioFile: AudioFile? }
 
-struct Item: Decodable {
-    struct Meta: Decodable { var title: String?, authorName: String?, author: String?, description: String? }
-    struct Media: Decodable { var metadata: Meta, tracks: [AudioFile]?, episodes: [Episode]? }
+struct Item: Codable {
+    struct Meta: Codable { var title: String?, authorName: String?, author: String?, description: String? }
+    struct Media: Codable { var metadata: Meta, tracks: [AudioFile]?, episodes: [Episode]? }
     var id: String, mediaType: String?, media: Media, recentEpisode: Episode?
     var card: Card {
         let m = media.metadata
@@ -138,6 +140,15 @@ let resumeDir: URL = {
     @ObservationIgnored private var refreshing: [String: Task<String, Error>] = [:]
     @ObservationIgnored private var pushingFavs = false
 
+    @ObservationIgnored private var mediaServer: String?
+    @ObservationIgnored private(set) var mediaEpoch = UserDefaults.standard.string(forKey: "mediaEpoch") ?? UUID().uuidString
+    private var mediaScope: String { mediaServer.map { SHA256.hash(data: Data($0.utf8)).map { String(format: "%02x", $0) }.joined() } ?? "locked" }
+    var mediaDir: URL { dlDir.appending(path: "servers/" + mediaScope) }
+    private var audioDir: URL { mediaDir.appending(path: "audio") }
+    private func selectMedia(_ s: String?) { mediaServer = s; mediaEpoch = UUID().uuidString; d.set(mediaEpoch, forKey: "mediaEpoch"); dlMemo = [:]; dlv += 1 }
+    private func expanded(_ path: String) -> Bool { path.hasPrefix("/api/items/") && path.hasSuffix("?expanded=1") }
+    private func retainedFile(_ path: String) -> URL { mediaDir.appending(path: "metadata/" + SHA256.hash(data: Data(path.utf8)).map { String(format: "%02x", $0) }.joined()) }
+
     var server: String { d.string(forKey: "server") ?? "" }
 
     init() {
@@ -152,6 +163,8 @@ let resumeDir: URL = {
             accts = [:]
             kcWrite([:])
         }
+        if me != nil && !server.isEmpty { mediaServer = server; d.set(mediaEpoch, forKey: "mediaEpoch") }
+        // Legacy unscoped bytes are kept but never assigned to a server by matching IDs.
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }
 
@@ -166,8 +179,8 @@ let resumeDir: URL = {
 
     // --- http
 
-    private func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:]) async throws -> Data {
-        guard let url = URL(string: server + path) else { throw Msg(errorDescription: "Invalid server URL") }
+    private func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:], base: String? = nil) async throws -> Data {
+        guard let url = URL(string: (base ?? server) + path) else { throw Msg(errorDescription: "Invalid server URL") }
         var r = URLRequest(url: url, timeoutInterval: 20)
         r.httpMethod = method
         hdr.forEach { r.setValue($1, forHTTPHeaderField: $0) }
@@ -199,19 +212,29 @@ let resumeDir: URL = {
 
     /// Logs in; main = the account this app runs as, otherwise a linked account for progress sharing.
     func login(_ url: String, _ user: String, _ pass: String, main: Bool) async throws -> String {
-        if main {
-            var s = url.trimmingCharacters(in: .whitespaces)
-            while s.hasSuffix("/") { s.removeLast() }
-            d.set(s.contains("://") ? s : "https://" + s, forKey: "server")
-        }
+        var s = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        while s.hasSuffix("/") { s.removeLast() }
+        if !s.contains("://") { s = "https://" + s }
+        let epoch = mediaEpoch
         let r: Data
         do {
-            r = try await http("POST", "/login", ["username": user.trimmingCharacters(in: .whitespaces), "password": pass], ["x-return-tokens": "true"])
+            r = try await http("POST", "/login", ["username": user.trimmingCharacters(in: .whitespaces), "password": pass], ["x-return-tokens": "true"], base: main ? s : server)
         } catch let e as HttpErr where e.code == 401 {
             throw Msg(errorDescription: "Wrong username or password")
         }
+        let u = try JSONDecoder().decode(LoginResp.self, from: r).user
+        guard !(u.accessToken.flatMap { $0.isEmpty ? nil : $0 } ?? u.token ?? "").isEmpty else { throw Msg(errorDescription: "Missing access token") }
+        guard epoch == mediaEpoch else { throw CancellationError() }
         let name = try save(r)
-        if main { me = name; expired = false }
+        if main {
+            cancel(inflight)
+            dlq = []
+            try? FileManager.default.removeItem(at: cacheDir)
+            try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+            d.set(s, forKey: "server")
+            selectMedia(s)
+            me = name; expired = false
+        }
         return name
     }
 
@@ -226,7 +249,10 @@ let resumeDir: URL = {
 
     func logout() {
         cancel(inflight) // downloads stop, files stay
+        selectMedia(nil)
         dlq = []
+        try? FileManager.default.removeItem(at: resumeDir) // resume archives contain authorization headers
+        try? FileManager.default.createDirectory(at: resumeDir, withIntermediateDirectories: true)
         d.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
@@ -271,10 +297,21 @@ let resumeDir: URL = {
     private func cacheFile(_ path: String) -> URL {
         cacheDir.appending(path: String(path.map { $0.isLetter || $0.isNumber ? $0 : "_" }))
     }
-    func cached(_ path: String) -> Data? { try? Data(contentsOf: cacheFile(path)) }
+    func cached(_ path: String) -> Data? {
+        if let data = try? Data(contentsOf: cacheFile(path)) { return data }
+        guard mediaServer == server, me != nil, expanded(path) else { return nil }
+        return try? Data(contentsOf: retainedFile(path))
+    }
     func get(_ path: String) async throws -> Data {
+        let epoch = mediaEpoch
         let data = try await api("GET", path)
-        try? data.write(to: cacheFile(path))
+        guard epoch == mediaEpoch else { throw CancellationError() }
+        try? data.write(to: cacheFile(path), options: .atomic)
+        if mediaServer == server, me != nil, expanded(path), let item = try? JSONDecoder().decode(Item.self, from: data) {
+            let dst = retainedFile(path)
+            try? FileManager.default.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? JSONEncoder().encode(item).write(to: dst, options: .atomic)
+        }
         return data
     }
 
@@ -299,7 +336,11 @@ let resumeDir: URL = {
 
     // --- tracks & downloads
 
-    func rel(_ item: String, _ t: Track) -> String { "\(item)/\(t.ino)\(t.ext)" }
+    private func component(_ s: String) -> String {
+        // IDs/extensions are path components, not server-provided relative paths.
+        s.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "invalid"
+    }
+    func rel(_ item: String, _ t: Track) -> String { "servers/\(mediaScope)/audio/\(component(item))/\(component(t.ino + t.ext))" }
     func file(_ item: String, _ t: Track) -> URL { dlDir.appending(path: rel(item, t)) }
     func done(_ item: String, _ t: Track) -> Bool { size(file(item, t)) == t.size }
     func size(_ u: URL) -> Int64 { Int64((try? u.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? -1) }
@@ -317,8 +358,10 @@ let resumeDir: URL = {
 
     /// starts the files of a queued title that are neither on disk nor on their way, continuing interrupted ones
     func fetch(_ n: Now) async {
+        let epoch = mediaEpoch
         do {
             let auth = "Bearer " + (try await token(fresh: 1800)) // long enough for the system's own retries
+            guard epoch == mediaEpoch, me != nil else { return }
             for t in n.tracks where !done(n.item, t) && !inflight.contains(rel(n.item, t)) {
                 let r = rel(n.item, t)
                 let url = URL(string: "\(server)/api/items/\(n.item)/file/\(t.ino)/download")!
@@ -359,7 +402,7 @@ let resumeDir: URL = {
         _ = dlv
         if let m = dlMemo[id] { return m }
         var r = false
-        if FileManager.default.fileExists(atPath: dlDir.appending(path: id).path),
+        if FileManager.default.fileExists(atPath: audioDir.appending(path: component(id)).path),
            let data = cached("/api/items/\(id)?expanded=1"), let it = try? JSONDecoder().decode(Item.self, from: data) {
             if let ts = it.media.tracks { r = ts.allSatisfy { done(id, $0.track()) } }
             else { r = (it.media.episodes ?? []).contains { $0.audioFile.map { done(id, $0.track(0)) } ?? false } }
@@ -372,9 +415,9 @@ let resumeDir: URL = {
     func downloads() -> [(id: String, size: Int64)] {
         _ = dlv
         let fm = FileManager.default
-        return ((try? fm.contentsOfDirectory(at: dlDir, includingPropertiesForKeys: nil)) ?? []).compactMap { dir in
+        return ((try? fm.contentsOfDirectory(at: audioDir, includingPropertiesForKeys: nil)) ?? []).compactMap { dir in
             let files = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.fileSizeKey])) ?? []
-            return files.isEmpty ? nil : (dir.lastPathComponent, files.reduce(0) { $0 + max(0, size($1)) })
+            return files.isEmpty ? nil : (dir.lastPathComponent.removingPercentEncoding ?? dir.lastPathComponent, files.reduce(0) { $0 + max(0, size($1)) })
         }
     }
 
@@ -384,9 +427,10 @@ let resumeDir: URL = {
     }
 
     func removeAll(_ id: String) {
-        let dir = dlDir.appending(path: id)
-        let rels = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).map { "\(id)/\($0)" }
-        cancel(Set(rels).union(inflight.filter { $0.hasPrefix(id + "/") }).union(dlq.filter { $0.item == id }.flatMap { n in n.tracks.map { rel(n.item, $0) } }))
+        let dir = audioDir.appending(path: component(id))
+        let prefix = "servers/\(mediaScope)/audio/\(component(id))/"
+        let rels = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).map { prefix + $0 }
+        cancel(Set(rels).union(inflight.filter { $0.hasPrefix(prefix) }).union(dlq.filter { $0.item == id }.flatMap { n in n.tracks.map { rel(n.item, $0) } }))
         dlq.removeAll { $0.item == id }
         try? FileManager.default.removeItem(at: dir)
         dlChanged()
@@ -397,7 +441,8 @@ let resumeDir: URL = {
         cancel(Set(n.tracks.map { rel(n.item, $0) }))
         dlq.removeAll { $0.key == n.key }
         n.tracks.forEach { try? FileManager.default.removeItem(at: file(n.item, $0)) }
-        try? FileManager.default.removeItem(at: dlDir.appending(path: n.item)) // fails unless empty
+        let dir = audioDir.appending(path: component(n.item))
+        if (try? FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty) == true { try? FileManager.default.removeItem(at: dir) }
         dlChanged()
     }
 
@@ -405,7 +450,8 @@ let resumeDir: URL = {
         cancelling.formUnion(rels.intersection(inflight))
         inflight.subtract(rels)
         rels.forEach { got[$0] = nil; try? FileManager.default.removeItem(at: resumeFile($0)) }
-        Downloader.shared.session.getAllTasks { ts in ts.filter { rels.contains($0.taskDescription ?? "") }.forEach { $0.cancel() } }
+        let descriptions = Set(rels.map { mediaEpoch + "|" + $0 })
+        Downloader.shared.session.getAllTasks { ts in ts.filter { descriptions.contains($0.taskDescription ?? "") }.forEach { $0.cancel() } }
     }
 
     // --- what's playing, kept across app restarts
@@ -550,32 +596,41 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
             r.setValue(auth, forHTTPHeaderField: "Authorization")
             t = session.downloadTask(with: r)
         }
-        t.taskDescription = rel
+        t.taskDescription = app.mediaEpoch + "|" + rel
+        app.cancelling.remove(rel)
         app.inflight.insert(rel)
         t.resume()
+    }
+
+    @MainActor private func activeRel(_ task: URLSessionTask) -> String? {
+        guard app.me != nil, let desc = task.taskDescription else { return nil }
+        let parts = desc.components(separatedBy: "|")
+        guard parts.count == 2, parts[0] == app.mediaEpoch,
+              app.dlq.contains(where: { n in n.tracks.contains { app.rel(n.item, $0) == parts[1] } }), !app.cancelling.contains(parts[1]) else { return nil }
+        return parts[1]
     }
 
     /// picks up downloads still running from an earlier launch
     func restore() {
         session.getAllTasks { ts in
-            let live = ts.filter { $0.state == .running || $0.state == .suspended }.compactMap { t in t.taskDescription.map { ($0, t.countOfBytesReceived) } }
             Task { @MainActor in
-                for (rel, n) in live {
+                for t in ts {
+                    guard let rel = self.activeRel(t) else { t.cancel(); continue }
                     app.inflight.insert(rel)
-                    app.got[rel] = n
+                    app.got[rel] = t.countOfBytesReceived
                 }
             }
         }
     }
 
     func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didWriteData _: Int64, totalBytesWritten w: Int64, totalBytesExpectedToWrite _: Int64) {
-        guard let rel = t.taskDescription, Date().timeIntervalSince(reported[rel] ?? .distantPast) > 0.5 else { return }
+        guard let rel = MainActor.assumeIsolated({ activeRel(t) }), Date().timeIntervalSince(reported[rel] ?? .distantPast) > 0.5 else { return }
         reported[rel] = Date()
         MainActor.assumeIsolated { app.got[rel] = w }
     }
 
     func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didFinishDownloadingTo loc: URL) {
-        guard let rel = t.taskDescription, ((t.response as? HTTPURLResponse)?.statusCode ?? 0) < 400 else { return }
+        guard let rel = MainActor.assumeIsolated({ activeRel(t) }), ((t.response as? HTTPURLResponse)?.statusCode ?? 0) < 400 else { return }
         let dst = dlDir.appending(path: rel)
         let fm = FileManager.default
         try? fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -585,7 +640,7 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
 
     func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {
         let code = (task.response as? HTTPURLResponse)?.statusCode ?? 0
-        let rel = task.taskDescription ?? ""
+        guard let rel = MainActor.assumeIsolated({ activeRel(task) }) else { return }
         let resume = (e as? URLError)?.downloadTaskResumeData
         reported[rel] = nil
         MainActor.assumeIsolated {

@@ -9,6 +9,8 @@ struct ABSPlusApp: App {
 #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--retained-test") {
+                RetainedFixture()
             } else { RootView() }
 #else
             RootView()
