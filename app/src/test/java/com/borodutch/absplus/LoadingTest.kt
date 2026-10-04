@@ -176,7 +176,7 @@ class LoadingTest {
         a.call("push", { a.call("downloads") }); assertTrue(a.has("Waiting for connection")); assertTrue(a.has("Queued"))
         first.error = "Couldn't download (HTTP 404)"; a.call("downloads")
         assertTrue(a.has("Couldn't download (HTTP 404)")); a.button("Retry").performClick(); assertNull(first.error)
-        views(a.content()).first { it.contentDescription == "Cancel download" }.performClick()
+        views(a.content()).first { it.contentDescription == "Cancel download of Download" }.performClick()
         (org.robolectric.shadows.ShadowDialog.getLatestDialog() as androidx.appcompat.app.AlertDialog)
             .getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()
         shadowOf(Looper.getMainLooper()).idle()
