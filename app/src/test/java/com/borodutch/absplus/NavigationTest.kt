@@ -124,7 +124,12 @@ class NavigationTest {
             a.call("tab", 1)
             val page = a.content().getChildAt(0)
             val grid = views(page).filterIsInstance<RecyclerView>().single()
-            assertTrue(requested.await(5, TimeUnit.SECONDS))
+            val requestDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (requested.count > 0 && System.nanoTime() < requestDeadline) {
+                Thread.sleep(20)
+                shadowOf(Looper.getMainLooper()).idle() // fresh membership precedes the item request
+            }
+            assertEquals(0L, requested.count)
             a.call("push", { a.call("shelf", "Details", emptyList<Card>(), 1f) })
             response.countDown()
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
