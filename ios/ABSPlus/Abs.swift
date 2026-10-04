@@ -519,7 +519,7 @@ let resumeDir: URL = {
         var r = false
         if FileManager.default.fileExists(atPath: audioDir.appending(path: component(id)).path),
            let data = cached("/api/items/\(id)?expanded=1"), let it = try? JSONDecoder().decode(Item.self, from: data) {
-            if let ts = it.media.tracks { r = ts.allSatisfy { done(id, $0.track()) } }
+            if let ts = it.media.tracks { r = !ts.isEmpty && ts.allSatisfy { done(id, $0.track()) } }
             else { r = (it.media.episodes ?? []).contains { $0.audioFile.map { done(id, $0.track(0)) } ?? false } }
         }
         dlMemo[id] = r
@@ -695,7 +695,7 @@ let resumeDir: URL = {
 
     private static func kcRead() -> [String: Tok] {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(where: { ["--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--accessibility-test"].contains($0) }) {
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--accessibility-test"].contains($0) }) {
             return UserDefaults.standard.data(forKey: "fixture-accounts").flatMap { try? JSONDecoder().decode([String: Tok].self, from: $0) } ?? [:]
         }
 #endif
@@ -708,7 +708,7 @@ let resumeDir: URL = {
 
     private func kcWrite(_ v: [String: Tok]) {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(where: { ["--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--accessibility-test"].contains($0) }) {
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--accessibility-test"].contains($0) }) {
             d.set(try? JSONEncoder().encode(v), forKey: "fixture-accounts")
             return
         }

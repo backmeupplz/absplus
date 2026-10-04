@@ -68,7 +68,11 @@ class Expired : IOException("Session expired, please log in again")
 object Abs {
     lateinit var p: SharedPreferences
     lateinit var dir: File
-    private lateinit var cacheDir: File
+    private lateinit var cacheRoot: File
+    private val cacheDir get() = synchronized(mediaLock) {
+        val identity = me?.let { JSONObject(p.getString("acct:$it", "{}")!!).str("id") }.orEmpty()
+        File(cacheRoot, if (identity.isEmpty()) "locked" else scope(identity)).apply { mkdirs() }
+    }
     var now: Now? = null
     // Both server and immutable account identity must match before retained bytes are visible.
     @Volatile private var mediaServer: String? = null
@@ -117,7 +121,8 @@ object Abs {
         if (::p.isInitialized) return
         p = c.getSharedPreferences("abs", 0)
         dir = c.getExternalFilesDir(null)!!
-        cacheDir = File(c.filesDir, "json").apply { mkdirs() }
+        // Never read legacy unscoped JSON, even if best-effort cleanup failed.
+        cacheRoot = File(c.filesDir, "session-json").apply { mkdirs() }
         if (p.all.filterKeys { it.startsWith("acct:") }.values.any { runCatching { JSONObject(it as String).str("server") != server }.getOrDefault(true) }) {
             p.edit().clear().commit()
             cacheDir.listFiles()?.forEach { it.delete() }
@@ -213,9 +218,9 @@ object Abs {
             check()
             if (main) {
                 // Every main login is a new authorization generation, even same host/username.
+                cacheDir.listFiles()?.forEach { it.delete() }
                 selectMedia(null)
                 Dl.clear()
-                cacheDir.listFiles()?.forEach { it.delete() }
                 now = null; progress = emptyMap(); offline = false
                 p.edit().clear().putString("server", base).putString("me", name).putString("acct:$name", tok).commit()
                 selectMedia(base, JSONObject(tok).getString("mediaIdentity"))
@@ -247,11 +252,11 @@ object Abs {
     }
 
     fun logout() = synchronized(mediaLock) {
+        cacheDir.listFiles()?.forEach { it.delete() }
         selectMedia(null)
         loginRevision++
         Dl.clear()
         p.edit().clear().commit()
-        cacheDir.listFiles()?.forEach { it.delete() }
         now = null; progress = emptyMap(); offline = false
     }
 
@@ -280,8 +285,10 @@ object Abs {
         inSession(epoch) {
             if (returnedName != name || p.getString("acct:$name", null) != stored) throw StaleSession()
             val rotated = JSONObject(tok)
-            if (rotated.str("userId") != a.str("userId")) throw StaleSession()
-            rotated.put("id", a.getString("id")).put("mediaIdentity", a.getString("mediaIdentity"))
+            if (rotated.str("userId").isNotEmpty() && rotated.str("userId") != a.str("userId")) throw StaleSession()
+            // A refresh may omit user.id; it must never replace the login-established owner.
+            rotated.put("id", a.getString("id")).put("userId", a.opt("userId"))
+                .put("mediaIdentity", a.getString("mediaIdentity"))
             p.edit().putString("acct:$name", rotated.toString()).commit()
         }
         JSONObject(tok).getString("a")
@@ -382,8 +389,11 @@ object Abs {
     fun downloaded(id: String) = dlMemo.getOrPut("$mediaEpoch:$id") {
         File(mediaDir, "audio/$id").exists() && runCatching {
             val m = JSONObject(cached("/api/items/$id?expanded=1")!!).getJSONObject("media")
-            m.optJSONArray("tracks")?.let { a -> tracks(a).all { done(id, it) } } ?: m.getJSONArray("episodes").let { e ->
-                (0 until e.length()).any { i -> e.getJSONObject(i).optJSONObject("audioFile")?.let { done(id, track(it, 0.0)) } == true }
+            m.optJSONArray("tracks")?.let { a -> a.length() > 0 && tracks(a).all { file(id, it).isFile && done(id, it) } } ?: m.getJSONArray("episodes").let { e ->
+                (0 until e.length()).any { i -> e.getJSONObject(i).optJSONObject("audioFile")?.let {
+                    val t = track(it, 0.0)
+                    file(id, t).isFile && done(id, t)
+                } == true }
             }
         }.getOrDefault(false)
     }

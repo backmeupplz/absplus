@@ -99,6 +99,9 @@ class AccountPlayerIsolationTest {
             val serverRoot = root.parentFile!!.parentFile!!
             val quarantined = File(serverRoot, "audio/legacy/1.wav").apply { parentFile!!.mkdirs(); writeBytes(bytes.readBytes()) }
             val unscoped = File(Abs.dir, "legacy/1.wav").apply { parentFile!!.mkdirs(); writeBytes(bytes.readBytes()) }
+            val legacyJSON = File(RuntimeEnvironment.getApplication().filesDir, "json/_api_items_book_expanded_1").apply {
+                parentFile!!.mkdirs(); writeText(Abs.cached("/api/items/book?expanded=1")!!)
+            }
             Abs.logout(); host.login("B")
             assertNull(Abs.cached("/api/items/book?expanded=1"))
             assertFalse(Abs.done("book", track)); assertFalse(Abs.downloaded("book"))
@@ -122,6 +125,41 @@ class AccountPlayerIsolationTest {
             assertEquals(root, Abs.mediaDir); assertEquals("A private title", Abs.cachedCard("book").title)
             assertTrue(Abs.done("book", track)); assertEquals("file", Abs.uri("book", track).scheme)
             assertFalse(Abs.done("legacy", track)); assertTrue(quarantined.exists()); assertTrue(unscoped.exists())
+            assertTrue(legacyJSON.readText().contains("A private title"))
+            Abs.logout()
+        }
+    }
+
+    @Test fun leftoverSessionJsonNeverCrossesAccountOrReauthentication() {
+        Abs.init(RuntimeEnvironment.getApplication()); Abs.logout()
+        // Match a real process restart: preferences and files must come from this test's context,
+        // not the singleton retained from a previous Robolectric sandbox.
+        Abs::class.java.getDeclaredField("p").apply { isAccessible = true }.set(null, null)
+        Abs.init(RuntimeEnvironment.getApplication()); Abs.logout()
+        Host().use { host ->
+            fun cache(path: String) = Abs::class.java.getDeclaredMethod("cacheFile", String::class.java)
+                .apply { isAccessible = true }.invoke(Abs, path) as File
+            host.login("A")
+            val path = "/api/me"
+            Abs.get(path)
+            val old = cache(path)
+            val data = old.readText()
+            host.login("B")
+            // Recreate leftover bytes as if best-effort cleanup could not remove them.
+            old.writeText(data)
+            assertNotEquals(old.parentFile, cache(path).parentFile)
+            assertNull(Abs.cached(path)); assertEquals(data, old.readText())
+            host.login("A")
+            assertNotEquals(old.parentFile, cache(path).parentFile)
+            assertNull(Abs.cached(path)); assertEquals(data, old.readText())
+            Abs.get(path)
+            val current = cache(path)
+            Abs.token(force = false)
+            assertEquals(current, cache(path))
+            // A process restart preserves the established login's namespace.
+            Abs::class.java.getDeclaredField("p").apply { isAccessible = true }.set(null, null)
+            Abs.init(RuntimeEnvironment.getApplication())
+            assertEquals(current, cache(path)); assertNotNull(Abs.cached(path))
             Abs.logout()
         }
     }

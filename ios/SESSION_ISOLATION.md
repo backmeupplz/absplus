@@ -13,9 +13,14 @@
   captures its removed token's host; it never reads a later global host.
 - Main login/logout clears account-specific JSON, progress, favorites/queues/shares,
   last-played state, cover caches, active playback and credential-bearing resume archives.
-  Server-scoped completed audio and allowlisted retained metadata from #36 are preserved.
+  Completed audio and allowlisted retained metadata are preserved in server-and-account
+  scopes. Immutable server user IDs recover the same account; missing IDs use persisted
+  per-login random ownership. Legacy server-only/unscoped media and JSON remain quarantined.
 - No credential-bearing redirects are followed. Cover reads use the guarded API;
-  downloads reject redirects and validate both archived resume request URLs before
+  foreground ephemeral downloads reject redirects (background URLSession cannot enforce
+  this delegate). Legacy OS-owned downloads are cancelled, never adopted. No continued
+  transfer while suspended/terminated is promised; queued missing files restart on launch.
+  Downloads validate both archived resume request URLs before
   attaching a new token. Streaming uses AVAssetResourceLoader with explicit immutable
   URL/token, bounded byte-range requests and the no-redirect transport. Servers must
   support HTTP 206 byte ranges (the normal ABS file route).
@@ -29,11 +34,16 @@ SessionIsolation runs actual URLSession requests between isolation-a.invalid and
 isolation-b.invalid with synthetic credentials: same/different usernames, A refresh401
 then B login/unlink, failure/cancellation, delayed main/linked login, refresh/read/error,
 unlink during refresh and delayed canonicalized linked login, stale cover, persisted host
-binding, and real AVFoundation range loading of generated silent WAV. Redirect delegates
-and unsafe resume archives are also asserted. No real server or credentials are used. RetainedDownloads and ListLifecycle
+binding, and real AVFoundation range loading of generated silent WAV. The production
+Downloader uses actual loopback TCP/HTTP fixtures: HTTP 200 commits valid WAV bytes;
+HTTP 307 commits nothing and sends no request to the redirect sink. Same-server accounts
+exercise a 403 metadata denial, production local-file resolution, preserved owner bytes,
+same-account recovery, missing-ID restart and refresh isolation. Unsafe resume archives
+are also asserted. No real server or credentials are used. RetainedDownloads and ListLifecycle
 remain in the suite. Debug launch fixtures alone use a synthetic UserDefaults credential
 store so unsigned simulator persistence does not depend on Keychain entitlements; release
-continues using device-only Keychain.
+continues using device-only Keychain. OfflineLibrary joins the same debug-only credential
+store and authenticates via the synthetic OfflineHomeProtocol before writing scoped audio.
 
 #34 integration: mediaEpoch is the persisted login/session generation. Its progress replay
 must capture this generation plus recipient account identity, clear progress queues in

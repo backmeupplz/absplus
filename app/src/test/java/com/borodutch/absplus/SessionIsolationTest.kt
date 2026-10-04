@@ -94,7 +94,13 @@ class SessionIsolationTest {
                 if (missing) assertNotEquals(root, Abs.mediaDir) else assertEquals(root, Abs.mediaDir)
             }
             a.omitId = false; login(a)
+            val before = JSONObject(Abs.p.getString("acct:same", null)!!)
+            a.omitId = true
+            Abs.token(force = true)
             val stored = Abs.p.getString("acct:same", null)
+            val after = JSONObject(stored!!)
+            for (key in listOf("id", "userId", "mediaIdentity")) assertEquals(before.getString(key), after.getString(key))
+            a.omitId = false
             a.idOverride = "replacement-user"
             assertTrue(runCatching { Abs.token(force = true) }.exceptionOrNull() is StaleSession)
             assertEquals(stored, Abs.p.getString("acct:same", null))

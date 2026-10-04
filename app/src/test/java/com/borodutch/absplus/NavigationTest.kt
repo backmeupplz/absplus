@@ -200,16 +200,19 @@ class NavigationTest {
         repeat(200) { i ->
             val id = "download$i"
             java.io.File(Abs.mediaDir, "audio/$id").mkdirs()
-            java.io.File(Abs.mediaDir, "audio/$id/audio").writeText("fixture")
+            java.io.File(Abs.mediaDir, "audio/$id/audio.mp3").writeText("fixture")
             val cache = Abs::class.java.getDeclaredMethod("cacheFile", String::class.java).apply { isAccessible = true }
                 .invoke(Abs, "/api/items/$id?expanded=1") as java.io.File
             cache.parentFile!!.mkdirs()
             cache.writeText(JSONObject().put("id", id)
-                .put("media", JSONObject().put("tracks", JSONArray()).put("metadata", JSONObject().put("title", "Title $i"))).toString())
+                .put("media", JSONObject().put("tracks", JSONArray().put(JSONObject().put("ino", "audio").put("duration", 60)
+                    .put("metadata", JSONObject().put("ext", ".mp3").put("size", 7))))
+                    .put("metadata", JSONObject().put("title", "Title $i"))).toString())
         }
         Abs.dlChanged()
         a.call("tab", 1)
         val page = a.content().getChildAt(0)
+        views(page).filterIsInstance<TextInputEditText>().single().setText("Title ")
         val grid = views(page).filterIsInstance<RecyclerView>().single()
         val lm = grid.layoutManager as GridLayoutManager
         layout(a.content())
@@ -218,7 +221,7 @@ class NavigationTest {
         val first = lm.findFirstVisibleItemPosition()
         val name = title(lm, first)
         val y = lm.findViewByPosition(first)!!.top
-        val originals = Abs.downloads()
+        val originals = Abs.downloads().filter { it.name.startsWith("download") }
         a.call("push", { a.call("settings") })
         a.call("push", { a.call("downloads") })
         originals.take(4).forEach(Abs::removeAll)
