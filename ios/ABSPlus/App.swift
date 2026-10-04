@@ -13,6 +13,8 @@ struct ABSPlusApp: App {
                 ListLifecycleFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--offline-series-test") {
                 OfflineSeriesFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--offline-library-test") {
+                OfflineLibraryFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--offline-home-test") {
                 OfflineHomeFixture()
             } else { RootView() }
