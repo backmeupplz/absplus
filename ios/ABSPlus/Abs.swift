@@ -341,6 +341,8 @@ let resumeDir: URL = {
     /// starts the files of a queued title that are neither on disk nor on their way, continuing interrupted ones
     func fetch(_ n: Now, queueID expected: UUID? = nil) async {
         guard let id = queueID(n), expected == nil || expected == id, me != nil else { return }
+        dlChanged() // reconcile files saved before an interrupted completion callback
+        guard queued(n) else { scheduleRetries(); return }
         guard fetching.insert(id).inserted else { return }
         defer { fetching.remove(id) }
         let epoch = downloadEpoch
@@ -423,6 +425,16 @@ let resumeDir: URL = {
     func dlChanged() {
         dlMemo = [:]
         dlv += 1
+        for n in dlq {
+            for t in n.tracks where done(n.item, t) {
+                let r = rel(n.item, t)
+                // A live transfer still owns its completion/error callback.
+                guard transfers[r] == nil, !inflight.contains(r) else { continue }
+                if dlRetry[r] != nil { dlRetry[r] = nil }
+                got[r] = nil
+                try? FileManager.default.removeItem(at: resumeFile(r))
+            }
+        }
         let left = dlq.filter { n in
             !n.tracks.allSatisfy { done(n.item, $0) } || n.tracks.contains { transfers[rel(n.item, $0)] != nil }
         }
@@ -668,6 +680,8 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
                 guard let rel = self.activeRel(t) else { t.cancel(); continue }
                 app.got[rel] = t.countOfBytesReceived
             }
+            app.dlChanged()
+            app.scheduleRetries()
         }
     }
 

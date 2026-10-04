@@ -16,8 +16,76 @@ struct DownloadRetryFixture: View {
         }.task { await run() }
     }
 
+    /// Persist the exact gap between moving the final file and receiving its completion callback.
+    @MainActor private func interruptedCompletion(seed: Bool) async {
+        let n = Self.n, d = Downloader.shared
+        let paths = n.tracks.map { app.rel(n.item, $0) }
+        if seed {
+            app.logout()
+            app.d.set("http://retry-fixture.invalid", forKey: "server")
+            app.me = "fixture"; app.accts = ["fixture": Tok(a: "fixture", r: "")]
+            app.remove(n); app.dlq = [n]
+            let session = URLSession(configuration: .ephemeral)
+            for (t, path) in zip(n.tracks, paths) {
+                app.dlRetry[path] = DownloadRetry(attempts: 1, next: .distantPast)
+                let task = RetryTask()
+                task.reply = HTTPURLResponse(url: URL(string: "http://retry-fixture.invalid/f")!, statusCode: 200, httpVersion: nil, headerFields: nil)
+                d.bind(task, path)
+                let temp = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                try! Data("fixture".utf8).write(to: temp)
+                d.urlSession(session, downloadTask: task, didFinishDownloadingTo: temp)
+                // Deliberately omit didCompleteWithError: these identities have no system task.
+                try! Data("stale resume".utf8).write(to: app.resumeFile(path))
+                assert(app.done(n.item, t))
+            }
+            result = "Completion gap persisted"
+            return
+        }
+        assert(app.queued(n) && paths.allSatisfy { app.transfers[$0] != nil && app.dlRetry[$0]?.next != nil })
+        assert(n.tracks.allSatisfy { app.done(n.item, $0) })
+        let tasks = await d.session.allTasks
+        assert(tasks.isEmpty, "No system task survives the interrupted completion")
+        await d.restore()
+        await app.resumeQueue()
+        assert(app.dlq.isEmpty && app.dlRetry.isEmpty && app.transfers.isEmpty && app.inflight.isEmpty,
+               "Completed titles and stale retries must settle after relaunch")
+        assert(!app.downloadWaiting(n))
+        let restored = Abs()
+        assert(restored.dlq.isEmpty && restored.dlRetry.isEmpty && restored.transfers.isEmpty)
+        for (t, path) in zip(n.tracks, paths) {
+            assert(try! Data(contentsOf: app.file(n.item, t)) == Data("fixture".utf8))
+            assert(!FileManager.default.fileExists(atPath: app.resumeFile(path).path))
+        }
+        let version = app.dlv
+        try? await Task.sleep(for: .milliseconds(250))
+        assert(app.dlv == version && app.dlq.isEmpty && app.dlRetry.isEmpty)
+        // Fetch alone must also reconcile disk state, without resetting an unfinished sibling's budget.
+        app.dlq = [n]
+        let first = paths[0], second = paths[1]
+        try! FileManager.default.removeItem(at: app.file(n.item, n.tracks[1]))
+        app.dlRetry[first] = DownloadRetry(attempts: 1, next: .distantPast)
+        let deadline = Date().addingTimeInterval(120)
+        app.dlRetry[second] = DownloadRetry(attempts: 3, next: deadline)
+        await app.fetch(n)
+        assert(app.queued(n) && app.done(n.item, n.tracks[0]) && app.dlRetry[first] == nil)
+        assert(app.dlRetry[second]?.attempts == 3 && app.dlRetry[second]?.next == deadline && app.inflight.isEmpty)
+        try! Data("fixture".utf8).write(to: app.file(n.item, n.tracks[1]))
+        await app.fetch(n)
+        assert(app.dlq.isEmpty && app.dlRetry.isEmpty && app.inflight.isEmpty)
+        let settled = app.dlv
+        try? await Task.sleep(for: .milliseconds(250))
+        assert(app.dlv == settled)
+        app.remove(n)
+        result = "Interrupted completion passed"
+    }
+
     @MainActor private func run() async {
         let n = Self.n, d = Downloader.shared
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--completion-seed") || arguments.contains("--completion-relaunch") {
+            await interruptedCompletion(seed: arguments.contains("--completion-seed"))
+            return
+        }
         if ProcessInfo.processInfo.arguments.contains("--retry-relaunch") {
             guard app.queued(n), app.dlRetry[app.rel(n.item, n.tracks[1])]?.attempts == 1,
                   app.done(n.item, n.tracks[0]), app.downloadWaiting(n) else { result = "Relaunch failed"; return }
