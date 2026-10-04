@@ -137,6 +137,7 @@ class Main : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        Abs.progressSync.wake()
         val f = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlayerService::class.java))).buildAsync()
         fut = f
         f.addListener({ ctl = runCatching { f.get() }.getOrNull(); restore(); tick.run() }, mainExecutor)
@@ -908,7 +909,7 @@ class Main : AppCompatActivity() {
 
     private fun start(n: Now, t: Double, play: Boolean = true) {
         val c = ctl ?: return toast("Player not ready")
-        Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0) Abs.pos(c, old).let { p -> thread { Abs.push(old, p, false) } } }
+        Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0) Abs.pos(c, old).let { p -> Abs.push(old, p, false) } }
         Abs.now = n
         Abs.saveNow(n)
         if (play) Abs.addHistory(n)

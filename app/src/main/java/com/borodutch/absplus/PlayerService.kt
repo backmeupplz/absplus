@@ -14,7 +14,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import kotlin.concurrent.thread
 
 class PlayerService : MediaSessionService() {
     private var session: MediaSession? = null
@@ -59,7 +58,7 @@ class PlayerService : MediaSessionService() {
         val n = Abs.now ?: return
         if (p.currentMediaItem?.mediaId?.startsWith(n.key + "#") != true) return
         val pos = if (finished) n.duration else Abs.pos(p, n)
-        thread { Abs.push(n, pos, finished) }
+        Abs.push(n, pos, finished)
     }
 
     override fun onGetSession(info: MediaSession.ControllerInfo) = session

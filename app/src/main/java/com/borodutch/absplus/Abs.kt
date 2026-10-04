@@ -12,7 +12,6 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.math.abs
-import kotlin.math.min
 
 /** like optString, but JSON null -> "" (optString returns the text "null") */
 fun JSONObject.str(k: String): String = if (isNull(k)) "" else optString(k)
@@ -68,12 +67,21 @@ object Abs {
     lateinit var dir: File
     private lateinit var cacheDir: File
     var now: Now? = null
+    internal lateinit var progressSync: ProgressSync
+    private val accountLock = Any()
+
+    internal fun startProgress(automatic: Boolean = true, clock: () -> Long = System::currentTimeMillis) {
+        if (::progressSync.isInitialized) progressSync.close()
+        progressSync = ProgressSync(p, { method, path, body, name, allowed -> api(method, path, body, name, allowed) }, clock, automatic)
+        progress = progressSync.local()
+    }
 
     fun init(c: Context) {
         if (::p.isInitialized) return
         p = c.getSharedPreferences("abs", 0)
         dir = c.getExternalFilesDir(null)!!
         cacheDir = File(c.filesDir, "json").apply { mkdirs() }
+        startProgress()
         if (!p.contains("favq")) { // first run with server favorites: upload the local ones
             val q = JSONObject()
             JSONObject(p.getString("fav", "{}")).keys().forEach { q.put(it, true) }
@@ -87,8 +95,10 @@ object Abs {
     val server get() = p.getString("server", "")!!
     val me get() = p.getString("me", null)
 
-    private fun http(method: String, path: String, body: String?, hdr: Map<String, String>): String {
-        val c = URL(server + path).openConnection() as HttpURLConnection
+    internal var openConnection: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }
+
+    private fun http(method: String, path: String, body: String?, hdr: Map<String, String>, base: String = server): String {
+        val c = openConnection(URL(base + path))
         try {
             c.requestMethod = method
             c.connectTimeout = 10_000
@@ -124,37 +134,45 @@ object Abs {
 
     /** Logs in; main = the account this app runs as, otherwise a linked account for progress sharing. */
     fun login(url: String, user: String, pass: String, main: Boolean): String {
-        if (main) {
-            val s = url.trim().trimEnd('/')
-            p.edit().putString("server", if ("://" in s) s else "https://$s").commit()
-        }
+        val s = url.trim().trimEnd('/')
+        val endpoint = if (!main) server else if ("://" in s) s else "https://$s"
         val body = JSONObject().put("username", user.trim()).put("password", pass).toString()
         val r = try {
-            http("POST", "/login", body, mapOf("x-return-tokens" to "true"))
+            http("POST", "/login", body, mapOf("x-return-tokens" to "true"), endpoint)
         } catch (e: HttpErr) {
             throw if (e.code == 401) IOException("Wrong username or password") else e
         }
-        val name = save(JSONObject(r).getJSONObject("user"))
-        if (main) p.edit().putString("me", name).commit()
+        val userData = JSONObject(r).getJSONObject("user")
+        // A successful owner/server change is a new authorization scope. Failed login never changes it.
+        if (main && (server != endpoint || me != userData.getString("username"))) logout()
+        val name = save(userData)
+        if (main) p.edit().putString("server", endpoint).putString("me", name).commit()
+        progressSync.prune()
+        progressSync.wake()
         return name
     }
 
     /** Forgets a linked account: its tokens, its shares, and its server session. */
     fun unlink(name: String) {
+        val endpoint = server
         val tok = p.getString("acct:$name", null)
         val e = p.edit().remove("acct:$name")
         p.all.keys.filter { it.startsWith("share:") }.forEach { k -> e.putStringSet(k, p.getStringSet(k, emptySet())!! - name) }
-        e.apply()
-        tok?.let { Thread { runCatching { http("POST", "/logout", "{}", mapOf("x-refresh-token" to JSONObject(it).getString("r"))) } }.start() }
+        synchronized(accountLock) { e.commit() }
+        progressSync.prune()
+        tok?.let { Thread { runCatching { http("POST", "/logout", "{}", mapOf("x-refresh-token" to JSONObject(it).getString("r")), endpoint) } }.start() }
     }
 
     fun accounts() = p.all.keys.filter { it.startsWith("acct:") }.map { it.drop(5) }.filter { it != me }.sorted()
 
     fun logout() {
         Dl.clear()
-        p.edit().clear().commit()
+        progressSync.close()
+        synchronized(accountLock) { p.edit().clear().commit() }
         cacheDir.listFiles()?.forEach { it.delete() }
         now = null
+        progress = emptyMap()
+        startProgress()
     }
 
     private fun exp(t: String) = runCatching {
@@ -163,21 +181,40 @@ object Abs {
 
     /** A valid access token for [name], refreshing it if it's about to expire. */
     @Synchronized
-    fun token(name: String = me ?: throw Expired()): String {
-        val a = JSONObject(p.getString("acct:$name", null) ?: throw Expired())
+    fun token(name: String = me ?: throw Expired(), force: Boolean = false): String {
+        val stored = p.getString("acct:$name", null) ?: throw Expired()
+        val scope = server to me
+        val a = JSONObject(stored)
         val t = a.getString("a")
-        if (exp(t) * 1000 - System.currentTimeMillis() > 60_000) return t
+        if (!force && exp(t) * 1000 - System.currentTimeMillis() > 60_000) return t
         val r = try {
-            http("POST", "/auth/refresh", "{}", mapOf("x-refresh-token" to a.getString("r")))
+            http("POST", "/auth/refresh", "{}", mapOf("x-refresh-token" to a.getString("r")), scope.first)
         } catch (e: HttpErr) {
             throw if (e.code == 401 && name == me) Expired() else e
         }
-        save(JSONObject(r).getJSONObject("user"))
-        return JSONObject(p.getString("acct:$name", null)!!).getString("a")
+        return synchronized(accountLock) {
+            // Revocation wins atomically, but removing one title share must not discard a
+            // rotated token still needed by the account's other authorized titles.
+            if (p.getString("acct:$name", null) != stored || scope != (server to me)) throw Expired()
+            save(JSONObject(r).getJSONObject("user"))
+            JSONObject(p.getString("acct:$name", null)!!).getString("a")
+        }
     }
 
-    fun api(method: String, path: String, body: JSONObject? = null, name: String = me ?: throw Expired()) =
-        http(method, path, body?.toString(), mapOf("Authorization" to "Bearer " + token(name)))
+    fun api(method: String, path: String, body: JSONObject? = null, name: String = me ?: throw Expired(), allowed: () -> Boolean = { true }): String {
+        val scope = server to me
+        if (!allowed()) throw Expired()
+        val access = token(name)
+        if (!allowed() || scope != (server to me)) throw Expired()
+        try {
+            return http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $access"), scope.first)
+        } catch (e: HttpErr) {
+            if (!allowed() || e.code != 401 || scope != (server to me) || !p.contains("acct:$name")) throw e
+            val refreshed = token(name, force = true)
+            if (!allowed() || scope != (server to me)) throw Expired()
+            return http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $refreshed"), scope.first)
+        }
+    }
 
     // --- json cache, so screens render instantly and work offline
 
@@ -234,7 +271,10 @@ object Abs {
     // --- progress. Shared items ("share:<itemId>" = linked usernames) get every update pushed to those accounts too.
 
     fun shares(item: String): Set<String> = p.getStringSet("share:$item", emptySet())!!
-    fun setShares(item: String, s: Set<String>) = p.edit().putStringSet("share:$item", s).apply()
+    fun setShares(item: String, s: Set<String>) {
+        p.edit().putStringSet("share:$item", s.intersect(accounts().toSet())).commit()
+        progressSync.prune()
+    }
 
     // --- what's playing, kept across app restarts
 
@@ -245,13 +285,18 @@ object Abs {
     fun pos(pl: Player, n: Now) = (n.tracks.getOrNull(pl.currentMediaItemIndex)?.start ?: 0.0) + pl.currentPosition / 1000.0
 
     private fun remote(name: String, key: String) = runCatching {
-        val j = JSONObject(api("GET", "/api/me/progress/$key", name = name))
+        val sync = progressSync
+        val response = JSONObject(api("GET", "/api/me/progress/$key", name = name, allowed = { sync === progressSync }))
+        if (sync !== progressSync) throw Expired()
+        val j = if (name == me) sync.observe(key, response) else response
         Pos(name, if (j.optBoolean("isFinished")) 0.0 else j.optDouble("currentTime", 0.0), j.optLong("lastUpdate"))
     }.getOrNull()
 
     /** First = where this account should resume; the rest = linked accounts that listened more recently elsewhere. */
     fun positions(n: Now): List<Pos> {
-        val local = p.getString("pos:${n.key}", null)?.split(',')?.let { Pos("You", it[0].toDouble(), it[1].toLong()) }
+        val saved = progressSync.local()[n.key]
+        val local = saved?.let { Pos("You", if (it.optBoolean("isFinished")) 0.0 else it.optDouble("currentTime"), it.optLong("lastUpdate")) }
+            ?: p.getString("pos:${n.key}", null)?.split(',')?.let { Pos("You", it[0].toDouble(), it[1].toLong()) }
         val mine = listOfNotNull(local, me?.let { remote(it, n.key) }?.let { Pos("You", it.time, it.at) })
             .maxByOrNull { it.at } ?: Pos("You", 0.0, 0)
         return listOf(mine) + shares(n.item).mapNotNull { remote(it, n.key) }
@@ -263,23 +308,19 @@ object Abs {
 
     fun setMe(j: JSONObject) {
         val a = j.getJSONArray("mediaProgress")
-        progress = (0 until a.length()).map { a.getJSONObject(it) }.associateBy {
+        val remote = (0 until a.length()).map { a.getJSONObject(it) }.associateBy {
             if (it.isNull("episodeId")) it.getString("libraryItemId") else it.getString("libraryItemId") + "/" + it.getString("episodeId")
         }
+        progress = progressSync.local() + remote.mapValues { (key, value) -> progressSync.observe(key, value) }
         syncFavs(j.optJSONArray("bookmarks") ?: JSONArray())
     }
 
     /** 0..1, or null if never started */
-    fun pct(key: String) = progress[key]?.let { if (it.optBoolean("isFinished")) 1.0 else it.optDouble("progress", 0.0) }
+    fun pct(key: String) = (progressSync.local()[key] ?: progress[key])?.let { if (it.optBoolean("isFinished")) 1.0 else it.optDouble("progress", 0.0) }
 
     fun push(n: Now, pos: Double, finished: Boolean) {
-        progress = progress + (n.key to JSONObject().put("currentTime", pos).put("progress", if (finished) 1.0 else pos / n.duration).put("isFinished", finished))
-        p.edit().putString("pos:${n.key}", "$pos,${System.currentTimeMillis()}").apply()
-        val b = JSONObject().put("currentTime", pos).put("duration", n.duration)
-            .put("progress", if (n.duration > 0) min(1.0, pos / n.duration) else 0.0)
-        // only send isFinished=true: the server ignores "progress" when isFinished is present, and false would un-finish
-        if (finished) b.put("isFinished", true)
-        for (a in listOfNotNull(me) + shares(n.item)) runCatching { api("PATCH", "/api/me/progress/${n.key}", b, a) }
+        progressSync.record(n, pos, finished)
+        progress = progress + progressSync.local()
     }
 
     // --- favorites: a per-user bookmark titled FAV on the item, so they sync across devices and work for podcasts too.
