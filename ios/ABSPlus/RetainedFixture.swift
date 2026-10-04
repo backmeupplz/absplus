@@ -124,12 +124,12 @@ struct RetainedFixture: View {
         func expireToken() {
             app.accts["fixture"] = Tok(a: "fixture.eyJleHAiOjB9.signature", r: "fixture")
         }
-        func waitForRefresh() async throws {
-            for _ in 0..<100 {
+        func waitForRefresh(_ stage: String) async throws {
+            for _ in 0..<500 {
                 if RetainedProtocol.refresh.withLock({ $0.pending != nil }) { return }
                 try await Task.sleep(for: .milliseconds(10))
             }
-            throw Msg(errorDescription: "refresh did not suspend")
+            throw Msg(errorDescription: "refresh did not suspend: " + stage)
         }
         func releaseRefresh() {
             let pending = RetainedProtocol.refresh.withLock { state in
@@ -145,7 +145,7 @@ struct RetainedFixture: View {
             expireToken()
             RetainedProtocol.refresh.withLock { $0 = (true, nil) }
             let pending = Task { await app.download(n) }
-            try await waitForRefresh()
+            try await waitForRefresh("explicit cancellation, requeue=\(requeue)")
             let oldID = app.queueID(n)
             app.remove(n)
             if requeue { app.dlq.append(n); try check(app.queueID(n) != oldID, "requeue reused request identity") }
@@ -184,10 +184,12 @@ struct RetainedFixture: View {
         expireToken()
         RetainedProtocol.refresh.withLock { $0 = (true, nil) }
         failTransfer()
-        try await waitForRefresh()
+        try await waitForRefresh("retry cancellation")
         app.remove(retry)
         app.dlq.append(retry)
         releaseRefresh()
+        // Join the refresh, rather than guessing when its token write has completed.
+        _ = try await app.token(fresh: .greatestFiniteMagnitude)
         for _ in 0..<20 { await Task.yield() }
         try check(app.transfers[rr] == nil && !app.inflight.contains(rr), "retry resumed after cancellation during authentication")
         app.remove(retry)
@@ -199,9 +201,10 @@ struct RetainedFixture: View {
             RetainedProtocol.refresh.withLock { $0 = (true, nil) }
             failTransfer()
             try check(app.queued(retry), "relogin inherited retry budget")
-            try await waitForRefresh()
+            try await waitForRefresh("same-host replacement")
             try await app.login(server, "fixture", "fixture", main: true)
             releaseRefresh()
+            _ = try await app.token(fresh: .greatestFiniteMagnitude)
             for _ in 0..<20 { await Task.yield() }
             try check(app.dlq.isEmpty && app.transfers.isEmpty && !app.inflight.contains(rr), "relogin revived old retry")
         }
