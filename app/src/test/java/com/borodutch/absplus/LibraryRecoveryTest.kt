@@ -280,4 +280,66 @@ class LibraryRecoveryTest {
             assertEquals(itemRequests, f.requests.count { it.endsWith("/items") })
         }
     }
+
+    @Test fun sameLibraryRefreshPreservesAnchorAfterCompletion() {
+        Fixture().use { f ->
+            f.open()
+            await("A loaded") { f.a.grid().adapter!!.itemCount == 500 }
+            val page = f.a.content().getChildAt(0)
+            val grid = f.a.grid()
+            f.a.search().setText("A Title 3")
+            layout(f.a.content())
+            val lm = grid.layoutManager as GridLayoutManager
+            lm.scrollToPositionWithOffset(80, -29)
+            layout(f.a.content())
+            val first = lm.findFirstVisibleItemPosition()
+            val offset = lm.findViewByPosition(first)!!.top
+            repeat(3) {
+                val count = f.requests.count { it == "/api/libraries/A/items" }
+                f.details()
+                f.a.onBackPressedDispatcher.onBackPressed()
+                await("same-library refresh requested") { f.requests.count { it == "/api/libraries/A/items" } > count }
+                Thread.sleep(100)
+                shadowOf(Looper.getMainLooper()).idle()
+                layout(f.a.content())
+                assertSame(page, f.a.content().getChildAt(0))
+                assertSame(grid, f.a.grid())
+                assertEquals("A Title 3", f.a.search().text.toString())
+                assertEquals(first, lm.findFirstVisibleItemPosition())
+                assertEquals(offset, lm.findViewByPosition(first)!!.top)
+            }
+        }
+    }
+
+    @Test fun selectedChipRemainsSelectedOnRepeatedTapWithoutResettingContext() {
+        Fixture().use { f ->
+            f.open()
+            await("A loaded") { f.a.grid().adapter!!.itemCount == 500 }
+            val page = f.a.content().getChildAt(0)
+            val grid = f.a.grid()
+            val search = f.a.search()
+            search.setText("A Title 3")
+            layout(f.a.content())
+            val lm = grid.layoutManager as GridLayoutManager
+            lm.scrollToPositionWithOffset(80, -29)
+            layout(f.a.content())
+            val first = lm.findFirstVisibleItemPosition()
+            val offset = lm.findViewByPosition(first)!!.top
+            assertTrue(first > 0)
+            val chip = views(f.a.content()).filterIsInstance<Chip>().single { it.isChecked }
+            repeat(3) {
+                chip.performClick()
+                layout(f.a.content())
+                assertEquals("A", Abs.p.getString("lib", null))
+                assertTrue("selected library must remain visibly selected", chip.isChecked)
+                assertSame(chip, views(f.a.content()).filterIsInstance<Chip>().single { it.isChecked })
+                assertSame(page, f.a.content().getChildAt(0))
+                assertSame(grid, f.a.grid())
+                assertSame(search, f.a.search())
+                assertEquals("A Title 3", search.text.toString())
+                assertEquals(first, lm.findFirstVisibleItemPosition())
+                assertEquals(offset, lm.findViewByPosition(first)!!.top)
+            }
+        }
+    }
 }

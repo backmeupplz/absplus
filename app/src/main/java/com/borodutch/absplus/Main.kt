@@ -337,7 +337,7 @@ class Main : AppCompatActivity() {
     private fun library() {
         begin()
         retainPage = true
-        val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true }
+        val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true; isSelectionRequired = true }
         val search = field("Search titles & authors").apply {
             startIconDrawable = ContextCompat.getDrawable(context, R.drawable.i_search)
             val r = dp(28).toFloat()
