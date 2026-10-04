@@ -186,8 +186,55 @@ object Abs {
     fun get(path: String): String {
         val owner = server to me
         return api("GET", path).also {
-            JSONObject(it)
+            validateCachedResponse(path, JSONObject(it))
             if (owner == (server to me)) cacheFile(path).writeText(it)
+        }
+    }
+
+    /** Validate every field required by cached-response consumers before replacing a good snapshot.
+     * Keep this side-effect-free: UI rendering and setMe mutate view/preferences on the main thread.
+     */
+    private fun validateCachedResponse(path: String, j: JSONObject) {
+        fun objects(a: JSONArray, check: (JSONObject) -> Unit) {
+            for (i in 0 until a.length()) check(a.getJSONObject(i))
+        }
+        fun card(item: JSONObject) { Card.item(item) }
+        val route = path.substringBefore('?')
+        when {
+            route == "/api/me" -> {
+                objects(j.getJSONArray("mediaProgress")) {
+                    it.getString("libraryItemId")
+                    if (!it.isNull("episodeId")) it.getString("episodeId")
+                }
+                objects(j.optJSONArray("bookmarks") ?: JSONArray()) {
+                    if (it.str("title") == FAV) it.getString("libraryItemId")
+                }
+            }
+            route == "/api/me/items-in-progress" -> objects(j.getJSONArray("libraryItems")) {
+                card(it)
+                it.optJSONObject("recentEpisode")?.getString("id")
+            }
+            route == "/api/libraries" -> objects(j.getJSONArray("libraries")) {
+                it.getString("id"); it.getString("name")
+            }
+            route.startsWith("/api/libraries/") && route.endsWith("/items") -> objects(j.getJSONArray("results"), ::card)
+            route.startsWith("/api/libraries/") && route.endsWith("/series") -> objects(j.getJSONArray("results")) {
+                it.getString("name"); objects(it.getJSONArray("books"), ::card)
+            }
+            route.startsWith("/api/items/") -> {
+                card(j)
+                if (path.substringAfter('?', "").split('&').contains("expanded=1")) {
+                    val media = j.getJSONObject("media")
+                    when (j.getString("mediaType")) {
+                        "book" -> tracks(media.getJSONArray("tracks"))
+                        "podcast" -> objects(media.getJSONArray("episodes")) {
+                            if (it.has("audioFile")) { it.getString("id"); track(it.getJSONObject("audioFile"), 0.0) }
+                        }
+                        else -> error("Unsupported media type")
+                    }
+                }
+            }
+            else -> error("No cached response schema for $route")
         }
     }
 

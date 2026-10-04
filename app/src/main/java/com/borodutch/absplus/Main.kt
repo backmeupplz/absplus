@@ -693,14 +693,14 @@ class Main : AppCompatActivity() {
     /** "45% · 47 of 105 MB", "Queued" or "Waiting for connection" */
     private fun dlStatus(j: Dl.Job) = when {
         j.error != null -> j.error!!
-        j !== Dl.jobs.firstOrNull() -> "Queued"
+        j !== Dl.next -> "Queued"
         j.waiting -> "Waiting for connection"
         else -> "${(Dl.pct(j) * 100).toInt()}% · ${mb(j.got)} of ${mb(j.total)}"
     }
 
     /** determinate while bytes are coming in, indeterminate while queued or waiting */
     private fun progress(p: com.google.android.material.progressindicator.BaseProgressIndicator<*>, j: Dl.Job) {
-        val known = j === Dl.jobs.firstOrNull() && !j.waiting && j.error == null && j.total > 0
+        val known = j === Dl.next && !j.waiting && j.error == null && j.total > 0
         if (p.isIndeterminate == known) { // can't switch modes while shown
             val v = p.visibility
             p.visibility = View.INVISIBLE
@@ -963,7 +963,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun updateDl() {
-        val j = Dl.jobs.firstOrNull()
+        val j = Dl.next ?: Dl.jobs.firstOrNull()
         dlBar.isVisible = j != null && Abs.me != null && nav.isVisible
         if (j != null) {
             if (dlCover.tag != j.n.item) Covers.load(dlCover, j.n.item)

@@ -44,6 +44,7 @@ object Dl {
     fun job(key: String) = jobs.firstOrNull { it.n.key == key }
     fun pct(j: Job) = if (j.total > 0) min(1.0, j.got.toDouble() / j.total) else 0.0
     val idle get() = worker == null
+    val next get() = jobs.firstOrNull { it.error == null }
 
     fun load() {
         if (jobs.isNotEmpty()) return
@@ -97,8 +98,7 @@ object Dl {
             wake.setReferenceCounted(false)
             var wait = 2_000L
             while (true) {
-                val j = synchronized(this) { jobs.firstOrNull().also { if (it == null) worker = null } } ?: break
-                if (j.error != null) { synchronized(this) { worker = null }; break }
+                val j = synchronized(this) { next.also { if (it == null) worker = null } } ?: break
                 try {
                     for (t in j.n.tracks) if (!Abs.done(j.n.item, t)) {
                         wake.acquire(30 * 60_000L)
@@ -204,7 +204,7 @@ class DlService : Service() {
         getSystemService(NotificationManager::class.java)
             .createNotificationChannel(NotificationChannel("dl", "Downloads", NotificationManager.IMPORTANCE_LOW))
         // refused once Android 15's daily data sync allowance is used up: then it only downloads while the app is open
-        runCatching { ServiceCompat.startForeground(this, 1, note(Dl.jobs.firstOrNull()), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) }
+        runCatching { ServiceCompat.startForeground(this, 1, note(Dl.next), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) }
         Dl.run(this)
         return START_NOT_STICKY
     }

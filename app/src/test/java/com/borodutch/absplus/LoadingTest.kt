@@ -267,4 +267,90 @@ class LoadingTest {
         newRelease.countDown(); await { a.has("Couldn't load audio.") }
         assertNull(pending.get(a)); assertNull(Abs.now); assertEquals(1, newCalls.get())
     }
+
+    @Test fun wrongSchemaRefreshKeepsExpandedSnapshotForOfflineReopen() = fixture { a, s ->
+        val path = "/api/items/saved?expanded=1"
+        val saved = book("saved")
+        cache(path, saved)
+        s.route("/api/items/saved") { "{}" }; s.start()
+        a.call("push", { a.call("item", "saved") })
+        assertTrue(a.has("Updating title…"))
+        await { a.has("Couldn't update title. Showing saved content.") }
+        layout(a.content()); assertTrue(a.has("Title saved")); assertEquals(saved, Abs.cached(path))
+        a.onBackPressedDispatcher.onBackPressed()
+        s.stop(0)
+        a.call("push", { a.call("item", "saved") })
+        await { a.has("Offline · showing saved title") }
+        layout(a.content()); assertTrue(a.has("Title saved")); assertEquals(saved, Abs.cached(path))
+    }
+
+    @Test fun blankArtworkRebindInvalidatesDelayedResultForIdAndServer() = fixture { a, s ->
+        val release = CountDownLatch(1); val requested = CountDownLatch(1)
+        val bytes = java.io.ByteArrayOutputStream().also { out ->
+            android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888)
+                .compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+        }.toByteArray()
+        s.createContext("/api/items/blank-rebind/cover") { x ->
+            requested.countDown(); release.await(5, TimeUnit.SECONDS)
+            runCatching { x.sendResponseHeaders(200, bytes.size.toLong()); x.responseBody.use { it.write(bytes) } }
+        }; s.start()
+        a.call("push", { a.call("shelf", "Covers", emptyList<Card>(), 1f) })
+        val blankId = Cover(a); val blankServer = Cover(a); val witness = Cover(a)
+        listOf(blankId, blankServer, witness).forEach { a.content().addView(it); Covers.load(it, "blank-rebind") }
+        assertTrue(requested.await(5, TimeUnit.SECONDS))
+        val idToken = blankId.getTag(R.id.cover_request); val serverToken = blankServer.getTag(R.id.cover_request)
+        Covers.load(blankId, "")
+        val server = Abs.server
+        Abs.p.edit().putString("server", "").commit(); Covers.load(blankServer, "blank-rebind")
+        Abs.p.edit().putString("server", server).commit()
+        assertNotSame(idToken, blankId.getTag(R.id.cover_request)); assertNotSame(serverToken, blankServer.getTag(R.id.cover_request))
+        val placeholder = blankId.drawable; val serverPlaceholder = blankServer.drawable
+        release.countDown(); await { witness.contentDescription == "Cover" }
+        assertEquals("", blankId.tag); assertEquals("No cover available", blankId.contentDescription)
+        assertEquals("No cover available", blankServer.contentDescription)
+        assertSame(placeholder, blankId.drawable); assertSame(serverPlaceholder, blankServer.drawable)
+    }
+
+    @Test fun actualDownloaderRetains404ButRunsNextJobAndRetriesFailedJob() = fixture { a, s ->
+        val calls = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val secondRelease = CountDownLatch(1)
+        s.route("/api/items/failed-job/file/audio/download", 404) { calls += "failed"; "missing" }
+        s.route("/api/items/next-job/file/audio/download") { calls += "next"; secondRelease.await(5, TimeUnit.SECONDS); "audio" }; s.start()
+        fun now(id: String) = Now(id, null, id, "", listOf(Track("audio", ".mp3", 5, 60.0, 0.0)))
+        val failed = now("failed-job"); val next = now("next-job")
+        listOf(failed, next).forEach { Abs.remove(it.tracks.map { t -> Abs.file(it.item, t) }); Dl.add(a, it) }
+        val service = Robolectric.buildService(DlService::class.java).create()
+        try {
+            service.get().onStartCommand(null, 0, 1)
+            await { calls.size == 2 }
+            assertEquals(listOf("failed", "next"), calls.toList())
+            val job = Dl.job(failed.key)!!
+            assertTrue(job.error!!.contains("404")); assertEquals(next.key, Dl.next!!.n.key)
+            a.call("push", { a.call("downloads") }); assertTrue(a.has(job.error!!))
+            secondRelease.countDown(); await { Dl.idle && Dl.job(next.key) == null }
+            assertSame(job, Dl.job(failed.key)); assertEquals("audio", Abs.file(next.item, next.tracks.single()).readText())
+            s.removeContext("/api/items/failed-job/file/audio/download")
+            s.route("/api/items/failed-job/file/audio/download") { calls += "retry"; "audio" }
+            a.button("Retry").performClick()
+            service.get().onStartCommand(null, 0, 2)
+            await { Dl.idle && Dl.jobs.isEmpty() }
+            assertEquals(listOf("failed", "next", "retry"), calls.toList())
+            assertEquals("audio", Abs.file(failed.item, failed.tracks.single()).readText())
+        } finally {
+            secondRelease.countDown(); Dl.clear(); await { Dl.idle }; service.destroy()
+            listOf(failed, next).forEach { Abs.remove(it.tracks.map { t -> Abs.file(it.item, t) }) }
+        }
+    }
+
+    @Test fun everyCachedRouteRejectsWrongSchemaWithoutReplacingItsSnapshot() = fixture { _, s ->
+        val routes = listOf("/api/me", "/api/me/items-in-progress?limit=20", "/api/libraries",
+            "/api/libraries/books/items?minified=1", "/api/libraries/books/series?limit=1000",
+            "/api/items/title", "/api/items/title?expanded=1")
+        s.route("/") { "{}" }; s.start()
+        routes.forEach { path ->
+            cache(path, "preserved fixture")
+            assertTrue(path, runCatching { Abs.get(path) }.isFailure)
+            assertEquals(path, "preserved fixture", Abs.cached(path))
+        }
+    }
 }

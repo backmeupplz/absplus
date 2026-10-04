@@ -34,12 +34,12 @@ object Covers {
 
     fun load(iv: ImageView, id: String) {
         val server = Abs.server
-        if (server.isBlank() || id.isBlank()) { iv.setImageResource(R.drawable.i_auto_stories); iv.contentDescription = "No cover available"; return }
-        val key = "$server/$id"
         iv.tag = id
         // A distinct bind token also protects against A → B → A reuse and server switches.
         val binding = Any()
         iv.setTag(R.id.cover_request, binding)
+        if (server.isBlank() || id.isBlank()) { iv.setImageResource(R.drawable.i_auto_stories); iv.contentDescription = "No cover available"; return }
+        val key = "$server/$id"
         mem.get(key)?.let { iv.setImageBitmap(it); iv.contentDescription = "Cover"; return }
         iv.setImageResource(R.drawable.i_auto_stories)
         iv.contentDescription = "Loading cover"

@@ -44,13 +44,23 @@ JDK 21 + Android SDK 36:
 ./gradlew testDebugUnitTest assembleDebug assembleRelease
 ```
 
-LoadingTest adds 13 cases using real Main views, Material controls, RecyclerViews and navigation with latch-controlled loopback responses. They cover cold success/empty/failure/retry, cached refresh failure and recovery, malformed JSON, offline cached/uncached detail, retained Back/search, library switch, late detail failure, favorites metadata, duplicate/replaced playback, login/link controls, artwork rebinding/deduplication, and download queued/wait/error/cancel controls. NavigationTest retains all seven #21 regressions. DlTest covers resume/range and NowTest timeline mapping. Fixtures use disposable local application files and dummy credentials; no production services.
+LoadingTest adds 17 cases using real Main views, Material controls, RecyclerViews and navigation with latch-controlled loopback responses. They cover cold success/empty/failure/retry, cached refresh failure and recovery, malformed JSON, offline cached/uncached detail, retained Back/search, library switch, late detail failure, favorites metadata, duplicate/replaced playback, login/link controls, artwork rebinding/deduplication, and download queued/wait/error/cancel controls. NavigationTest retains all seven #21 regressions. DlTest covers resume/range and NowTest timeline mapping. Fixtures use disposable local application files and dummy credentials; no production services.
 
 ## Local verification
 
-- 24 unit tests pass: 13 new loading view/navigation regressions, seven unchanged #21 retention regressions, three transfer tests and one timeline test.
+- 28 unit tests pass: 17 new loading view/navigation regressions, seven unchanged #21 retention regressions, three transfer tests and one timeline test.
 - Debug and release builds use the existing JDK 21 / SDK 36 installation and offline Gradle dependency cache; no signing credentials were introduced.
 
 ## Evidence limits
 
 Robolectric verifies view state, navigation, request counts, identity/offset and callback ownership; it does not prove real-device frame timing, predictive-back animation, audio hardware, notification permission/Android foreground-service quotas, TalkBack speech, or OS process death. Media3 buffering/error labels are code/build audited, not an end-to-end audio decode test. No physical-device screenshot or store publication is claimed.
+
+## Independent review follow-up
+
+Three reproduced review findings were corrected without changing the platform boundary:
+
+- Failed downloads remain retryable entries, but the worker selects the next non-failed job. The bar, progress mode and notification use that same runnable selection. A real DlService/Dl.run loopback fixture returns 404 for the first job, delays then completes the second, and clicks Retry to successfully finish the first; it checks transferred file bytes and request order, not manually injected errors.
+- Abs.get validates the consumer schema before committing JSON for every supported cache route (progress, continue listening, libraries, titles, series, compact and expanded item). Nested cards, progress IDs and expanded audio decode are checked without UI/preferences side effects. A real detail test starts from a valid snapshot, receives HTTP 200 {}, navigates Back and reopens with the fixture server stopped: saved detail and cache bytes survive. A route matrix also verifies wrong-schema cache preservation for every cached endpoint family.
+- Cover binding always replaces both tag and request token before any early return, including blank item/server. A delayed image fixture binds two views to blank ID/server, restores the server, and waits for a third view's shared request to complete; neither blank placeholder can be overwritten.
+
+The original 24 tests remain in the suite, including all seven #21 navigation regressions. These four added regressions close the specific review coverage gaps; the real-device/audio/OS limitations above remain unchanged.
