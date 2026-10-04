@@ -388,6 +388,119 @@ class ProgressSyncTest {
         assertEquals(listOf("other:book"), patches.toList())
     }
 
+    @Test fun replayPinsUncertainAttemptBeforeFailedRetry() {
+        Abs.setShares(book.item, emptySet())
+        failReadback = true
+        Abs.push(book, 10.0, false); replay()
+        tick(); Abs.push(book, 60.0, false)
+        time += 1000; failReadback = false
+        var failed = false
+        Abs.openConnection = { url ->
+            if (url.path.startsWith("/api/me/progress/") && !failed) {
+                // Let the preflight GET succeed; fail the immediately following PATCH
+                // at the transport adapter without replacing the real replay implementation.
+                object : java.net.HttpURLConnection(url) {
+                    private val delegate = JvmConnection(url)
+                    override fun setRequestMethod(v: String) { method = v; delegate.requestMethod = v }
+                    override fun setRequestProperty(k: String, v: String) { delegate.setRequestProperty(k, v) }
+                    override fun getOutputStream(): java.io.OutputStream {
+                        if (method == "PATCH") { failed = true; throw java.net.ConnectException("before write") }
+                        return delegate.outputStream
+                    }
+                    override fun getResponseCode() = delegate.responseCode
+                    override fun getInputStream() = delegate.inputStream
+                    override fun connect() {}
+                    override fun disconnect() {}
+                    override fun usingProxy() = false
+                }
+            } else JvmConnection(url)
+        }
+        replay()
+        assertTrue(failed)
+        val retry = pending().single()
+        assertEquals(creationTime, retry.getJSONObject("ack").getLong("lastUpdate"))
+        assertEquals(10.0, retry.getJSONObject("ack").getDouble("currentTime"), 0.0)
+        assertEquals(60.0, retry.getJSONObject("sent").getDouble("currentTime"), 0.0)
+        time += 2000
+        Abs.startProgress(false) { time }
+        replay()
+        assertEquals("newer event must survive retry after uncertain first creation", 60.0, remote["owner:book"]!!.getDouble("currentTime"), 0.0)
+    }
+
+    @Test fun identicalRemotePayloadMustNotRegressTimestamp() {
+        Abs.setShares(book.item, emptySet())
+        Abs.push(book, 10.0, false)
+        remote["owner:book"] = JSONObject().put("currentTime", 10.0).put("isFinished", false).put("lastUpdate", 900_000L)
+        replay()
+        assertEquals("already newer remote must not be rewritten", 900_000L, remote["owner:book"]!!.getLong("lastUpdate"))
+        assertEquals(900_000L, Abs.progressSync.local()[book.key]!!.getLong("lastUpdate"))
+        assertTrue(pending().isEmpty())
+        assertTrue(patches.isEmpty())
+    }
+
+    @Test fun oldAccountGetCannotRepopulateCacheAfterAccountSwitch() = staleGetAfterLogout("other")
+
+    @Test fun oldAccountGetCannotRepopulateCacheAfterSameAccountRelogin() = staleGetAfterLogout("owner")
+
+    private fun staleGetAfterLogout(nextOwner: String) {
+        val arrived = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val oldMe = JSONObject().put("mediaProgress", JSONArray().put(JSONObject().put("libraryItemId", "book").put("currentTime", 80.0).put("progress", .8).put("lastUpdate", 999999L))).put("bookmarks", JSONArray()).toString()
+        Abs.openConnection = { url ->
+            if (url.path == "/api/me") object : java.net.HttpURLConnection(url) {
+                override fun setRequestMethod(v: String) { method = v }
+                override fun getResponseCode(): Int { arrived.countDown(); release.await(5, TimeUnit.SECONDS); return 200 }
+                override fun getInputStream() = oldMe.byteInputStream()
+                override fun connect() {}
+                override fun disconnect() {}
+                override fun usingProxy() = false
+            } else JvmConnection(url)
+        }
+        var failure: Throwable? = null
+        val old = thread { failure = runCatching { Abs.get("/api/me") }.exceptionOrNull() }
+        assertTrue(arrived.await(5, TimeUnit.SECONDS))
+        Abs.logout()
+        Abs.login("http://127.0.0.1:" + server.address.port, nextOwner, "fixture", true)
+        Abs.startProgress(false) { time }
+        release.countDown(); old.join(5000)
+        assertFalse(old.isAlive)
+        assertTrue("stale API response must be rejected", failure is Expired)
+        assertNull("old account response must not survive in new account cache", Abs.cached("/api/me"))
+    }
+
+    @Test fun sameAccountReloginCannotAcceptAnOldTokenRefresh() {
+        val arrived = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        Abs.openConnection = { url ->
+            if (url.path == "/auth/refresh") object : java.net.HttpURLConnection(url) {
+                override fun setRequestMethod(v: String) { method = v }
+                override fun getOutputStream() = java.io.ByteArrayOutputStream()
+                override fun getResponseCode(): Int { arrived.countDown(); release.await(5, TimeUnit.SECONDS); return 200 }
+                override fun getInputStream() = JSONObject().put("user", JSONObject().put("username", "owner")
+                    .put("accessToken", "stale-refresh").put("refreshToken", "stale-refresh-token")).toString().byteInputStream()
+                override fun connect() {}
+                override fun disconnect() {}
+                override fun usingProxy() = false
+            } else JvmConnection(url)
+        }
+        val endpoint = Abs.server
+        val credentials = Abs.p.getString("acct:owner", null)
+        var failure: Throwable? = null
+        val old = thread { failure = runCatching { Abs.token("owner", force = true) }.exceptionOrNull() }
+        try {
+            assertTrue(arrived.await(5, TimeUnit.SECONDS))
+            Abs.logout()
+            Abs.login(endpoint, "owner", "fixture", true)
+            // The fixture deliberately issues identical credentials to expose identity-only fences.
+            assertEquals(credentials, Abs.p.getString("acct:owner", null))
+        } finally {
+            release.countDown(); old.join(5000)
+        }
+        assertFalse(old.isAlive)
+        assertTrue("refresh from the prior login must expire", failure is Expired)
+        assertEquals(credentials, Abs.p.getString("acct:owner", null))
+    }
+
     @Test fun automaticStartupDrainsPersistedQueueWithoutPlayback() {
         Abs.setShares(book.item, emptySet())
         Abs.push(book, 35.0, false)

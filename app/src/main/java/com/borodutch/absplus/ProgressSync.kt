@@ -139,10 +139,22 @@ internal class ProgressSync(
                 val path = "/api/me/progress/" + snapshot.getString("key")
                 val name = snapshot.getString("name")
                 val remote = try { JSONObject(request("GET", path, null, name) { authorized() }) } catch (e: HttpErr) { if (e.code == 404) null else throw e }
-                val latest = current() ?: continue
+                val latest = synchronized(lock) {
+                    val j = journal()
+                    val e = current() ?: return@synchronized null
+                    // Pin the first observed server timestamp before another attempt can replace
+                    // sent. A failure before that PATCH writes must not lose the old acknowledgement.
+                    if (remote != null && matches(remote, e.optJSONObject("sent"))) {
+                        e.put("ack", remote)
+                        e.remove("sent")
+                        j.put(id, e)
+                        store(j)
+                    }
+                    e
+                } ?: continue
                 // ABS has no conditional PATCH: external writes between GET and PATCH cannot be made atomic here.
                 val conflict = remote != null && remote.optLong("lastUpdate") > value.getLong("lastUpdate") &&
-                    !acknowledged(remote, latest) && !matches(remote, value)
+                    !acknowledged(remote, latest)
                 var ack: JSONObject? = null
                 if (!conflict) {
                     // Persist attempt before PATCH: a lost response or first-record server timestamp

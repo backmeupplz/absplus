@@ -69,6 +69,8 @@ object Abs {
     var now: Now? = null
     internal lateinit var progressSync: ProgressSync
     private val accountLock = Any()
+    // Guarded by accountLock; unlike server/username, this changes across identical logins.
+    private var accountGeneration = 0L
 
     internal fun startProgress(automatic: Boolean = true, clock: () -> Long = System::currentTimeMillis) {
         if (::progressSync.isInitialized) progressSync.close()
@@ -145,8 +147,10 @@ object Abs {
         val userData = JSONObject(r).getJSONObject("user")
         // A successful owner/server change is a new authorization scope. Failed login never changes it.
         if (main && (server != endpoint || me != userData.getString("username"))) logout()
-        val name = save(userData)
-        if (main) p.edit().putString("server", endpoint).putString("me", name).commit()
+        val name = synchronized(accountLock) {
+            if (main) accountGeneration++
+            save(userData).also { if (main) p.edit().putString("server", endpoint).putString("me", it).commit() }
+        }
         progressSync.prune()
         progressSync.wake()
         return name
@@ -168,8 +172,11 @@ object Abs {
     fun logout() {
         Dl.clear()
         progressSync.close()
-        synchronized(accountLock) { p.edit().clear().commit() }
-        cacheDir.listFiles()?.forEach { it.delete() }
+        synchronized(accountLock) {
+            accountGeneration++
+            p.edit().clear().commit()
+            cacheDir.listFiles()?.forEach { it.delete() }
+        }
         now = null
         progress = emptyMap()
         startProgress()
@@ -182,8 +189,9 @@ object Abs {
     /** A valid access token for [name], refreshing it if it's about to expire. */
     @Synchronized
     fun token(name: String = me ?: throw Expired(), force: Boolean = false): String {
-        val stored = p.getString("acct:$name", null) ?: throw Expired()
-        val scope = server to me
+        val (stored, scope, generation) = synchronized(accountLock) {
+            Triple(p.getString("acct:$name", null) ?: throw Expired(), server to me, accountGeneration)
+        }
         val a = JSONObject(stored)
         val t = a.getString("a")
         if (!force && exp(t) * 1000 - System.currentTimeMillis() > 60_000) return t
@@ -195,32 +203,51 @@ object Abs {
         return synchronized(accountLock) {
             // Revocation wins atomically, but removing one title share must not discard a
             // rotated token still needed by the account's other authorized titles.
-            if (p.getString("acct:$name", null) != stored || scope != (server to me)) throw Expired()
+            if (generation != accountGeneration || p.getString("acct:$name", null) != stored || scope != (server to me)) throw Expired()
             save(JSONObject(r).getJSONObject("user"))
             JSONObject(p.getString("acct:$name", null)!!).getString("a")
         }
     }
 
     fun api(method: String, path: String, body: JSONObject? = null, name: String = me ?: throw Expired(), allowed: () -> Boolean = { true }): String {
-        val scope = server to me
-        if (!allowed()) throw Expired()
-        val access = token(name)
-        if (!allowed() || scope != (server to me)) throw Expired()
-        try {
-            return http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $access"), scope.first)
-        } catch (e: HttpErr) {
-            if (!allowed() || e.code != 401 || scope != (server to me) || !p.contains("acct:$name")) throw e
-            val refreshed = token(name, force = true)
-            if (!allowed() || scope != (server to me)) throw Expired()
-            return http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $refreshed"), scope.first)
+        val (scope, generation) = synchronized(accountLock) { (server to me) to accountGeneration }
+        // allowed() may acquire ProgressSync's lock. Never invoke it under accountLock.
+        fun checkScope() {
+            if (!allowed()) throw Expired()
+            synchronized(accountLock) {
+                if (generation != accountGeneration || scope != (server to me) || !p.contains("acct:$name")) throw Expired()
+            }
         }
+        checkScope()
+        val access = token(name)
+        checkScope()
+        val response = try {
+            http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $access"), scope.first)
+        } catch (e: HttpErr) {
+            checkScope()
+            if (e.code != 401) throw e
+            val refreshed = token(name, force = true)
+            checkScope()
+            http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $refreshed"), scope.first)
+        }
+        checkScope()
+        return response
     }
 
     // --- json cache, so screens render instantly and work offline
 
     private fun cacheFile(path: String) = File(cacheDir, path.replace(Regex("[^A-Za-z0-9]"), "_"))
-    fun cached(path: String) = cacheFile(path).takeIf { it.exists() }?.readText()
-    fun get(path: String) = api("GET", path).also { cacheFile(path).writeText(it) }
+    fun cached(path: String) = synchronized(accountLock) { cacheFile(path).takeIf { it.exists() }?.readText() }
+    fun get(path: String): String {
+        val generation = synchronized(accountLock) { accountGeneration }
+        val response = api("GET", path)
+        return synchronized(accountLock) {
+            // The post-response check and cache write must be atomic with logout/cache clearing.
+            if (generation != accountGeneration) throw Expired()
+            cacheFile(path).writeText(response)
+            response
+        }
+    }
 
     // --- tracks & downloads
 
