@@ -1,0 +1,55 @@
+# iOS session isolation (#33)
+
+- Candidate login uses an explicit normalized base URL and does not change active host,
+  tokens, offline state, or media selection until authentication validates and the live
+  attempt/cancellation/generation guards pass. Latest main attempt wins. Linked login
+  cannot replace the main account; dismissal, unlink, expiry and replacement invalidate it.
+- Every credential carries its host and account identity in the Keychain. Legacy tokens
+  without provable origin require fresh login, rather than guessing their server.
+- Every API/refresh request captures host, login generation (mediaEpoch), and account id
+  before suspension. Both success and failure paths reject stale callbacks. Unlink
+  captures its removed token's host; it never reads a later global host.
+- Main login/logout clears account-specific JSON, progress, favorites/queues/shares,
+  last-played state, cover caches, active playback and credential-bearing resume archives.
+  Server-scoped completed audio and allowlisted retained metadata from #36 are preserved.
+- No credential-bearing redirects are followed. Cover reads use the guarded API;
+  downloads reject redirects and validate both archived resume request URLs before
+  attaching a new token. Streaming uses AVAssetResourceLoader with explicit immutable
+  URL/token, bounded byte-range requests and the no-redirect transport. Servers must
+  support HTTP 206 byte ranges (the normal ABS file route).
+- SwiftUI roots reset only on mediaEpoch change, not on routine list refresh/navigation.
+  Login task handles cancel on dismissal; multi-request screen reloads stop at an epoch
+  change. Existing #21 retained list context is preserved.
+
+## Native regression fixtures
+
+SessionIsolation runs actual URLSession requests between isolation-a.invalid and
+isolation-b.invalid with synthetic credentials: same/different usernames, A refresh401
+then B login/unlink, failure/cancellation, delayed main/linked login, refresh/read/error,
+unlink during refresh, stale cover, persisted host binding, and real AVFoundation range
+loading of generated silent WAV. Redirect delegates and unsafe resume archives are also
+asserted. No real server or credentials are used. RetainedDownloads and ListLifecycle
+remain in the suite. Debug launch fixtures alone use a synthetic UserDefaults credential
+store so unsigned simulator persistence does not depend on Keychain entitlements; release
+continues using device-only Keychain.
+
+#34 integration: mediaEpoch is the persisted login/session generation. Its progress replay
+must capture this generation plus recipient account identity, clear progress queues in
+resetSession, and never substitute a later host/account after await. The separate active
+#34 worktree was inspected read-only; no code was cherry-picked.
+
+## Local build evidence
+
+Unsigned simulator Debug build-for-testing and Release build succeeded with Xcode 27.
+Disposable device: ABS33-Isolation (D3CA39C0-35CE-43BF-AC27-01F873250333).
+DerivedData: /tmp/abs33-ios-derived and /tmp/abs33-ios-release.
+No signing, physical-device, TestFlight or App Store delivery claims.
+
+Final native suite: 3 tests, 0 failures (ListLifecycle, RetainedDownloads, SessionIsolation).
+Result bundle: /tmp/abs33-ios-final.xcresult; log: /tmp/abs33-ios-final.log.
+Initial fixture failures were corrected by explicitly installing URLProtocol on the new
+ephemeral transport and isolating the unsigned simulator synthetic credential store.
+The final xcodebuild exited 0 and xcresulttool reports Passed, 3/3. Its post-test
+simctl diagnose collector stalled; only that diagnostic child was terminated after all
+tests finished, allowing normal result-bundle finalization. An existing AVAudioSession
+main-thread activation warning remains; no test failures.

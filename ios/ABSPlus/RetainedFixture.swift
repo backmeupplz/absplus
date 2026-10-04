@@ -15,6 +15,9 @@ struct RetainedFixture: View {
     @MainActor private func run() async throws {
         func check(_ ok: Bool, _ message: String) throws { if !ok { throw Msg(errorDescription: message) } }
         URLProtocol.registerClass(RetainedProtocol.self)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [RetainedProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
         app.logout()
         let fm = FileManager.default
         // Fixture owns only the two synthetic server scopes.

@@ -8,9 +8,12 @@ struct ListLifecycleFixture: View {
     init() {
         ListFixtureProtocol.revision.withLock { $0 = 0 }
         URLProtocol.registerClass(ListFixtureProtocol.self)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [ListFixtureProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
         UserDefaults.standard.set("http://abs-list-fixture.invalid", forKey: "server")
         UserDefaults.standard.set("fixture", forKey: "lib")
-        app.accts["list-fixture"] = Tok(a: "fixture", r: "")
+        app.accts["list-fixture"] = Tok(a: "fixture", r: "", host: "http://abs-list-fixture.invalid")
         app.me = "list-fixture"
         // Remove only this fixture's cache, so each run starts with asynchronous data.
         for id in ["fixture", "other"] {

@@ -17,6 +17,7 @@ import UIKit
 
     @ObservationIgnored private var index: [AVPlayerItem: Int] = [:]
     @ObservationIgnored private var idx = 0
+    @ObservationIgnored private var mediaLoads: [MediaLoader] = []
     @ObservationIgnored private var lastRetry = Date.distantPast
     @ObservationIgnored private var obs: [NSKeyValueObservation] = []
 
@@ -101,20 +102,22 @@ import UIKit
 
     /// Streams fail when the access token expires mid-book or the network drops: rebuild the queue with a fresh token.
     private func failed(_ e: Error?) {
-        guard let n = now else { return }
+        guard let n = now, p.currentItem != nil else { return }
         if Date().timeIntervalSince(lastRetry) < 30 {
             app.toast = "Playback failed: \(e?.localizedDescription ?? "unknown error")"
             return
         }
         lastRetry = Date()
         let (i, off) = n.at(pos)
-        Task { await queue(n, i, off, play: true) }
+        let epoch = app.mediaEpoch
+        Task { guard epoch == app.mediaEpoch else { return }; await queue(n, i, off, play: true) }
     }
 
     private func sync(finished: Bool = false) {
         guard let n = now else { return }
         let at = finished ? n.duration : pos
-        Task { await app.push(n, at, finished: finished) }
+        let epoch = app.mediaEpoch
+        Task { guard epoch == app.mediaEpoch else { return }; await app.push(n, at, finished: finished) }
     }
 
     // --- control
@@ -122,7 +125,8 @@ import UIKit
     func play() {
         try? AVAudioSession.sharedInstance().setActive(true)
         if p.currentItem == nil, let n = now { // finished: start over
-            Task { await queue(n, 0, 0, play: true) }
+            let epoch = app.mediaEpoch
+            Task { guard epoch == app.mediaEpoch else { return }; await queue(n, 0, 0, play: true) }
             return
         }
         p.play()
@@ -140,7 +144,7 @@ import UIKit
         let (i, off) = n.at(t)
         pos = t
         if i == idx && p.currentItem != nil { p.seek(to: CMTime(seconds: off, preferredTimescale: 1000)) { _ in } }
-        else { Task { await queue(n, i, off, play: playing) } }
+        else { let epoch = app.mediaEpoch; Task { guard epoch == app.mediaEpoch else { return }; await queue(n, i, off, play: playing) } }
         info()
     }
 
@@ -157,61 +161,84 @@ import UIKit
     func clear() {
         p.removeAllItems()
         index = [:]
-        now = nil
+        now = nil; choices = nil; playing = false; pos = 0
+        mediaLoads.forEach { $0.cancel() }; mediaLoads = []
         info()
     }
 
     // --- starting a title
 
     func playCard(_ c: Card) async {
+        let epoch = app.mediaEpoch
         do {
             let it = try await app.item(c.id)
+            try app.checkSession(epoch)
             if let ep = c.ep {
                 guard let e = it.media.episodes?.first(where: { $0.id == ep }), let af = e.audioFile else { throw Msg(errorDescription: "Episode not found") }
                 await play(Now(item: c.id, ep: ep, title: e.title ?? "", author: it.card.title, tracks: [af.track(0)]))
             } else {
                 await play(Now(item: c.id, ep: nil, title: c.title, author: c.sub, tracks: (it.media.tracks ?? []).map { $0.track() }))
             }
-        } catch { app.say(error) }
+        } catch { if epoch == app.mediaEpoch { app.say(error) } }
     }
 
     func play(_ n: Now) async {
         if n.tracks.isEmpty { app.toast = "No audio"; return }
+        let epoch = app.mediaEpoch
         let ps = await app.positions(n)
+        guard epoch == app.mediaEpoch, !Task.isCancelled, !ps.isEmpty else { return }
         if ps.count == 1 { start(n, ps[0].time) } else { choices = (n, ps) }
     }
 
     /// After an app restart: put the last title back in the player, paused, at its latest position.
     func restore() async {
         guard now == nil, app.me != nil, let n = app.loadNow() else { return }
+        let epoch = app.mediaEpoch
         let t = await app.positions(n).first?.time ?? 0
+        guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
         if now == nil { start(n, t, play: false) }
     }
 
     func start(_ n: Now, _ t: Double, play: Bool = true) {
         if let old = now, old.key != n.key, p.currentItem != nil {
             let at = pos
-            Task { await app.push(old, at, finished: false) }
+            let epoch = app.mediaEpoch
+            Task { guard epoch == app.mediaEpoch else { return }; await app.push(old, at, finished: false) }
         }
         now = n
         app.saveNow(n)
         if play { app.addHistory(n) }
         let (i, off) = n.at(t > n.duration - 5 ? 0 : t)
         pos = n.tracks[i].start + off
+        let epoch = app.mediaEpoch
         Task {
+            guard epoch == app.mediaEpoch else { return }
             await queue(n, i, off, play: play)
+            guard epoch == app.mediaEpoch else { return }
             _ = await Covers.get(n.item) // lock screen artwork
+            guard epoch == app.mediaEpoch else { return }
             info()
         }
     }
 
     private func queue(_ n: Now, _ i: Int, _ off: Double, play: Bool) async {
-        let auth = (try? await app.token()).map { ["Authorization": "Bearer " + $0] } ?? [:]
-        guard now == n else { return }
+        let epoch = app.mediaEpoch
+        let auth = try? await app.token()
+        guard epoch == app.mediaEpoch, !Task.isCancelled, now == n else { return }
+        mediaLoads.forEach { $0.cancel() }; mediaLoads = []
         p.removeAllItems()
         index = [:]
         for k in i..<n.tracks.count {
-            let asset = AVURLAsset(url: app.url(n.item, n.tracks[k]), options: ["AVURLAssetHTTPHeaderFieldsKey": auth])
+            let url = app.url(n.item, n.tracks[k])
+            let asset: AVURLAsset
+            if url.isFileURL { asset = AVURLAsset(url: url) }
+            else {
+                guard let auth else { return }
+                // Custom-scheme resource loading keeps AVFoundation from forwarding bearer headers on redirects.
+                let loader = MediaLoader(url: url, token: auth, epoch: epoch)
+                mediaLoads.append(loader)
+                asset = loader.asset
+            }
             let it = AVPlayerItem(asset: asset)
             it.audioTimePitchAlgorithm = .timeDomain
             index[it] = k
@@ -219,6 +246,7 @@ import UIKit
         }
         idx = i
         if off > 0 { _ = await p.seek(to: CMTime(seconds: off, preferredTimescale: 1000)) }
+        guard epoch == app.mediaEpoch, !Task.isCancelled, now == n else { return }
         pos = n.tracks[i].start + off
         if play {
             try? AVAudioSession.sharedInstance().setActive(true)

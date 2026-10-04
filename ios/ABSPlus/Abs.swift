@@ -73,14 +73,14 @@ struct LoginResp: Decodable {
     var user: U
 }
 
-struct Tok: Codable { var a: String, r: String }
+struct Tok: Codable, Equatable { var a: String, r: String; var host: String? = nil; var id: String = UUID().uuidString }
 struct Hist: Codable { var card: Card, at: Double }
 
 struct HttpErr: LocalizedError {
     let code: Int
     var errorDescription: String? { code == 401 ? "Unauthorized (401)" : code == 403 ? "Not allowed (403)" : "HTTP \(code)" }
 }
-struct Expired: LocalizedError { var errorDescription: String? { "Session expired, please log in again" } }
+struct Expired: LocalizedError { var epoch: String? = nil; var errorDescription: String? { "Session expired, please log in again" } }
 struct Msg: LocalizedError { let errorDescription: String? }
 
 func fmt(_ s: Double) -> String {
@@ -141,7 +141,7 @@ let resumeDir: URL = {
     @ObservationIgnored private var pushingFavs = false
 
     @ObservationIgnored private var mediaServer: String?
-    @ObservationIgnored private(set) var mediaEpoch = UserDefaults.standard.string(forKey: "mediaEpoch") ?? UUID().uuidString
+    private(set) var mediaEpoch = UserDefaults.standard.string(forKey: "mediaEpoch") ?? UUID().uuidString
     private var mediaScope: String { mediaServer.map { SHA256.hash(data: Data($0.utf8)).map { String(format: "%02x", $0) }.joined() } ?? "locked" }
     var mediaDir: URL { dlDir.appending(path: "servers/" + mediaScope) }
     private var audioDir: URL { mediaDir.appending(path: "audio") }
@@ -149,16 +149,35 @@ let resumeDir: URL = {
     private func expanded(_ path: String) -> Bool { path.hasPrefix("/api/items/") && path.hasSuffix("?expanded=1") }
     private func retainedFile(_ path: String) -> URL { mediaDir.appending(path: "metadata/" + SHA256.hash(data: Data(path.utf8)).map { String(format: "%02x", $0) }.joined()) }
 
+    @ObservationIgnored private var loginAttempt = UUID()
+    @ObservationIgnored private var linkedAttempts: [String: UUID] = [:]
+    @ObservationIgnored lazy var network = URLSession(configuration: .ephemeral, delegate: NoRedirects.shared, delegateQueue: nil)
+
+    func checkSession(_ epoch: String) throws {
+        try Task.checkCancellation()
+        guard epoch == mediaEpoch else { throw CancellationError() }
+    }
+
     var server: String { d.string(forKey: "server") ?? "" }
 
     init() {
         // (property observers don't run in init)
-        accts = Abs.kcRead()
+        // Unbound legacy credentials cannot safely be migrated by guessing their host.
+        accts = Abs.kcRead().filter { $0.value.host == UserDefaults.standard.string(forKey: "server") && $0.value.host != nil }
+        if let name = me, accts[name] == nil { me = nil; d.removeObject(forKey: "me") }
+        kcWrite(accts)
         fav = load("fav") ?? []
         favq = load("favq") ?? [:]
         hist = load("hist") ?? []
         shares = load("shares") ?? [:]
         dlq = load("dlq") ?? []
+        if me == nil {
+            // Quarantine legacy session metadata too; retained media remains on disk.
+            fav = []; favq = [:]; hist = []; shares = [:]; dlq = []
+            for key in d.dictionaryRepresentation().keys where key.hasPrefix("pos:") || key.hasPrefix("ratio:") || ["now", "lib", "fav", "favq", "hist", "shares", "dlq"].contains(key) { d.removeObject(forKey: key) }
+            try? FileManager.default.removeItem(at: cacheDir)
+            try? FileManager.default.removeItem(at: resumeDir)
+        }
         if me == nil && !accts.isEmpty { // the Keychain outlives a reinstall
             accts = [:]
             kcWrite([:])
@@ -173,14 +192,17 @@ let resumeDir: URL = {
 
     func say(_ e: Error) {
         if e is CancellationError || (e as? URLError)?.code == .cancelled { return }
+        if let e = e as? Expired, let epoch = e.epoch, epoch != mediaEpoch { return }
         toast = e.localizedDescription
         if e is Expired { expired = true }
     }
 
     // --- http
 
-    private func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:], base: String? = nil) async throws -> Data {
-        guard let url = URL(string: (base ?? server) + path) else { throw Msg(errorDescription: "Invalid server URL") }
+    private func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:], base: String, epoch: String, account: (String, String)? = nil, report: Bool = true) async throws -> Data {
+        try checkSession(epoch)
+        if let (name, id) = account { guard accts[name]?.id == id else { throw CancellationError() } }
+        guard path.hasPrefix("/"), let url = URL(string: base + path), url.host == URL(string: base)?.host, url.scheme == URL(string: base)?.scheme, url.port == URL(string: base)?.port else { throw Msg(errorDescription: "Invalid server URL") }
         var r = URLRequest(url: url, timeoutInterval: 20)
         r.httpMethod = method
         hdr.forEach { r.setValue($1, forHTTPHeaderField: $0) }
@@ -189,75 +211,104 @@ let resumeDir: URL = {
             r.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         do {
-            let (data, resp) = try await URLSession.shared.data(for: r)
-            offline = false
+            let (data, resp) = try await network.data(for: r)
+            try checkSession(epoch)
+            if let (name, id) = account { guard accts[name]?.id == id else { throw CancellationError() } }
+            if report { offline = false }
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            if code >= 400 { throw HttpErr(code: code) }
+            guard (200..<300).contains(code) else { throw HttpErr(code: code) }
             return data
-        } catch let e as URLError where e.code != .cancelled {
-            offline = true
-            throw e
+        } catch {
+            try checkSession(epoch)
+            if let (name, id) = account { guard accts[name]?.id == id else { throw CancellationError() } }
+            if report, let e = error as? URLError, e.code != .cancelled { offline = true }
+            throw error
         }
     }
 
-    func ping() async { _ = try? await http("GET", "/ping") }
+    func ping() async { _ = try? await http("GET", "/ping", base: server, epoch: mediaEpoch) }
 
     // --- accounts
 
-    @discardableResult private func save(_ data: Data) throws -> String {
+    private func credentials(_ data: Data, host: String) throws -> (String, Tok) {
         let u = try JSONDecoder().decode(LoginResp.self, from: data).user
-        accts[u.username] = Tok(a: u.accessToken.flatMap { $0.isEmpty ? nil : $0 } ?? u.token ?? "", r: u.refreshToken ?? "")
-        return u.username
+        let access = u.accessToken.flatMap { $0.isEmpty ? nil : $0 } ?? u.token ?? ""
+        guard !u.username.isEmpty, !access.isEmpty else { throw Msg(errorDescription: "Missing access token") }
+        return (u.username, Tok(a: access, r: u.refreshToken ?? "", host: host))
     }
 
-    /// Logs in; main = the account this app runs as, otherwise a linked account for progress sharing.
-    func login(_ url: String, _ user: String, _ pass: String, main: Bool) async throws -> String {
+    /// Authenticate a candidate without modifying the active session. Only the latest live attempt may commit.
+    @discardableResult func login(_ url: String, _ user: String, _ pass: String, main: Bool) async throws -> String {
         var s = url.trimmingCharacters(in: .whitespacesAndNewlines)
         while s.hasSuffix("/") { s.removeLast() }
         if !s.contains("://") { s = "https://" + s }
-        let epoch = mediaEpoch
+        guard let u = URLComponents(string: s), ["http", "https"].contains(u.scheme?.lowercased() ?? ""),
+              u.host != nil, u.user == nil, u.password == nil, u.query == nil, u.fragment == nil else { throw Msg(errorDescription: "Invalid server URL") }
+        let epoch = mediaEpoch, attempt = UUID(), name = user.trimmingCharacters(in: .whitespaces)
+        if main { loginAttempt = attempt } else {
+            guard me != nil, !expired, s == server else { throw CancellationError() }
+            linkedAttempts[name] = attempt
+        }
         let r: Data
         do {
-            r = try await http("POST", "/login", ["username": user.trimmingCharacters(in: .whitespaces), "password": pass], ["x-return-tokens": "true"], base: main ? s : server)
-        } catch let e as HttpErr where e.code == 401 {
-            throw Msg(errorDescription: "Wrong username or password")
+            r = try await http("POST", "/login", ["username": name, "password": pass], ["x-return-tokens": "true"], base: s, epoch: epoch, report: false)
+        } catch {
+            try checkSession(epoch)
+            guard main ? loginAttempt == attempt : linkedAttempts[name] == attempt else { throw CancellationError() }
+            if (error as? HttpErr)?.code == 401 { throw Msg(errorDescription: "Wrong username or password") }
+            throw error
         }
-        let u = try JSONDecoder().decode(LoginResp.self, from: r).user
-        guard !(u.accessToken.flatMap { $0.isEmpty ? nil : $0 } ?? u.token ?? "").isEmpty else { throw Msg(errorDescription: "Missing access token") }
-        guard epoch == mediaEpoch else { throw CancellationError() }
-        let name = try save(r)
+        let (actual, tok) = try credentials(r, host: s)
+        try checkSession(epoch)
+        guard main ? loginAttempt == attempt : linkedAttempts[name] == attempt else { throw CancellationError() }
         if main {
-            cancel(inflight)
-            dlq = []
-            try? FileManager.default.removeItem(at: cacheDir)
-            try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+            resetSession()
             d.set(s, forKey: "server")
             selectMedia(s)
-            me = name; expired = false
+            accts = [actual: tok]
+            me = actual
+        } else {
+            guard !expired, actual != me else { throw Msg(errorDescription: "That's you") }
+            refreshing.removeValue(forKey: actual)?.cancel()
+            accts[actual] = tok
         }
-        return name
+        return actual
     }
 
-    /// Forgets a linked account: its tokens, its shares, and its server session.
+    /// Capture the token's immutable origin before removing it; never resolve a later global server.
     func unlink(_ name: String) {
+        guard name != me else { return }
+        linkedAttempts[name] = UUID()
+        refreshing.removeValue(forKey: name)?.cancel()
+        let epoch = mediaEpoch
         let tok = accts.removeValue(forKey: name)
         shares = shares.mapValues { $0.filter { $0 != name } }
-        if let tok { Task { _ = try? await http("POST", "/logout", [:], ["x-refresh-token": tok.r]) } }
+        if let tok, let host = tok.host {
+            Task { _ = try? await http("POST", "/logout", [:], ["x-refresh-token": tok.r], base: host, epoch: epoch, report: false) }
+        }
     }
 
     var accounts: [String] { accts.keys.filter { $0 != me }.sorted() }
 
-    func logout() {
-        cancel(inflight) // downloads stop, files stay
-        selectMedia(nil)
-        dlq = []
-        try? FileManager.default.removeItem(at: resumeDir) // resume archives contain authorization headers
+    private func resetSession() {
+        cancel(inflight) // completed media and allowlisted retained metadata are never removed
+        refreshing.values.forEach { $0.cancel() }; refreshing = [:]
+        loginAttempt = UUID(); linkedAttempts = [:]
+        player.clear(); Covers.clear()
+        dlq = []; inflight = []; got = [:]; cancelling = []
+        try? FileManager.default.removeItem(at: resumeDir) // archives contain old credentials
         try? FileManager.default.createDirectory(at: resumeDir, withIntermediateDirectories: true)
-        d.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        for key in d.dictionaryRepresentation().keys where key.hasPrefix("pos:") || key.hasPrefix("ratio:") || ["now", "lib"].contains(key) { d.removeObject(forKey: key) }
         accts = [:]; progress = [:]; fav = []; favq = [:]; hist = []; shares = [:]
-        me = nil
+        pushingFavs = false; offline = false; expired = false; toast = nil; me = nil
+    }
+
+    func logout() {
+        resetSession()
+        d.removeObject(forKey: "server")
+        selectMedia(nil)
     }
 
     private func exp(_ t: String) -> Double {
@@ -272,24 +323,44 @@ let resumeDir: URL = {
 
     /// A valid access token for `name`, refreshing it if less than `fresh` seconds of it are left.
     func token(_ name: String? = nil, fresh: Double = 60) async throws -> String {
-        guard let name = name ?? me, let a = accts[name] else { throw Expired() }
+        try Task.checkCancellation()
+        guard let name = name ?? me, let a = accts[name], a.host == server else { throw Expired(epoch: mediaEpoch) }
+        let epoch = mediaEpoch
         if exp(a.a) - Date().timeIntervalSince1970 > fresh { return a.a }
-        if let t = refreshing[name] { return try await t.value }
+        if let t = refreshing[name] {
+            let value: String
+            do { value = try await t.value } catch { try checkSession(epoch); guard accts[name]?.id == a.id else { throw CancellationError() }; throw error }
+            try checkSession(epoch)
+            guard accts[name]?.id == a.id else { throw CancellationError() }
+            return value
+        }
         let t = Task {
-            defer { refreshing[name] = nil }
+            defer { if epoch == mediaEpoch, accts[name]?.id == a.id { refreshing[name] = nil } }
             do {
-                try save(try await http("POST", "/auth/refresh", [:], ["x-refresh-token": a.r]))
-                return accts[name]?.a ?? ""
-            } catch let e as HttpErr where e.code == 401 && name == me {
-                throw Expired()
+                let data = try await http("POST", "/auth/refresh", [:], ["x-refresh-token": a.r], base: a.host!, epoch: epoch, account: (name, a.id))
+                let (actual, value) = try credentials(data, host: a.host!)
+                guard actual == name else { throw Expired(epoch: mediaEpoch) }
+                var tok = value; tok.id = a.id
+                accts[name] = tok
+                return tok.a
+            } catch let e as HttpErr where e.code == 401 {
+                if name == me { throw Expired(epoch: mediaEpoch) }
+                throw e
             }
         }
         refreshing[name] = t
-        return try await t.value
+        let value: String
+        do { value = try await t.value } catch { try checkSession(epoch); guard accts[name]?.id == a.id else { throw CancellationError() }; throw error }
+        try checkSession(epoch)
+        guard accts[name]?.id == a.id else { throw CancellationError() }
+        return value
     }
 
     func api(_ method: String, _ path: String, _ body: [String: Any]? = nil, name: String? = nil) async throws -> Data {
-        try await http(method, path, body, ["Authorization": "Bearer " + (try await token(name))])
+        let epoch = mediaEpoch
+        guard let name = name ?? me, let a = accts[name], let host = a.host, host == server else { throw Expired(epoch: mediaEpoch) }
+        let auth = try await token(name)
+        return try await http(method, path, body, ["Authorization": "Bearer " + auth], base: host, epoch: epoch, account: (name, a.id))
     }
 
     // --- json cache, so screens render instantly and work offline
@@ -298,6 +369,7 @@ let resumeDir: URL = {
         cacheDir.appending(path: String(path.map { $0.isLetter || $0.isNumber ? $0 : "_" }))
     }
     func cached(_ path: String) -> Data? {
+        guard me != nil else { return nil }
         if let data = try? Data(contentsOf: cacheFile(path)) { return data }
         guard mediaServer == server, me != nil, expanded(path) else { return nil }
         return try? Data(contentsOf: retainedFile(path))
@@ -305,7 +377,7 @@ let resumeDir: URL = {
     func get(_ path: String) async throws -> Data {
         let epoch = mediaEpoch
         let data = try await api("GET", path)
-        guard epoch == mediaEpoch else { throw CancellationError() }
+        try checkSession(epoch)
         try? data.write(to: cacheFile(path), options: .atomic)
         if mediaServer == server, me != nil, expanded(path), let item = try? JSONDecoder().decode(Item.self, from: data) {
             let dst = retainedFile(path)
@@ -317,12 +389,16 @@ let resumeDir: URL = {
 
     /// Renders cached JSON instantly, then refreshes from the server.
     func load<T: Decodable>(_ path: String, _ render: (T) -> Void) async {
+        let epoch = mediaEpoch
+        guard !Task.isCancelled else { return }
         let old = cached(path)
         if let old, let v = try? JSONDecoder().decode(T.self, from: old) { render(v) }
         do {
             let new = try await get(path)
+            try checkSession(epoch)
             if new != old { render(try JSONDecoder().decode(T.self, from: new)) }
         } catch {
+            guard epoch == mediaEpoch, !Task.isCancelled else { return }
             if (old == nil && !offline) || error is Expired { say(error) }
         }
     }
@@ -360,6 +436,7 @@ let resumeDir: URL = {
     func fetch(_ n: Now) async {
         let epoch = mediaEpoch
         do {
+            try checkSession(epoch)
             let auth = "Bearer " + (try await token(fresh: 1800)) // long enough for the system's own retries
             guard epoch == mediaEpoch, me != nil else { return }
             for t in n.tracks where !done(n.item, t) && !inflight.contains(rel(n.item, t)) {
@@ -374,12 +451,13 @@ let resumeDir: URL = {
                 }
             }
             dlChanged()
-        } catch { say(error) }
+        } catch { if epoch == mediaEpoch { say(error) } }
     }
 
     /// after a relaunch: carry on with queued titles that have files left and nothing transferring
     func resumeQueue() async {
-        for n in dlq { await fetch(n) }
+        let epoch = mediaEpoch
+        for n in dlq { guard epoch == mediaEpoch, !Task.isCancelled else { return }; await fetch(n) }
     }
 
     func queued(_ n: Now) -> Bool { dlq.contains { $0.key == n.key } }
@@ -469,16 +547,19 @@ let resumeDir: URL = {
 
     /// First = where this account should resume; the rest = linked accounts that listened more recently elsewhere.
     func positions(_ n: Now) async -> [Pos] {
+        let epoch = mediaEpoch
         var mine = Pos(who: "You", time: 0, at: 0)
         if let s = d.string(forKey: "pos:\(n.key)")?.split(separator: ","), s.count == 2, let t = Double(s[0]), let at = Double(s[1]) {
             mine = Pos(who: "You", time: t, at: at)
         }
         if let me, let r = await remote(me, n.key), r.at > mine.at { mine = Pos(who: "You", time: r.time, at: r.at) }
         var out = [mine]
+        guard epoch == mediaEpoch, !Task.isCancelled else { return [] }
         for a in shares[n.item] ?? [] {
+            guard epoch == mediaEpoch, !Task.isCancelled else { return [] }
             if let r = await remote(a, n.key), r.at > mine.at, abs(r.time - mine.time) > 30 { out.append(r) }
         }
-        return out
+        return epoch == mediaEpoch && !Task.isCancelled ? out : []
     }
 
     func setMe(_ m: Me) {
@@ -490,6 +571,8 @@ let resumeDir: URL = {
     func pct(_ key: String) -> Double? { progress[key].map { $0.isFinished == true ? 1 : $0.progress ?? 0 } }
 
     func push(_ n: Now, _ pos: Double, finished: Bool) async {
+        let epoch = mediaEpoch
+        guard me != nil, !Task.isCancelled else { return }
         let p = n.duration > 0 ? min(1, pos / n.duration) : 0
         progress[n.key] = Prog(libraryItemId: n.item, episodeId: n.ep, progress: finished ? 1 : p, currentTime: pos, isFinished: finished, lastUpdate: ms())
         d.set("\(pos),\(ms())", forKey: "pos:\(n.key)")
@@ -497,6 +580,7 @@ let resumeDir: URL = {
         // only send isFinished=true: the server ignores "progress" when isFinished is present, and false would un-finish
         if finished { b["isFinished"] = true }
         for a in [me].compactMap({ $0 }) + (shares[n.item] ?? []) {
+            guard epoch == mediaEpoch, !Task.isCancelled else { return }
             _ = try? await api("PATCH", "/api/me/progress/\(n.key)", b, name: a)
         }
     }
@@ -512,22 +596,26 @@ let resumeDir: URL = {
         let on = !isFav(c.id)
         if on { fav.insert(c, at: 0) } else { fav.removeAll { $0.id == c.id } }
         favq[c.id] = on
-        Task { await pushFavs() }
+        let epoch = mediaEpoch
+        Task { guard epoch == mediaEpoch else { return }; await pushFavs() }
         return on
     }
 
     /// Uploads queued favorite changes.
     func pushFavs() async {
-        if pushingFavs { return }
+        let epoch = mediaEpoch
+        if pushingFavs || Task.isCancelled { return }
         pushingFavs = true
-        defer { pushingFavs = false }
+        defer { if epoch == mediaEpoch { pushingFavs = false } }
         for (id, on) in favq {
+            guard epoch == mediaEpoch, !Task.isCancelled else { return }
             var ok = true
             do {
                 if on { _ = try await api("POST", "/api/me/item/\(id)/bookmark", ["time": FAV_T, "title": FAV]) }
                 else { _ = try await api("DELETE", "/api/me/item/\(id)/bookmark/\(FAV_T)") }
             } catch let e as HttpErr where (400..<500).contains(e.code) { // e.g. already removed
             } catch { ok = false }
+            guard epoch == mediaEpoch, !Task.isCancelled else { return }
             if ok && favq[id] == on { favq[id] = nil } // unless toggled again meanwhile
         }
     }
@@ -539,7 +627,7 @@ let resumeDir: URL = {
         var f = fav.filter { ids.contains($0.id) }
         for id in server where ids.contains(id) && !f.contains(where: { $0.id == id }) { f.append(Card(id: id, title: "", sub: "")) }
         if f != fav { fav = f }
-        if !favq.isEmpty { Task { await pushFavs() } }
+        if !favq.isEmpty { let epoch = mediaEpoch; Task { guard epoch == mediaEpoch else { return }; await pushFavs() } }
     }
 
     /// title/author for a favorite added on another device
@@ -559,6 +647,11 @@ let resumeDir: URL = {
     private static let kq: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "absplus", kSecAttrAccount as String: "accounts"]
 
     private static func kcRead() -> [String: Tok] {
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--isolation-test", "--retained-test", "--list-lifecycle-test"].contains($0) }) {
+            return UserDefaults.standard.data(forKey: "fixture-accounts").flatMap { try? JSONDecoder().decode([String: Tok].self, from: $0) } ?? [:]
+        }
+#endif
         var q = kq
         q[kSecReturnData as String] = true
         var r: AnyObject?
@@ -567,6 +660,12 @@ let resumeDir: URL = {
     }
 
     private func kcWrite(_ v: [String: Tok]) {
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--isolation-test", "--retained-test", "--list-lifecycle-test"].contains($0) }) {
+            d.set(try? JSONEncoder().encode(v), forKey: "fixture-accounts")
+            return
+        }
+#endif
         SecItemDelete(Abs.kq as CFDictionary)
         var q = Abs.kq
         q[kSecValueData as String] = try? JSONEncoder().encode(v)
@@ -590,7 +689,7 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
 
     @MainActor func start(_ rel: String, _ url: URL, _ auth: String, resume: Data? = nil) {
         let t: URLSessionDownloadTask
-        if let resume { t = session.downloadTask(withResumeData: Self.reauth(resume, auth)) }
+        if let resume, let safe = Self.reauth(resume, auth, expected: url) { t = session.downloadTask(withResumeData: safe) }
         else {
             var r = URLRequest(url: url)
             r.setValue(auth, forHTTPHeaderField: "Authorization")
@@ -630,7 +729,7 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
     }
 
     func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didFinishDownloadingTo loc: URL) {
-        guard let rel = MainActor.assumeIsolated({ activeRel(t) }), ((t.response as? HTTPURLResponse)?.statusCode ?? 0) < 400 else { return }
+        guard let rel = MainActor.assumeIsolated({ activeRel(t) }), (200..<300).contains((t.response as? HTTPURLResponse)?.statusCode ?? 0) else { return }
         let dst = dlDir.appending(path: rel)
         let fm = FileManager.default
         try? fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -651,18 +750,23 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
             if !mine, let n, resume != nil || code == 401, tries[rel, default: 0] < 3 {
                 tries[rel, default: 0] += 1
                 if let resume, code != 401 { try? resume.write(to: app.resumeFile(rel)) }
-                Task { await app.fetch(n) }
+                let epoch = app.mediaEpoch
+                Task { guard epoch == app.mediaEpoch else { return }; await app.fetch(n) }
                 return
             }
             tries[rel] = nil
             app.got[rel] = nil
             let cancelled = (e as? URLError)?.code == .cancelled
-            if !cancelled && (e != nil || code >= 400) {
+            if !cancelled && (e != nil || !(200..<300).contains(code)) {
                 app.toast = "Download failed (\(code > 0 ? "HTTP \(code)" : e?.localizedDescription ?? "")), tap download to retry"
                 app.dlq.removeAll { $0.key == n?.key }
             }
             app.dlChanged()
         }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
     }
 
     func urlSessionDidFinishEvents(forBackgroundURLSession s: URLSession) {
@@ -673,10 +777,10 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
     }
 
     // Resume data is an archive holding the original request, token included. A file resumed after the token's
-    // one-hour lifetime would get a 401, so the saved requests get the current token. Unexpected formats pass through.
+    // one-hour lifetime would get a 401, so the saved requests get the current token. Unexpected formats or mismatched URLs are discarded.
     private static let root = "NSKeyedArchiveRootObjectKey" // the key these archives use (not NSKeyedArchiveRootObjectKey, which is "root")
 
-    static func reauth(_ data: Data, _ auth: String) -> Data {
+    static func reauth(_ data: Data, _ auth: String, expected: URL) -> Data? {
         func open<T>(_ d: Data, _ classes: [AnyClass]) -> T? {
             (try? NSKeyedUnarchiver(forReadingFrom: d))?.decodeObject(of: classes, forKey: root) as? T
         }
@@ -686,13 +790,22 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
             a.finishEncoding()
             return a.encodedData
         }
-        guard let dict: NSDictionary = open(data, [NSDictionary.self, NSString.self, NSNumber.self, NSData.self, NSDate.self]) else { return data }
+        guard let dict: NSDictionary = open(data, [NSDictionary.self, NSString.self, NSNumber.self, NSData.self, NSDate.self]) else { return nil }
         let m = NSMutableDictionary(dictionary: dict)
         for k in ["NSURLSessionResumeCurrentRequest", "NSURLSessionResumeOriginalRequest"] {
-            guard let d = m[k] as? Data, let r: NSURLRequest = open(d, [NSURLRequest.self]), let req = r.mutableCopy() as? NSMutableURLRequest else { continue }
+            guard let d = m[k] as? Data, let r: NSURLRequest = open(d, [NSURLRequest.self]), let req = r.mutableCopy() as? NSMutableURLRequest else { return nil }
+            guard req.url == expected else { return nil }
             req.setValue(auth, forHTTPHeaderField: "Authorization")
             m[k] = pack(req)
         }
         return pack(m)
+    }
+}
+
+/// Do not forward passwords, refresh headers, bearer tokens, or request bodies through redirects.
+final class NoRedirects: NSObject, URLSessionTaskDelegate {
+    static let shared = NoRedirects()
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
     }
 }

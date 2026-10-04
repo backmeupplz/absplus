@@ -47,12 +47,14 @@ struct HomeView: View {
     }
 
     private func reload() async {
+        let epoch = app.mediaEpoch
         await app.load("/api/me/items-in-progress?limit=20") { (r: InProgress) in
             items = r.libraryItems.map { li in
                 let c = li.card
                 return li.recentEpisode.map { Card(id: c.id, title: $0.title ?? "", sub: c.title, ep: $0.id) } ?? c
             }
         }
+        guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
         await app.load("/api/me") { (m: Me) in app.setMe(m) }
     }
 }
@@ -111,12 +113,14 @@ struct LibraryView: View {
     }
 
     private func reload() async {
+        let epoch = app.mediaEpoch
         let library = sel
         guard !library.isEmpty else { return }
         await app.load("/api/libraries/\(library)/items?minified=1&sort=media.metadata.title") { (r: Results<Item>) in
             guard !Task.isCancelled, sel == library else { return }
             all = r.results.map(\.card)
         }
+        guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
         await app.load("/api/me") { (m: Me) in app.setMe(m) }
     }
 }
@@ -157,10 +161,13 @@ struct SeriesView: View {
     }
 
     private func reload() async {
+        let epoch = app.mediaEpoch
         await app.load("/api/libraries") { (r: Libraries) in libs = r.libraries.filter { $0.mediaType == "book" } }
         for l in libs {
+            guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
             await app.load("/api/libraries/\(l.id)/series?limit=1000&sort=name") { (r: Results<Series>) in series[l.id] = r.results }
         }
+        guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
         loaded = true
     }
 }
@@ -178,8 +185,9 @@ struct FavoritesView: View {
             .navigationTitle("Favorites")
             .settingsButton()
             .task {
+                let epoch = app.mediaEpoch
                 await app.load("/api/me") { (m: Me) in app.setMe(m) }
-                for c in app.fav where c.title.isEmpty { await app.fillFav(c.id) }
+                for c in app.fav where c.title.isEmpty { guard epoch == app.mediaEpoch, !Task.isCancelled else { return }; await app.fillFav(c.id) }
             }
     }
 }
@@ -255,6 +263,7 @@ struct LinkAccount: View {
     @State private var user = ""
     @State private var pass = ""
     @State private var busy = false
+    @State private var loginTask: Task<Void, Never>?
     @State private var err: String?
 
     var body: some View {
@@ -272,16 +281,18 @@ struct LinkAccount: View {
             .navigationTitle("Link another account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { loginTask?.cancel(); dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Link") { link() }.disabled(user.isEmpty || busy) }
             }
         }
         .presentationDetents([.medium])
+        .onDisappear { loginTask?.cancel(); loginTask = nil }
     }
 
     private func link() {
         busy = true
-        Task {
+        let epoch = app.mediaEpoch
+        loginTask = Task {
             defer { busy = false }
             do {
                 let n = try await app.login(app.server, user, pass, main: false)
@@ -290,7 +301,7 @@ struct LinkAccount: View {
                     dismiss()
                     then()
                 }
-            } catch { err = error.localizedDescription }
+            } catch { if epoch == app.mediaEpoch, !Task.isCancelled, !(error is CancellationError) { err = error.localizedDescription } }
         }
     }
 }
