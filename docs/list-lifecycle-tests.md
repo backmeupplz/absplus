@@ -24,7 +24,7 @@ Neither app currently implements paginated title fetching or a user-selectable s
 
 ## Verified locally
 
-Library recovery (#31): all 26 Android unit tests and debug/release APK builds passed, including 7 new recovery tests and all 7 retained-navigation regressions. Negative control against the pre-fix Android source fails the fresh-membership gate assertion (500 stale A titles shown instead of 0 before membership completes). Existing iOS ListLifecycle, Accessibility and OfflineHome fixtures passed (5 tests) on a dedicated iPhone 18 Pro / iOS 27 simulator; no iOS source changes or personal devices/accounts were used.
+Library recovery (#31): all 28 Android unit tests and debug/release APK builds passed, including 9 new recovery tests and all 7 retained-navigation regressions. Negative control against the pre-fix Android source fails the fresh-membership gate assertion (500 stale A titles shown instead of 0 before membership completes). Existing iOS ListLifecycle, Accessibility and OfflineHome fixtures passed (5 tests) on a dedicated iPhone 18 Pro / iOS 27 simulator; no iOS source changes or personal devices/accounts were used.
 
 - Android: eleven unit tests (seven navigation regressions) and debug/release APK builds.
 - iOS: Xcode 27 simulator debug/release builds; lifecycle UI test checks repeated round trips including edge swipe, search, delayed responses/cache eviction, insertions, deletions and reordering ahead of the viewport, and library reset.
