@@ -76,6 +76,7 @@ struct Hist: Codable { var card: Card, at: Double }
 
 struct HttpErr: LocalizedError {
     let code: Int
+    var retryAfter: String? = nil
     var errorDescription: String? { code == 401 ? "Unauthorized (401)" : code == 403 ? "Not allowed (403)" : "HTTP \(code)" }
 }
 struct Expired: LocalizedError { var errorDescription: String? { "Session expired, please log in again" } }
@@ -193,7 +194,7 @@ let resumeDir: URL = {
             let (data, resp) = try await URLSession.shared.data(for: r)
             offline = false
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            if code >= 400 { throw HttpErr(code: code) }
+            if code >= 400 { throw HttpErr(code: code, retryAfter: (resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After")) }
             return data
         } catch let e as URLError where e.code != .cancelled {
             offline = true
@@ -369,7 +370,7 @@ let resumeDir: URL = {
             dlChanged()
         } catch {
             guard epoch == downloadEpoch, host == server, queueID(n) == id else { return }
-            for t in pending { failed(rel(n.item, t), error, code: (error as? HttpErr)?.code ?? 0) }
+            for t in pending { failed(rel(n.item, t), error, code: (error as? HttpErr)?.code ?? 0, retryAfter: (error as? HttpErr)?.retryAfter) }
             say(error)
         }
         scheduleRetries()

@@ -10,6 +10,8 @@
 
 UITests/DownloadRetries exercises production delegate callbacks for 503 without resume data, 429 deadline persistence, partial siblings, permanent 404, exhausted persisted budgets, cancel/requeue stale callbacks and logout. A loopback HTTP endpoint additionally returns 503 once then 200 through the real background URLSession queue and checks no successful sibling is redownloaded. XCTest terminates/relaunches the app to verify a pending multi-file title and its Retry-After survive.
 
+The loopback fixture also serves real `/auth/refresh` 429 and 503 with `Retry-After: 120`, verifies persisted deadlines and no 2-second retry/budget drain, holds a real refresh response across cancel/requeue and logout, and checks `Downloader.restore()` adopts two system-owned background transfers without duplicating them. HTTP errors retain Retry-After through token refresh and queue failure handling.
+
 Android DownloadQueueTest covers existing behavior: controlled 503 then range-success, retained completed/partial siblings, durable queue reload and cancellation. No Android production semantics changed (bounded iOS retries are this ticket's scope); Android still uses its existing capped exponential waiting policy.
 
 Local Android validation: 14 tests plus assembleDebug/assembleRelease passed (Gradle 9.8.0, JDK 21). iOS tests use an isolated ABS32-Retry simulator, not any sibling worker device. Commands: `./gradlew testDebugUnitTest assembleDebug assembleRelease`; `xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus -destination <simulator> -only-testing:UITests/DownloadRetries -only-testing:UITests/ListLifecycle -only-testing:UITests/OfflineHome test`.

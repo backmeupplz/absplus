@@ -6,7 +6,7 @@ final class DownloadRetries: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--download-retry-test"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Retry fixtures passed"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Retry fixtures passed"].waitForExistence(timeout: 45))
         XCTAssertTrue(app.staticTexts["Waiting to retry…"].exists)
         app.terminate()
         app.launchArguments = ["--download-retry-test", "--retry-relaunch"]

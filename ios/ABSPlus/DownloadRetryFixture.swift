@@ -114,6 +114,66 @@ struct DownloadRetryFixture: View {
         server.stop()
         app.remove(n)
 
+        // Real refresh responses must preserve Retry-After through http -> token -> fetch.
+        for code in [429, 503] {
+            let auth = try! RetryHTTPServer()
+            auth.refreshCode = code
+            await auth.ready()
+            app.d.set("http://127.0.0.1:\(auth.port)", forKey: "server")
+            app.accts = ["fixture": Tok(a: "e30.eyJleHAiOjB9.", r: "refresh-fixture")]
+            await app.download(n)
+            for t in n.tracks {
+                let r = app.dlRetry[app.rel(n.item, t)]!
+                assert(r.attempts == 1 && r.next!.timeIntervalSinceNow > 115)
+            }
+            let restored = Abs()
+            assert(restored.dlRetry[first]!.next!.timeIntervalSinceNow > 115)
+            await app.resumeQueue()
+            try? await Task.sleep(for: .seconds(2.2)) // the old 2-second path must not run
+            assert(auth.counts["refresh"] == 1 && app.dlRetry[first]?.attempts == 1)
+            assert(app.inflight.isEmpty && app.queued(n))
+            app.remove(n); auth.stop()
+        }
+
+        // Suspend a real token-refresh response, then cancel/requeue or logout before releasing it.
+        for logout in [false, true] {
+            let auth = try! RetryHTTPServer()
+            auth.holdRefresh = true
+            await auth.ready()
+            app.d.set("http://127.0.0.1:\(auth.port)", forKey: "server")
+            app.me = "fixture"
+            app.accts = ["fixture": Tok(a: "e30.eyJleHAiOjB9.", r: "refresh-fixture")]
+            let pending = Task { await app.download(n) }
+            await auth.waitFor("refresh")
+            assert(app.inflight.isEmpty)
+            if logout { app.logout() } else { app.remove(n); app.dlq = [n] }
+            auth.release()
+            await pending.value
+            assert(app.inflight.isEmpty && app.transfers.isEmpty && app.dlRetry.isEmpty)
+            assert(auth.counts["one"] == nil && auth.counts["two"] == nil)
+            if logout { assert(app.me == nil && app.accts.isEmpty && app.dlq.isEmpty) }
+            app.remove(n); auth.stop()
+        }
+
+        // Restore actual background tasks while the server holds responses; queue restart must not duplicate them.
+        let held = try! RetryHTTPServer()
+        held.holdFiles = true
+        await held.ready()
+        app.d.set("http://127.0.0.1:\(held.port)", forKey: "server")
+        app.me = "fixture"; app.accts = ["fixture": Tok(a: "fixture", r: "")]
+        await app.download(n)
+        await held.waitFor("one"); await held.waitFor("two")
+        let descriptions = app.transfers
+        app.inflight = []; app.got = [:] // process-local view has not yet adopted the system tasks
+        await d.restore()
+        assert(app.inflight == Set([first, second]) && app.transfers == descriptions)
+        await app.resumeQueue()
+        assert(app.transfers == descriptions)
+        let live = await d.session.allTasks
+        assert(live.filter { descriptions.values.contains($0.taskDescription ?? "") }.count == 2)
+        app.remove(n)
+        held.release(); held.stop()
+
         // Persist a partial multi-file title for a real process termination/relaunch test.
         app.d.set("http://retry-fixture.invalid", forKey: "server")
         app.me = "fixture"; app.accts = ["fixture": Tok(a: "fixture", r: "")]
