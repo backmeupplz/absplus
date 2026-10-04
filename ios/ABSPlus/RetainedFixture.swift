@@ -39,7 +39,7 @@ struct RetainedFixture: View {
         let oldEpoch = app.mediaEpoch
         let track = try await app.item("book").media.tracks![0].track()
         let rel = app.rel("late", track)
-        let late = URLSession.shared.downloadTask(with: URL(string: a + "/late")!)
+        let late = RetainedDownloadTask()
         Downloader.shared.bind(late, rel)
         app.dlq = [Now(item: "late", ep: nil, title: "Late", author: "Fixture", tracks: [track])]
         app.inflight.insert(rel)
@@ -67,8 +67,8 @@ struct RetainedFixture: View {
         // Cancel/requeue within one login: an old transfer cannot touch its replacement.
         let n = Now(item: "replacement", ep: nil, title: "Replacement", author: "Fixture", tracks: [track])
         let replacementRel = app.rel(n.item, track)
-        let old = URLSession.shared.downloadTask(with: URL(string: a + "/old")!)
-        let replacement = URLSession.shared.downloadTask(with: URL(string: a + "/replacement")!)
+        let old = RetainedDownloadTask()
+        let replacement = RetainedDownloadTask()
         app.dlq = [n]
         Downloader.shared.bind(old, replacementRel)
         app.remove(n)
@@ -119,6 +119,13 @@ struct RetainedFixture: View {
         let reconstructed = Abs()
         try check(reconstructed.downloaded("book") && reconstructed.downloaded("pod"), "restart retained scope")
         app.logout()
+    }
+}
+
+/// Delegate fixtures need a successful response, like a real completed download.
+private final class RetainedDownloadTask: URLSessionDownloadTask, @unchecked Sendable {
+    override var response: URLResponse? {
+        HTTPURLResponse(url: URL(string: "http://retained-a.invalid/audio")!, statusCode: 200, httpVersion: nil, headerFields: nil)
     }
 }
 

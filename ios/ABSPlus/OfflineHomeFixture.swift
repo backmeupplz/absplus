@@ -1,21 +1,22 @@
 #if DEBUG
 import SwiftUI
 
-/// Disposable-simulator fixture. No login, playback, or user server is used.
+/// Disposable-simulator fixture. Synthetic login only; no playback or user server is used.
 struct OfflineHomeFixture: View {
-    private static var seeded = false
-    init() {
-        guard !Self.seeded else { return }
-        Self.seeded = true
+    @State private var seeded = false
+    @State private var failure: String?
+    private func seed() async throws {
         URLProtocol.registerClass(OfflineHomeProtocol.self)
-        app.d.set("http://abs-home-fixture.invalid", forKey: "server")
-        app.accts["home-fixture"] = Tok(a: "fixture", r: "")
-        app.me = "home-fixture"
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [OfflineHomeProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        app.logout()
+        try await app.login("http://abs-home-fixture.invalid", "home-fixture", "fixture", main: true)
         app.offline = true
         app.dlq = []
         for id in ["home-podcast", "home-book"] {
-            try? FileManager.default.removeItem(at: dlDir.appending(path: id))
-            try! FileManager.default.createDirectory(at: dlDir.appending(path: id), withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(at: app.mediaDir.appending(path: "audio/" + id))
+            try! FileManager.default.createDirectory(at: app.mediaDir.appending(path: "audio/" + id), withIntermediateDirectories: true)
         }
         let episodes: [[String: Any]] = ["saved", "recent"].map { ["id": $0, "title": "Episode " + $0, "audioFile": Self.audio($0)] } + [["id": "no-audio", "title": "No audio"]]
         let podcast: [String: Any] = ["id": "home-podcast", "mediaType": "podcast", "media": ["metadata": ["title": "Fixture Podcast"], "episodes": episodes]]
@@ -27,7 +28,7 @@ struct OfflineHomeFixture: View {
         Self.cache("/api/me/items-in-progress?limit=20", ["libraryItems": [recent, book]])
         Self.cache("/api/me", ["mediaProgress": []])
         for path in ["home-podcast/saved.mp3", "home-book/one.mp3", "home-book/two.mp3"] {
-            try! Data("fixture".utf8).write(to: dlDir.appending(path: path))
+            try! Data("fixture".utf8).write(to: app.mediaDir.appending(path: "audio/" + path))
         }
         app.hist = [Hist(card: Self.card("recent"), at: ms()), Hist(card: Self.card("saved"), at: ms()), Hist(card: Card(id: "home-book", title: "Complete book", sub: ""), at: ms())]
         app.dlChanged()
@@ -36,7 +37,7 @@ struct OfflineHomeFixture: View {
         assert(app.downloaded(Self.card("saved")))
         assert(!app.downloaded(Self.card("recent")))
         assert(app.downloaded(Card(id: "home-book", title: "", sub: "")))
-        let secondTrack = dlDir.appending(path: "home-book/two.mp3")
+        let secondTrack = app.mediaDir.appending(path: "audio/home-book/two.mp3")
         try! FileManager.default.removeItem(at: secondTrack)
         app.dlChanged()
         assert(!app.downloaded(Card(id: "home-book", title: "", sub: "")))
@@ -51,7 +52,7 @@ struct OfflineHomeFixture: View {
         try! FileManager.default.removeItem(at: Self.recentFile)
         app.dlChanged()
     }
-    static var recentFile: URL { dlDir.appending(path: "home-podcast/recent.mp3") }
+    static var recentFile: URL { app.mediaDir.appending(path: "audio/home-podcast/recent.mp3") }
     static func card(_ ep: String) -> Card { Card(id: "home-podcast", title: "Episode " + ep, sub: "Fixture Podcast", ep: ep) }
     static func audio(_ id: String) -> [String: Any] { ["ino": id, "duration": 60, "metadata": ["ext": ".mp3", "size": 7]] }
     static func cache(_ path: String, _ json: [String: Any]) {
@@ -59,6 +60,13 @@ struct OfflineHomeFixture: View {
         try! JSONSerialization.data(withJSONObject: json).write(to: app.cacheDir.appending(path: name))
     }
     var body: some View {
+        Group {
+            if seeded { fixture } else { Text(failure ?? "Preparing offline Home").task {
+                do { try await seed(); seeded = true } catch { failure = error.localizedDescription }
+            } }
+        }
+    }
+    private var fixture: some View {
         Stack { HomeView() }
             .safeAreaInset(edge: .bottom) {
                 HStack {
@@ -78,7 +86,14 @@ struct OfflineHomeFixture: View {
 final class OfflineHomeProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "abs-home-fixture.invalid" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func startLoading() { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)) }
+    override func startLoading() {
+        guard request.url?.path == "/login" else {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)); return
+        }
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(#"{"user":{"username":"home-fixture","accessToken":"fixture"}}"#.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
     override func stopLoading() {}
 }
 #endif
