@@ -64,6 +64,10 @@ class ProgressSyncTest {
                 body = JSONObject().put("user", JSONObject().put("username", name).put("accessToken", name + "-fresh").put("refreshToken", "fixture-refresh")).toString()
             } else if (rejectOldToken && !x.requestHeaders.getFirst("Authorization").orEmpty().endsWith("-fresh")) {
                 code = 401
+            } else if (code == 200 && x.requestURI.path == "/api/me") {
+                val rows = JSONArray()
+                remote.filterKeys { it.startsWith("$name:") }.values.forEach { rows.put(it) }
+                body = JSONObject().put("mediaProgress", rows).put("bookmarks", JSONArray()).toString()
             } else if (code == 200 && x.requestURI.path.startsWith("/api/me/progress/")) {
                 if (x.requestMethod == "GET") {
                     getEntered?.countDown(); releaseGet?.await(5, TimeUnit.SECONDS)
@@ -73,9 +77,7 @@ class ProgressSyncTest {
                 } else {
                     val value = JSONObject(x.requestBody.bufferedReader().readText())
                     patchEntered?.countDown(); releasePatch?.await(5, TimeUnit.SECONDS)
-                    // ABS sets server time on first creation, but accepts lastUpdate on updates.
-                    if (!remote.containsKey(key)) value.put("lastUpdate", creationTime)
-                    remote[key] = value
+                    remote[key] = applyProgressUpdate(value, remote[key])
                     patches += key
                 }
             }
@@ -124,6 +126,41 @@ class ProgressSyncTest {
         override fun connect() { send() }
         override fun disconnect() {}
         override fun usingProxy() = false
+    }
+
+    /** Mirrors ABS MediaProgress.applyProgressUpdate, including extraData.progress and
+     * completion normalization. First creation uses server time, updates accept lastUpdate. */
+    private fun applyProgressUpdate(payload: JSONObject, existing: JSONObject?): JSONObject {
+        if (existing == null) return JSONObject(payload.toString())
+            .put("isFinished", payload.optBoolean("isFinished"))
+            .put("progress", if (payload.optBoolean("isFinished")) 1.0 else payload.optDouble("progress", 0.0))
+            .put("lastUpdate", creationTime)
+        val row = JSONObject(existing.toString())
+        val update = JSONObject(payload.toString())
+        val oldTime = row.optDouble("currentTime", 0.0)
+        val wasFinished = row.optBoolean("isFinished")
+        val oldDuration = row.optDouble("duration", 0.0)
+        val fraction = if (oldDuration > 0) (oldTime / oldDuration).coerceIn(0.0, 1.0) else 0.0
+        if (update.has("isFinished")) {
+            if (update.getBoolean("isFinished") && !wasFinished) row.put("progress", 1.0)
+            else if (!update.getBoolean("isFinished") && wasFinished) {
+                row.put("progress", 0.0).put("currentTime", 0.0)
+                update.remove("currentTime") // ABS discards an explicit unfinished reset's position.
+            }
+        } else if (update.has("progress") && update.getDouble("progress") != fraction) {
+            row.put("progress", update.getDouble("progress").coerceIn(0.0, 1.0))
+        }
+        update.remove("progress") // Wire progress is extraData, not a model column.
+        update.keys().forEach { row.put(it, update.get(it)) }
+        val position = row.optDouble("currentTime", 0.0)
+        val duration = row.optDouble("duration", 0.0)
+        val threshold = payload.optDouble("markAsFinishedPercentComplete", 0.0)
+        val done = duration > 0 && if (threshold > 0)
+            (position / duration).coerceIn(0.0, 1.0) > threshold / 100
+        else duration - position < payload.optDouble("markAsFinishedTimeRemaining", 10.0)
+        if (!row.optBoolean("isFinished") && done) row.put("isFinished", true).put("progress", 1.0)
+        else if (row.optBoolean("isFinished") && position != oldTime && !done) row.put("isFinished", false)
+        return row
     }
 
     private fun pending() = JSONObject(Abs.p.getString("progressJournal", "{}")!!).let { j ->
@@ -499,6 +536,81 @@ class ProgressSyncTest {
         assertFalse(old.isAlive)
         assertTrue("refresh from the prior login must expire", failure is Expired)
         assertEquals(credentials, Abs.p.getString("acct:owner", null))
+    }
+
+    @Test fun firstMeObservationSurvivesClockSkewReplayAndRelaunch() = firstObservation(true)
+
+    @Test fun firstResumeObservationSurvivesClockSkewReplayAndRelaunch() = firstObservation(false)
+
+    private fun firstObservation(throughMe: Boolean) {
+        assertTrue(Abs.progressSync.local().isEmpty())
+        for (n in listOf(book, episode)) {
+            remote["owner:" + n.key] = JSONObject().put("libraryItemId", n.item).put("episodeId", n.ep)
+                .put("currentTime", 80.0).put("duration", 100.0).put("progress", .8)
+                .put("isFinished", false).put("lastUpdate", 20_000L)
+        }
+        if (throughMe) Abs.setMe(JSONObject(Abs.get("/api/me")), Abs.scope())
+        else for (n in listOf(book, episode)) assertEquals(80.0, Abs.positions(n).first().time, 0.0)
+        disconnected = true
+        Abs.startProgress(false) { time } // The first observation must itself survive process death.
+        for (n in listOf(book, episode)) {
+            assertEquals(80.0, Abs.positions(n).first().time, 0.0)
+            playbackEvent(n, 81.0)
+        }
+        Abs.startProgress(false) { time }
+        disconnected = false
+        replay()
+        assertTrue(pending().isEmpty())
+        for (n in listOf(book, episode)) {
+            for (name in listOf("owner", "linked")) {
+                assertEquals(81.0, remote["$name:" + n.key]!!.getDouble("currentTime"), 0.0)
+            }
+            assertEquals(20_001L, remote["owner:" + n.key]!!.getLong("lastUpdate"))
+            assertEquals(81.0, Abs.positions(n).first().time, 0.0)
+            playbackEvent(n, 82.0)
+            remote["owner:" + n.key]!!.put("currentTime", 90.0).put("progress", .9).put("lastUpdate", 30_000L)
+        }
+        Abs.startProgress(false) { time }
+        if (throughMe) Abs.setMe(JSONObject(Abs.get("/api/me")), Abs.scope())
+        else for (n in listOf(book, episode)) assertEquals(90.0, Abs.positions(n).first().time, 0.0)
+        replay()
+        for (n in listOf(book, episode)) assertEquals(90.0, remote["owner:" + n.key]!!.getDouble("currentTime"), 0.0)
+        assertTrue(pending().isEmpty())
+    }
+
+    @Test fun passiveZeroReplayKeepsCompletedPositionForOwnAndLinkedBooksAndEpisodes() {
+        for (n in listOf(book, episode)) playbackEvent(n, 100.0, finished = true)
+        replay() // Start with real completed server rows: normalization differs on update.
+        assertTrue(pending().isEmpty())
+        disconnected = true
+        for (n in listOf(book, episode)) { tick(); playbackEvent(n, 0.0) }
+        Abs.startProgress(false) { time }
+        for (n in listOf(book, episode)) { tick(); playbackEvent(n, 0.0) }
+        disconnected = false
+        replay()
+        assertTrue(pending().isEmpty())
+        for (n in listOf(book, episode)) for (name in listOf("owner", "linked")) {
+            val row = remote["$name:" + n.key]!!
+            assertTrue("$name " + n.key + " completion survives passive replay", row.getBoolean("isFinished"))
+            assertEquals(100.0, row.getDouble("currentTime"), 0.0)
+            assertEquals(1.0, row.getDouble("progress"), 0.0)
+        }
+        // Actual playback still starts a reread, without the ABS explicit-false reset trap.
+        disconnected = true
+        for (n in listOf(book, episode)) {
+            tick(); playbackEvent(n, 0.0, playing = true)
+            tick(); playbackEvent(n, 24.0)
+        }
+        Abs.startProgress(false) { time }
+        disconnected = false
+        replay()
+        for (n in listOf(book, episode)) for (name in listOf("owner", "linked")) {
+            val row = remote["$name:" + n.key]!!
+            assertFalse(row.getBoolean("isFinished"))
+            assertEquals(24.0, row.getDouble("currentTime"), 0.0)
+            assertEquals(.24, row.getDouble("progress"), 0.0)
+        }
+        assertTrue(pending().isEmpty())
     }
 
     @Test fun automaticStartupDrainsPersistedQueueWithoutPlayback() {

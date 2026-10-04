@@ -55,8 +55,13 @@ internal class ProgressSync(
         val old = entries(j).map { it.second }.filter { valid(it) && it.getString("name") == me && it.getString("key") == n.key }
         val at = maxOf(clock(), (old.maxOfOrNull { it.getJSONObject("value").getLong("lastUpdate") } ?: 0) + 1)
         // Passive restore/pause callbacks retain completion; actual playback starts a reread.
-        val done = finished || (!intentionalPlayback && old.any { it.getJSONObject("value").optBoolean("isFinished") })
-        val pos = position.coerceIn(0.0, n.duration.coerceAtLeast(0.0))
+        val completed = old.firstOrNull { it.getJSONObject("value").optBoolean("isFinished") }?.getJSONObject("value")
+        val retainCompletion = !finished && !intentionalPlayback && completed != null
+        val done = finished || retainCompletion
+        // ABS clears completion when currentTime changes away from its finish threshold,
+        // even with isFinished=true. Passive callbacks must retain the completed position.
+        val pos = (if (retainCompletion) completed!!.optDouble("currentTime", n.duration) else position)
+            .coerceIn(0.0, n.duration.coerceAtLeast(0.0))
         val value = JSONObject().put("currentTime", pos).put("duration", n.duration)
             .put("progress", if (done) 1.0 else if (n.duration > 0) pos / n.duration else 0.0)
             .put("isFinished", done).put("lastUpdate", at)
@@ -79,6 +84,9 @@ internal class ProgressSync(
 
     /** Merge server reads without erasing newer offline progress or finished state. */
     fun observe(key: String, value: JSONObject): JSONObject = synchronized(lock) {
+        if (closed) return@synchronized value
+        val me = owner() ?: return@synchronized value
+        if (!prefs.contains("acct:$me")) return@synchronized value
         val j = journal()
         val own = entries(j).firstOrNull { valid(it.second) && it.second.getString("name") == owner() && it.second.getString("key") == key }
         if (own != null) {
@@ -95,6 +103,13 @@ internal class ProgressSync(
             e.put("value", value).put("dirty", false)
             e.remove("sent")
             e.remove("ack")
+            store(j)
+        } else {
+            // Persist the first read too: the next offline event must follow the observed
+            // server clock, including after relaunch and before any local playback.
+            val id = org.json.JSONArray(listOf(server(), me, me, key)).toString()
+            j.put(id, JSONObject().put("server", server()).put("owner", me).put("name", me)
+                .put("item", key.substringBefore('/')).put("key", key).put("value", value).put("dirty", false))
             store(j)
         }
         value
