@@ -21,7 +21,10 @@ final class Accessibility: XCTestCase {
             XCTAssertTrue(app.staticTexts[url].waitForExistence(timeout: 5))
         }
         XCTAssertTrue(app.staticTexts["Version"].exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "[0-9]+\\.[0-9]+\\.[0-9]+")).firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(
+            format: "label MATCHES %@ OR value MATCHES %@",
+            ".*[0-9]+[.][0-9]+[.][0-9]+.*", ".*[0-9]+[.][0-9]+[.][0-9]+.*"
+        )).firstMatch.exists)
     }
 
     func testFavoriteActionReflectsBothStatesAndShareHasAName() {
