@@ -17,7 +17,13 @@ final class Accessibility: XCTestCase {
         for (label, url) in [("Website", "https://absplus.app"),
                              ("Source code", "https://github.com/backmeupplz/absplus"),
                              ("Privacy policy", "https://absplus.app/privacy/")] {
-            app.links[label].tap()
+            // SwiftUI Link is exposed as Button or Link depending on the iOS runtime.
+            let link = app.descendants(matching: .any).matching(NSPredicate(
+                format: "label == %@ AND (elementType == %d OR elementType == %d)",
+                label, XCUIElement.ElementType.button.rawValue, XCUIElement.ElementType.link.rawValue
+            )).firstMatch
+            XCTAssertTrue(link.waitForExistence(timeout: 5))
+            link.tap()
             XCTAssertTrue(app.staticTexts[url].waitForExistence(timeout: 5))
         }
         XCTAssertTrue(app.staticTexts["Version"].exists)
