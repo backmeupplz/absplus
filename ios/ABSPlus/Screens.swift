@@ -4,6 +4,8 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var items: [Card] = []
+    @State private var playback = PlaybackRequest()
+    @State private var contextCard: Card?
     @State private var loading = Loading()
     @Environment(Nav.self) private var nav
 
@@ -16,13 +18,22 @@ struct HomeView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(alignment: .top, spacing: 12) {
                             ForEach(cont, id: \.key) { c in
-                                Button { Task { await player.playCard(c) } } label: { Tile(card: c).frame(width: 116) }
+                                Button { playback.play(c) } label: { Tile(card: c).frame(width: 116) }
                                     .buttonStyle(.plain)
+                                    .accessibilityIdentifier("continue.\(c.key)")
                                     .overlay { if player.preparing == c.key { ProgressView("Preparing…").padding(8).background(.regularMaterial) } }
                                     .disabled(player.preparing == c.key)
+                                    // List hosts the horizontal shelf in one native cell. Its
+                                    // context menu otherwise captures the first tile's actions.
+                                    .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in contextCard = c })
                                     .contextMenu {
-                                        Button("Play", systemImage: "play.fill") { Task { await player.playCard(c) } }
-                                        Button("Details", systemImage: "info.circle") { nav.open(.item(c.id)) }
+                                        let selected = contextCard ?? c
+                                        Text(selected.title)
+                                        Button("Play", systemImage: "play.fill") { playback.play(selected) }
+                                            .accessibilityIdentifier("context.play.\(selected.key)")
+                                        Button("Details", systemImage: "info.circle") { nav.open(.item(selected.id)) }
+                                    } preview: {
+                                        Tile(card: contextCard ?? c).frame(width: 116).padding()
                                     }
                             }
                         }
@@ -37,7 +48,7 @@ struct HomeView: View {
                 ForEach(hist, id: \.card.key) { h in
                     NavigationLink(value: Route.item(h.card.id)) {
                         Row(card: h.card, meta: Date(timeIntervalSince1970: h.at / 1000).formatted(.relative(presentation: .named))) {
-                            PlayButton { await player.playCard(h.card) }
+                            PlayButton(busy: player.preparing == h.card.key) { playback.play(h.card) }
                         }
                     }
                     .accessibilityIdentifier("history-" + h.card.key)
@@ -45,7 +56,7 @@ struct HomeView: View {
             }
         }
         .overlay { LoadingFeedback(state: loading, empty: cont.isEmpty && hist.isEmpty, title: "Nothing played yet", retry: reload) }
-        .onDisappear { loading.cancel() }
+        .onDisappear { loading.cancel(); playback.cancel() }
         .navigationTitle("Home")
         .settingsButton()
         .refreshable { await reload() }
@@ -206,6 +217,7 @@ struct SeriesView: View {
 
 struct FavoritesView: View {
     @State private var loading = Loading()
+    @State private var failedMetadata = Set<String>()
 
     var body: some View {
         ScrollView { CardGrid(cards: avail(app.fav)) }
@@ -222,9 +234,13 @@ struct FavoritesView: View {
     private func reload() async {
         await loading.run {
             var error = await app.load("/api/me") { (m: Me) in app.setMe(m) }
-            for c in app.fav {
+            // Populated cards need no serial metadata refresh. Retry only an actual
+            // failure, including when load rendered its cached title before failing.
+            for c in app.fav where c.title.isEmpty || failedMetadata.contains(c.id) {
                 guard !Task.isCancelled else { return nil }
                 let failure = await app.fillFav(c.id)
+                guard !Task.isCancelled else { return nil }
+                if failure == nil { failedMetadata.remove(c.id) } else { failedMetadata.insert(c.id) }
                 error = error ?? failure
             }
             return error
@@ -429,6 +445,7 @@ struct ItemView: View {
     @State private var desc = ""
     @State private var more = false
     @State private var sharing = false
+    @State private var playback = PlaybackRequest()
     @State private var loading = Loading()
 
     var body: some View {
@@ -440,7 +457,7 @@ struct ItemView: View {
         .overlay { LoadingFeedback(state: loading, empty: it == nil, title: "Item unavailable", retry: reload) }
         .refreshable { await reload() }
         .task(id: id) { await reload() }
-        .onDisappear { loading.cancel() }
+        .onDisappear { loading.cancel(); playback.cancel() }
         .sheet(isPresented: $sharing) { if let it { ShareSheet(id: id, name: it.card.title) } }
     }
 
@@ -468,7 +485,7 @@ struct ItemView: View {
                             p >= 1 ? "Finished" : p > 0 ? "\(Int(p * 100))% done" : nil].compactMap { $0 }
                 Text(meta.joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
                 HStack(spacing: 12) {
-                    Button { Task { await player.play(n) } } label: {
+                    Button { playback.play(n) } label: {
                         Group {
                             if player.preparing == n.key { ProgressView("Preparing…") }
                             else { Label(p > 0 && p < 1 ? "Resume" : "Play", systemImage: "play.fill") }
@@ -498,7 +515,7 @@ struct ItemView: View {
 
         if !book {
             Section("Episodes") {
-                ForEach(eps, id: \.0.key) { n, date in EpisodeRow(n: n, date: date) }
+                ForEach(eps, id: \.0.key) { n, date in EpisodeRow(n: n, date: date, playback: playback) }
             }
         }
     }
@@ -529,6 +546,7 @@ struct ItemView: View {
 struct EpisodeRow: View {
     let n: Now
     let date: String?
+    let playback: PlaybackRequest
 
     var body: some View {
         let p = app.pct(n.key)
@@ -540,10 +558,10 @@ struct EpisodeRow: View {
             }
             Spacer(minLength: 0)
             DlButton(n: n).buttonStyle(.borderless)
-            PlayButton { await player.play(n) }
+            PlayButton(busy: player.preparing == n.key) { playback.play(n) }
         }
         .contentShape(.rect)
-        .onTapGesture { Task { await player.play(n) } }
+        .onTapGesture { playback.play(n) }
         .overlay(alignment: .trailing) { if player.preparing == n.key { ProgressView("Preparing…").padding(8).background(.regularMaterial) } }
     }
 }

@@ -4,6 +4,42 @@ import UIKit
 
 @MainActor let player = Player()
 
+/// A screen owns preparation only; leaving it must not stop committed playback.
+@MainActor final class PlaybackRequest {
+    private let owner = UUID()
+    private var task: Task<Void, Never>?
+    private var pending: String?
+    private var generation = UUID()
+
+    func play(_ card: Card) {
+        begin(card.key) { await player.playCard(card, owner: self.owner) }
+    }
+
+    func play(_ now: Now) {
+        begin(now.key) { await player.play(now, owner: self.owner) }
+    }
+
+    private func begin(_ key: String, _ work: @escaping @MainActor () async -> Void) {
+        guard pending != key else { return }
+        cancel()
+        let request = UUID()
+        generation = request
+        pending = key
+        task = Task {
+            await work()
+            if generation == request { task = nil; pending = nil }
+        }
+    }
+
+    func cancel() {
+        generation = UUID()
+        pending = nil
+        task?.cancel()
+        task = nil
+        player.cancelPreparation(owner: owner)
+    }
+}
+
 /// One title at a time, its files queued as one timeline. Progress goes to the server every 20s, on pause and at the end.
 @MainActor @Observable final class Player {
     @ObservationIgnored let p = AVQueuePlayer()
@@ -11,6 +47,7 @@ import UIKit
     var pos: Double = 0
     var playing = false
     var preparing: String?
+    @ObservationIgnored private var preparationOwner: UUID?
     var buffering = false
     var playbackError: String?
     @ObservationIgnored private var requestID = UUID()
@@ -169,6 +206,7 @@ import UIKit
     func nextSpeed() { setSpeed(Self.speeds[((Self.speeds.firstIndex(of: speed) ?? -1) + 1) % Self.speeds.count]) }
 
     func clear() {
+        preparationOwner = nil
         requestID = UUID(); queueID = UUID(); preparing = nil; choices = nil; buffering = false; playbackError = nil
         p.removeAllItems()
         index = [:]
@@ -178,10 +216,11 @@ import UIKit
 
     // --- starting a title
 
-    func playCard(_ c: Card) async {
-        guard preparing != c.key else { return }
+    func playCard(_ c: Card, owner: UUID) async {
+        guard !Task.isCancelled else { return }
         let request = UUID()
         requestID = request
+        preparationOwner = owner
         preparing = c.key
         choices = nil
         defer { if requestID == request { preparing = nil } }
@@ -199,14 +238,23 @@ import UIKit
         } catch { if requestID == request { app.say(error) } }
     }
 
-    func play(_ n: Now) async {
-        guard preparing != n.key else { return }
+    func play(_ n: Now, owner: UUID) async {
+        guard !Task.isCancelled else { return }
         let request = UUID()
         requestID = request
+        preparationOwner = owner
         preparing = n.key
         choices = nil
         defer { if requestID == request { preparing = nil } }
         await prepare(n, request)
+    }
+
+    func cancelPreparation(owner: UUID) {
+        guard preparationOwner == owner else { return }
+        requestID = UUID()
+        preparationOwner = nil
+        preparing = nil
+        choices = nil
     }
 
     private func prepare(_ n: Now, _ request: UUID) async {
@@ -226,6 +274,8 @@ import UIKit
 
     func start(_ n: Now, _ t: Double, play: Bool = true) {
         guard !n.tracks.isEmpty else { app.toast = "No audio"; return }
+        preparationOwner = nil
+        choices = nil
         queueID = UUID()
         playbackError = nil
         if let old = now, old.key != n.key, p.currentItem != nil {

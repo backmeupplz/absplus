@@ -149,19 +149,15 @@ extension Row where A == EmptyView {
 }
 
 struct PlayButton: View {
-    let action: () async -> Void
-    @State private var busy = false
+    let busy: Bool
+    let action: () -> Void
     var body: some View {
-        Button {
-            guard !busy else { return }
-            busy = true
-            Task { await action(); busy = false }
-        } label: {
+        Button(action: action) {
             if busy { ProgressView() } else { Image(systemName: "play.fill") }
         }
-            .disabled(busy)
-            .buttonStyle(.bordered).buttonBorderShape(.circle)
-            .accessibilityLabel("Play")
+        .disabled(busy)
+        .buttonStyle(.bordered).buttonBorderShape(.circle)
+        .accessibilityLabel("Play")
     }
 }
 

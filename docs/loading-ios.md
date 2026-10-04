@@ -10,14 +10,14 @@ new backend, real account, or server mutation is needed for the fixture suite.
 | Home continue listening + account progress | Fixed | Immediate labeled loading, local history retained, refresh indication, persistent error/retry; empty only after successful completion. |
 | Library discovery and selected library | Fixed | Discovery failure retries discovery too; cached/retained grid stays mounted, explicit initial/refresh/empty/search/offline/error states. Context switches cancel prior work and discard old library cards. |
 | Series discovery and per-library requests | Fixed | Initial/refresh/error/retry; no false empty after failure; surviving results retained, removed libraries pruned; offline rows filter unplayable shelves. |
-| Favorites membership and metadata | Fixed | No premature empty; retained cards while refreshing; missing metadata has readable placeholder; metadata failures surface retry; successful membership/metadata loads are cancellation checked. |
+| Favorites membership and metadata | Fixed | No premature empty; retained cards while refreshing; missing metadata has readable placeholder; only missing or previously failed metadata is fetched (not every populated favorite); failures surface retry; successful membership/metadata loads are cancellation checked. |
 | Item details / book / podcast episodes | Fixed | Initial feedback rather than blank List, retained refresh, persistent failure and retry, cancellation on navigation away. Podcast episode empty count remains explicit in loaded metadata. |
 | Shelf navigation | Already correct | Route owns existing cards, not an asynchronous fetch; native stable scroll targets retained. |
 | Login | Fixed | Existing spinner/duplicate guard retained; persistent inline failure and input retention; cancellation prevents departed view login completion. |
 | Link account | Fixed | Spinner, duplicate guard, inline failure, request cancelled on dismissal. Share selection/save itself is synchronous. |
 | Offline reconnect | Fixed | One outstanding ping, connecting label/disabled retry, cancelled periodic task cannot start another ping. |
 | Startup restore | Fixed | Shell paints first; cancelled startup does not resume downloads; delayed player restore cannot supersede a newer selection/logout. |
-| Book/card/episode Play | Fixed | Local action spinner plus shared preparation identity, same-title deduplication, latest selection wins after async metadata/positions. |
+| Book/card/episode Play | Fixed | Screen-owned preparation task/token, duplicate suppression, latest selection wins after metadata/positions; Back or tab navigation cancels only preparation, never already-started playback. Home tile/context menu/recent button, book details and episode row/button use the same owner. |
 | Mini/full player / queue | Fixed | Buffering feedback and persistent terminal error with Retry playback; queue generation checks after token and seek prevent stale queue completion. Empty audio is guarded. |
 | Cover / BigCover | Fixed | Existing immediate placeholder, memory/disk cache, shared fetch and 404 fallback retained; cancelled old identity cannot paint a late image. Missing art is decorative fallback, not a blocking page error. |
 | Download preparation | Fixed | Queue paints before token work; cancellation during token wait cannot restart removed queue; auth failure removes stuck waiting row so Download retries. |
@@ -66,7 +66,9 @@ The suite attaches a screenshot of the real Home initial-loading state.
 
 Limitations: fixtures do not prove real-server compatibility, physical-device
 VoiceOver, background OS download resumption, AirPlay, or AVFoundation network
-buffering. These paths are audited and build-checked; no real media/network or
+buffering. Preparation and actual local AVQueuePlayer playback are covered by the
+review follow-up below; remote buffering/background paths remain audited and
+build-checked. No real media/network or
 credential-dependent mutation is exercised.
 
 ## Local verification (2026-10-04, Xcode/iOS Simulator 27)
@@ -84,3 +86,37 @@ credential-dependent mutation is exercised.
 - Initial fixture attempts exposed/fixed accessibility-query assumptions, overlay
   controls covering tabs, fixture reinitialization, and the real library scroll-ID
   cancellation race. The passing suite uses bounded, explicit response gates.
+
+
+## Independent review follow-up: preparation after Back
+
+The original fixture's empty tracks missed the preparation path. Unstructured Play
+tasks could outlive a departed view and start its title after a delayed positions
+response. HomeView and ItemView now own PlaybackRequest instances; every tile,
+context menu, recent PlayButton, book button, episode button and row routes through
+that owner. Disappearance cancels the task and invalidates only its matching player
+preparation/choice token. Committed playback and the audio queue are not cleared or
+paused. Player preparation APIs require an owner, so new callers cannot bypass it.
+Same-owner duplicate taps are coalesced before the task starts; a late old completion
+cannot clear a newer request.
+
+The DEBUG --playback fixture generates a 120-second local silent PCM WAV and returns
+nonempty book tracks and a podcast episode. Metadata and position requests have
+independent gates. PlaybackPreparation exercises actual navigation and real
+AVQueuePlayer: delayed metadata after leaving Home (tile/context menu/recent Play),
+delayed positions after book/episode Back, double-tap request counts, repeated
+opens, switching titles, no mini-player after cancellation, and continued playing
+of the committed title when another preparation is cancelled.
+
+Favorites now skips populated cards unless that specific metadata request previously
+failed after rendering cache. A populated-Favorites UI fixture checks zero item
+metadata requests across repeated tab visits.
+
+The Home context-menu fixture also exposed a native List/horizontal-shelf issue:
+long-pressing the second title showed the first tile's Play action. The shelf now
+records the touched tile with a simultaneous (nonexclusive) gesture and uses that
+identity for context Play/Details and preview. The regression selects the second
+menu action by its item-specific accessibility identifier, checks preparation of
+that exact title, then navigates away before releasing metadata. A separate
+same-screen test switches from the first pending title to the second and verifies
+only the second starts.
