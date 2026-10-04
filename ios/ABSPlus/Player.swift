@@ -123,6 +123,13 @@ import UIKit
     // --- control
 
     func play() {
+        if let n = now, scope == source.accountGeneration, source.progressDisk.local[n.key]?.isFinished == true {
+            index = [:] // ignore end notifications from the previous listen
+            pos = 0
+            source.push(n, 0, finished: false, restarting: true)
+            Task { await queue(n, 0, 0, play: true) }
+            return
+        }
         try? AVAudioSession.sharedInstance().setActive(true)
         if p.currentItem == nil, let n = now { // finished: start over
             Task { await queue(n, 0, 0, play: true) }
@@ -202,6 +209,11 @@ import UIKit
         if play { source.addHistory(n) }
         let (i, off) = n.at(t > n.duration - 5 ? 0 : t)
         pos = n.tracks[i].start + off
+        // Passive restore keeps completion; an explicit play starts a new listen.
+        if play, source.progressDisk.local[n.key]?.isFinished == true {
+            index = [:]
+            source.push(n, pos, finished: false, restarting: true)
+        }
         Task {
             await queue(n, i, off, play: play)
             _ = await Covers.get(n.item) // lock screen artwork

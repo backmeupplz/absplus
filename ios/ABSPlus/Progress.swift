@@ -26,7 +26,7 @@ struct PendingProgress: Codable, Equatable {
     var fraction: Double { duration > 0 ? min(1, max(0, time / duration)) : 0 }
     var body: [String: Any] {
         var b: [String: Any] = ["currentTime": time, "duration": duration, "progress": fraction, "lastUpdate": at]
-        if finished { b["isFinished"] = true }
+        b["isFinished"] = finished
         return b
     }
     static func delay(_ attempts: Int) -> Double { min(300, pow(2, Double(min(attempts, 9)))) }
@@ -89,12 +89,23 @@ extension Abs {
         persistProgress()
     }
 
+    /// Reads use the same last-write-wins rule as replay. A server timestamp
+    /// assigned to our own attempted write is not a new event from another device.
+    func mergeProgress(_ remote: Prog, key: String) {
+        let pending = progressDisk.pending.first { $0.account == me && $0.key == key }
+        guard (remote.lastUpdate ?? 0) > (progressDisk.local[key]?.lastUpdate ?? -1),
+              pending.map({ (remote.lastUpdate ?? 0) > $0.at && $0.sent?.matches(remote) != true }) ?? true else { return }
+        progressDisk.local[key] = remote
+        progress[key] = remote
+        if let pending { progressDisk.pending.removeAll { $0.id == pending.id } }
+    }
+
     /// Synchronous event capture: disk commit precedes scheduling network work.
-    func push(_ n: Now, _ pos: Double, finished: Bool) {
+    func push(_ n: Now, _ pos: Double, finished: Bool, restarting: Bool = false) {
         guard let me, accts[me] != nil, pos.isFinite, n.duration.isFinite else { return }
         pruneProgress()
         let at = max(ms(), (progressDisk.local[n.key]?.lastUpdate ?? 0) + 1)
-        let done = finished || progressDisk.local[n.key]?.isFinished == true
+        let done = finished || (!restarting && progressDisk.local[n.key]?.isFinished == true)
         for account in Set([me] + (shares[n.item] ?? [])).sorted() where accts[account] != nil {
             let old = progressDisk.pending.first { $0.account == account && $0.key == n.key }
             let p = PendingProgress(account: account, item: n.item, episode: n.ep, time: max(0, pos),

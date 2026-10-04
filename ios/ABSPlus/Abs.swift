@@ -116,6 +116,7 @@ let resumeDir: URL = {
     @ObservationIgnored var progressTask: Task<Void, Never>?
     @ObservationIgnored var replayingProgress = false
     @ObservationIgnored var accountGeneration = UUID()
+    @ObservationIgnored private var loginAttempt = UUID()
     @ObservationIgnored let cacheDir = URL.applicationSupportDirectory.appending(path: "json")
 
     /// set when the server can't be reached; cleared by the next successful request
@@ -179,8 +180,8 @@ let resumeDir: URL = {
 
     // --- http
 
-    func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:]) async throws -> Data {
-        guard let url = URL(string: server + path) else { throw Msg(errorDescription: "Invalid server URL") }
+    func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:], endpoint: String? = nil) async throws -> Data {
+        guard let url = URL(string: (endpoint ?? server) + path) else { throw Msg(errorDescription: "Invalid server URL") }
         var r = URLRequest(url: url, timeoutInterval: 20)
         r.httpMethod = method
         hdr.forEach { r.setValue($1, forHTTPHeaderField: $0) }
@@ -214,16 +215,33 @@ let resumeDir: URL = {
 
     /// Logs in; main = the account this app runs as, otherwise a linked account for progress sharing.
     func login(_ url: String, _ user: String, _ pass: String, main: Bool) async throws -> String {
+        var endpoint = server
         if main {
             var s = url.trimmingCharacters(in: .whitespaces)
             while s.hasSuffix("/") { s.removeLast() }
-            d.set(s.contains("://") ? s : "https://" + s, forKey: "server")
+            endpoint = s.contains("://") ? s : "https://" + s
         }
+        let attempt = UUID(), generation = accountGeneration
+        loginAttempt = attempt
         let r: Data
         do {
-            r = try await http("POST", "/login", ["username": user.trimmingCharacters(in: .whitespaces), "password": pass], ["x-return-tokens": "true"])
+            r = try await http("POST", "/login", ["username": user.trimmingCharacters(in: .whitespaces), "password": pass], ["x-return-tokens": "true"], endpoint: endpoint)
         } catch let e as HttpErr where e.code == 401 {
             throw Msg(errorDescription: "Wrong username or password")
+        }
+        let u = try JSONDecoder().decode(LoginResp.self, from: r).user
+        guard attempt == loginAttempt, generation == accountGeneration, !Task.isCancelled else { throw CancellationError() }
+        if main {
+            // Authenticate before changing the persisted scope. Even same-username
+            // server switches must invalidate old replay/refresh responses.
+            accountGeneration = UUID()
+            refreshing.values.forEach { $0.cancel() }
+            refreshing = [:]
+            if endpoint != server || u.username != me {
+                accts = [:]
+                shares = [:]
+            }
+            d.set(endpoint, forKey: "server")
         }
         let name = try save(r)
         if main { me = name; expired = false }
@@ -449,10 +467,10 @@ let resumeDir: URL = {
 
     // --- progress. Shared items get every update pushed to those linked accounts too.
 
-    private func remote(_ name: String, _ key: String) async -> Pos? {
+    private func remote(_ name: String, _ key: String) async -> Prog? {
         guard let data = try? await api("GET", "/api/me/progress/\(key)", name: name),
               let p = try? JSONDecoder().decode(Prog.self, from: data) else { return nil }
-        return Pos(who: name, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+        return p
     }
 
     /// First = where this account should resume; the rest = linked accounts that listened more recently elsewhere.
@@ -462,21 +480,28 @@ let resumeDir: URL = {
             mine = Pos(who: "You", time: t, at: at)
         }
         if let p = progressDisk.local[n.key] { mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0) }
-        if let me, let r = await remote(me, n.key), r.at > mine.at, !progressDisk.pending.contains(where: { $0.account == me && $0.key == n.key }) { mine = Pos(who: "You", time: r.time, at: r.at) }
+        if let me, let r = await remote(me, n.key) {
+            mergeProgress(r, key: n.key)
+            persistProgress()
+            if let p = progressDisk.local[n.key], (p.lastUpdate ?? 0) >= mine.at {
+                mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+            }
+        }
         var out = [mine]
         for a in shares[n.item] ?? [] {
-            if let r = await remote(a, n.key), r.at > mine.at, abs(r.time - mine.time) > 30 { out.append(r) }
+            if let p = await remote(a, n.key) {
+                let r = Pos(who: a, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+                if r.at > mine.at, abs(r.time - mine.time) > 30 { out.append(r) }
+            }
         }
         return out
     }
 
     func setMe(_ m: Me) {
-        var merged = Dictionary(m.mediaProgress.map { p in (p.episodeId.map { "\(p.libraryItemId)/\($0)" } ?? p.libraryItemId, p) }) { _, b in b }
-        for (key, local) in progressDisk.local where (local.lastUpdate ?? 0) >= (merged[key]?.lastUpdate ?? 0) || progressDisk.pending.contains(where: { $0.account == me && $0.key == key }) {
-            merged[key] = local
+        for p in m.mediaProgress {
+            mergeProgress(p, key: p.episodeId.map { "\(p.libraryItemId)/\($0)" } ?? p.libraryItemId)
         }
-        progress = merged
-        progressDisk.local = merged
+        progress = progressDisk.local
         persistProgress()
         syncFavs(m.bookmarks ?? [])
     }

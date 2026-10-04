@@ -32,15 +32,17 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         var patches = 0
         var requests = 0
         var rows: [String: [String: Any]] = [:]
+        var holdLogin = false
         var holdPatch = false
         var holdLinkedRead = false
         var held: ProgressServer?
     }
     static let state = OSAllocatedUnfairLock(initialState: State())
-    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "abs-progress-fixture.invalid" }
+    override class func canInit(with request: URLRequest) -> Bool { ["abs-progress-fixture.invalid", "abs-progress-other.invalid"].contains(request.url?.host ?? "") }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let held = Self.state.withLock { s in
+            if s.holdLogin && request.url?.path == "/login" { s.held = self; s.holdLogin = false; return true }
             if s.holdLinkedRead && request.httpMethod == "GET" && request.value(forHTTPHeaderField: "Authorization") == "Bearer linked" { s.held = self; s.holdLinkedRead = false; return true }
             if s.holdPatch && request.httpMethod == "PATCH" { s.held = self; s.holdPatch = false; return true }
             return false
@@ -69,6 +71,10 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                 return (200, ["user": ["username": name, "accessToken": name, "refreshToken": name]])
             }
             if s.reject { return (401, [:]) }
+            if path == "/login" {
+                let name = json["username"] as? String ?? "own"
+                return (200, ["user": ["username": name, "accessToken": name, "refreshToken": name]])
+            }
             let name = request.value(forHTTPHeaderField: "Authorization")?.replacingOccurrences(of: "Bearer ", with: "") ?? ""
             let key = name + ":" + path.replacingOccurrences(of: "/api/me/progress/", with: "")
             if request.httpMethod == "PATCH" {
@@ -80,7 +86,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                 if parts.count > 1 { row["episodeId"] = String(parts[1]) }
                 // ABS first-row creation uses server time rather than lastUpdate.
                 if s.rows[key] == nil { row["lastUpdate"] = ms() + 1000 }
-                row["isFinished"] = (row["isFinished"] as? Bool ?? false) || (s.rows[key]?["isFinished"] as? Bool ?? false)
+                row["isFinished"] = row["isFinished"] as? Bool ?? s.rows[key]?["isFinished"] as? Bool ?? false
                 s.rows[key] = row
                 return (200, [:])
             }
@@ -140,6 +146,76 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         }
     }
 
+    static func reviewRegressions(_ book: Now) async throws {
+        let suite = "progress-review-" + UUID().uuidString
+        let d = UserDefaults(suiteName: suite)!
+        defer { d.removePersistentDomain(forName: suite) }
+        let origin = "http://abs-progress-fixture.invalid", other = "http://abs-progress-other.invalid"
+        d.set(origin, forKey: "server"); d.set("own", forKey: "me")
+        let file = URL.temporaryDirectory.appending(path: suite + ".json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let accounts = ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")]
+        var a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        defer { a.progressTask?.cancel() }
+        ProgressServer.state.withLock { $0.offline = true }
+        a.push(book, 20, finished: false)
+        await stop(a)
+        let generation = a.accountGeneration
+        ProgressServer.state.withLock { $0.offline = false; $0.reject = true }
+        do { _ = try await a.login(other, "own", "fixture", main: true); throw Msg(errorDescription: "rejected login succeeded") }
+        catch let e as Msg { try check(e.errorDescription == "Wrong username or password", "unexpected login result") }
+        a.pruneProgress()
+        try check(a.server == origin && a.accountGeneration == generation && a.progressDisk.pending.count == 1, "failed login changed scope or erased journal")
+        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        try check(a.progressDisk.local[book.key]?.currentTime == 20 && a.progressDisk.pending.count == 1, "failed login erased journal on relaunch")
+
+        // Pending/backoff is not evidence of recency: fresh reads must beat T1.
+        for i in a.progressDisk.pending.indices { a.progressDisk.pending[i].retryAt = ms() + 300000 }
+        let remoteAt = a.progressDisk.local[book.key]!.lastUpdate! + 1000
+        ProgressServer.state.withLock { s in
+            s.reject = false
+            s.rows["own:book"] = ["libraryItemId": "book", "currentTime": 80.0, "isFinished": false, "lastUpdate": remoteAt]
+        }
+        let positions = await a.positions(book)
+        try check(positions.first?.time == 80 && a.progressDisk.pending.isEmpty, "fresh position ignored newer remote during backoff")
+        ProgressServer.state.withLock { $0.offline = true }
+        a.push(book, 81, finished: false)
+        await stop(a)
+        try check(a.progressDisk.local[book.key]!.lastUpdate! > remoteAt, "next event did not follow merged remote clock")
+        let newer = Prog(libraryItemId: "book", episodeId: nil, progress: 0.9, currentTime: 90, isFinished: false, lastUpdate: remoteAt + 2000)
+        a.setMe(Me(mediaProgress: [newer], bookmarks: []))
+        try check(a.progressDisk.local[book.key]?.currentTime == 90 && a.progressDisk.pending.isEmpty, "/me ignored newer remote during backoff")
+        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        try check(a.progressDisk.local[book.key]?.currentTime == 90, "remote merge was not durable")
+
+        // Hold an old-scope replay read across a same-name successful server switch.
+        a.shares[book.item] = ["linked"]
+        ProgressServer.state.withLock { $0.offline = false; $0.holdLinkedRead = true }
+        a.push(book, 91, finished: false)
+        try await wait { ProgressServer.state.withLock { $0.held != nil } }
+        let oldRead = ProgressServer.state.withLock { s in let p = s.held; s.held = nil; return p }
+        let oldGeneration = a.accountGeneration
+        _ = try await a.login(other, "own", "fixture", main: true)
+        let writes = ProgressServer.state.withLock { $0.patches }
+        oldRead!.respond()
+        await stop(a)
+        try check(a.server == other && a.accountGeneration != oldGeneration && a.progressDisk.pending.isEmpty && a.accounts.isEmpty, "successful server switch retained old scope")
+        try check(ProgressServer.state.withLock { $0.patches } == writes, "old in-flight read wrote after scope switch")
+
+        // A slower successful login must not replace a later authenticated scope.
+        ProgressServer.state.withLock { $0.holdLogin = true }
+        let target = a
+        let stale = Task { try await target.login(origin, "stale", "fixture", main: true) }
+        try await wait { ProgressServer.state.withLock { $0.held != nil } }
+        let oldLogin = ProgressServer.state.withLock { s in let p = s.held; s.held = nil; return p }
+        _ = try await a.login(other, "own", "fixture", main: true)
+        oldLogin!.respond()
+        do { _ = try await stale.value; throw Msg(errorDescription: "stale login committed") }
+        catch is CancellationError {}
+        try check(a.server == other && a.me == "own" && a.accts["stale"] == nil, "late login replaced authenticated scope")
+        ProgressServer.state.withLock { $0.rows["own:book"] = nil }
+    }
+
     static func run() async throws {
         URLProtocol.registerClass(ProgressServer.self)
         ProgressServer.state.withLock { $0 = .init() }
@@ -185,6 +261,8 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         try check(ProgressServer.state.withLock { $0.rows["own:pod/two"]?["currentTime"] as? Double } == 48, "episode identity")
         await stop(a)
 
+        try await reviewRegressions(book)
+
         // Newer local event arrives while the old first-create PATCH is held.
         ProgressServer.state.withLock { $0.holdPatch = true }
         let race = Now(item: "race", ep: nil, title: "Race", author: "", tracks: book.tracks)
@@ -212,6 +290,10 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         }
         _ = dropped // cancelled request deliberately never calls its URLProtocol client
         a = Abs(defaults: d, progressFile: file, accounts: a.accts)
+        let ownRow = try JSONDecoder().decode(Prog.self, from: JSONSerialization.data(withJSONObject: ProgressServer.state.withLock { $0.rows["own:lost"]! }))
+        a.setMe(Me(mediaProgress: [ownRow], bookmarks: []))
+        let ownPosition = await a.positions(lost)
+        try check(ownPosition.first?.time == 44 && a.progressDisk.pending.count == 1, "read treated attempted first-create as external progress")
         due(a)
         await a.replayProgress()
         try check(ProgressServer.state.withLock { $0.rows["own:lost"]?["currentTime"] as? Double } == 44, "lost ack erased newer event on restart")
@@ -304,6 +386,26 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         a.startProgressReplay()
         try await wait { a.progressDisk.pending.isEmpty }
         try check(ProgressServer.state.withLock { $0.rows["own:" + title.key]?["isFinished"] as? Bool } == true, "player finish not replayed")
+        // Restoring a completed download must stay complete until explicit play.
+        ProgressServer.state.withLock { $0.offline = true }
+        let reread = Player(source: a)
+        await reread.restore()
+        try check(a.pct(title.key) == 1, "passive restore cleared completion")
+        try await wait { reread.p.currentItem != nil }
+        reread.play()
+        try await wait { reread.pos > 0.3 && reread.pos < 2 }
+        reread.p.pause()
+        try await wait { (a.progressDisk.local[title.key]?.currentTime ?? 0) > 0 && a.progressDisk.local[title.key]?.isFinished == false }
+        let rereadTime = a.progressDisk.local[title.key]!.currentTime!
+        reread.clear()
+        await stop(a)
+        a = Abs(defaults: d, progressFile: file, accounts: a.accts)
+        let resumed = await a.positions(title)
+        try check(resumed.first?.time == rereadTime && a.pct(title.key) != 1, "offline reread lost resume after relaunch")
+        due(a)
+        ProgressServer.state.withLock { $0.offline = false }
+        await a.replayProgress()
+        try check(ProgressServer.state.withLock { $0.rows["own:" + title.key]?["isFinished"] as? Bool } == false, "reread failed to clear remote completion")
         a.logout()
         await stop(a)
         let saved = try JSONDecoder().decode(ProgressDisk.self, from: Data(contentsOf: file))
