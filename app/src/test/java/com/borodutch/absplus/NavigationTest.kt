@@ -228,6 +228,94 @@ class NavigationTest {
         controller.destroy()
     }
 
+    @Test fun cachedSeriesShelfRefreshesAfterDetailRemovalAndDownloadChanges() {
+        val controller = Robolectric.buildActivity(Main::class.java).create()
+        val a = controller.get()
+        (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
+        fun cache(path: String, json: JSONObject) {
+            val file = Abs::class.java.getDeclaredMethod("cacheFile", String::class.java).apply { isAccessible = true }
+                .invoke(Abs, path) as java.io.File
+            file.parentFile!!.mkdirs()
+            file.writeText(json.toString())
+        }
+        val track = Track("audio", ".mp3", 7, 60.0, 0.0)
+        val books = (0 until 200).map { i ->
+            val id = "shelf$i"
+            Abs.file(id, track).apply { parentFile!!.mkdirs(); writeText("fixture") }
+            JSONObject().put("id", id).put("mediaType", "book").put("media", JSONObject()
+                .put("metadata", JSONObject().put("title", "Title $i"))
+                .put("tracks", JSONArray().put(JSONObject().put("ino", track.ino).put("duration", track.duration)
+                    .put("metadata", JSONObject().put("ext", track.ext).put("size", track.size)))))
+                .also { cache("/api/items/$id?expanded=1", it) }
+        }
+        cache("/api/libraries", JSONObject().put("libraries", JSONArray().put(JSONObject()
+            .put("id", "books").put("name", "Books").put("mediaType", "book"))))
+        cache("/api/libraries/books/series?limit=1000&sort=name", JSONObject().put("results", JSONArray()
+            .put(JSONObject().put("name", "Cached series").put("books", JSONArray(books)))))
+        try {
+            // Cached routes render immediately; failed refreshes remain offline, not expired.
+            Abs.p.edit().putString("server", "http://127.0.0.1:1").putString("me", "fixture")
+                .putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").toString()).commit()
+            Abs.offline = true
+            Abs.dlChanged()
+            a.call("tab", 2)
+            layout(a.content())
+            views(a.content()).filterIsInstance<android.widget.TextView>()
+                .single { it.text == "Cached series" }.let { (it.parent.parent as View).performClick() }
+            val page = a.content().getChildAt(0)
+            val grid = views(page).filterIsInstance<RecyclerView>().single()
+            val lm = grid.layoutManager as GridLayoutManager
+            layout(a.content())
+            assertEquals(200, grid.adapter!!.itemCount)
+            lm.scrollToPositionWithOffset(100, -29)
+            layout(a.content())
+            val first = lm.findFirstVisibleItemPosition()
+            val name = title(lm, first)
+            val y = lm.findViewByPosition(first)!!.top
+            val removed = first + lm.spanCount // keep the visible anchor, remove another visible title
+            lm.findViewByPosition(removed)!!.performClick()
+            layout(a.content())
+            views(a.content()).single { it.contentDescription == "Remove download" }.performClick()
+            val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog() as androidx.appcompat.app.AlertDialog
+            dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()
+            shadowOf(Looper.getMainLooper()).idle()
+            assertFalse(Abs.downloaded("shelf$removed"))
+            a.onBackPressedDispatcher.onBackPressed()
+            layout(a.content())
+            assertSame(page, a.content().getChildAt(0))
+            assertSame(lm, grid.layoutManager)
+            assertEquals(199, grid.adapter!!.itemCount)
+            assertEquals(name, title(lm, lm.findFirstVisibleItemPosition()))
+            assertEquals(y, lm.findViewByPosition(lm.findFirstVisibleItemPosition())!!.top)
+            assertTrue(views(grid).filterIsInstance<android.widget.TextView>().none { it.text == "Title $removed" })
+
+            // Download-change callbacks update this same shelf, including repeated changes
+            // before layout and insertion ahead of the viewport. Do not replace its source list.
+            val onDl = Main::class.java.getDeclaredField("onDl").apply { isAccessible = true }
+            @Suppress("UNCHECKED_CAST")
+            val refresh = onDl.get(a) as () -> Unit
+            repeat(2) { i ->
+                Abs.removeAll(java.io.File(Abs.dir, "shelf$i"))
+                refresh()
+            }
+            layout(a.content())
+            assertEquals(197, grid.adapter!!.itemCount)
+            assertEquals(name, title(lm, first - 2))
+            assertEquals(y, lm.findViewByPosition(first - 2)!!.top)
+            Abs.file("shelf0", track).apply { parentFile!!.mkdirs(); writeText("fixture") }
+            Abs.dlChanged()
+            refresh()
+            layout(a.content())
+            assertEquals(198, grid.adapter!!.itemCount)
+            assertEquals(name, title(lm, first - 1))
+            assertEquals(y, lm.findViewByPosition(first - 1)!!.top)
+        } finally {
+            Abs.offline = false
+            Abs.p.edit().remove("me").commit()
+            controller.destroy()
+        }
+    }
+
     @Test fun delayedFavoritesAndMetadataUpdateTheirRetainedOwner() {
         val release = CountDownLatch(1)
         val requested = CountDownLatch(1)

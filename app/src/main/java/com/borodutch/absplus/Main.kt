@@ -420,7 +420,20 @@ class Main : AppCompatActivity() {
     private fun shelf(name: String, cards: List<Card>, ratio: Float) {
         begin()
         retainPage = true
-        show(col(subHeader(name), grid(ratio) { cards }.lp(-1, 0, 1f)))
+        var shown = avail(cards)
+        val g = grid(ratio) { shown }
+        onReturn = {
+            val lm = g.layoutManager as GridLayoutManager
+            val first = lm.findFirstVisibleItemPosition()
+            val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
+            val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
+            shown = avail(cards)
+            g.adapter?.notifyDataSetChanged()
+            val at = shown.indexOfFirst { it.key == key }
+            if (at >= 0 && offset != null) lm.scrollToPositionWithOffset(at, offset)
+        }
+        onDl = onReturn
+        show(col(subHeader(name), g.lp(-1, 0, 1f)))
     }
 
     // --- favorites (synced via the server, see Abs.favs)
@@ -587,9 +600,8 @@ class Main : AppCompatActivity() {
     /** offline: only what's playable without the server */
     private fun avail(cards: List<Card>) = if (Abs.offline) cards.filter { Abs.downloaded(it.id) } else cards
 
-    private fun grid(ratio: Float, all: () -> List<Card>) = RecyclerView(this).apply {
-        var memo: Pair<List<Card>, List<Card>>? = null
-        val cards = { all().let { a -> memo?.takeIf { it.first === a }?.second ?: avail(a).also { memo = a to it } } }
+    // Each page owns its filtered snapshot and refreshes it with its viewport anchor.
+    private fun grid(ratio: Float, cards: () -> List<Card>) = RecyclerView(this).apply {
         layoutManager = GridLayoutManager(context, max(4, resources.displayMetrics.widthPixels / dp(96)))
         clipToPadding = false
         pad(10, 4)
