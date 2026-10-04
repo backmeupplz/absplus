@@ -7,7 +7,9 @@ struct ABSPlusApp: App {
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
+            if ProcessInfo.processInfo.arguments.contains("--progress-test") {
+                ProgressFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
             } else { RootView() }
 #else
@@ -25,6 +27,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 struct RootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var full = false
     @State private var tab = 0
 
@@ -56,12 +59,16 @@ struct RootView: View {
                 }
                 .sheet(isPresented: $full) { FullPlayer() }
                 .task {
+                    app.startProgressReplay()
                     Downloader.shared.restore()
                     await player.restore()
                     try? await Task.sleep(for: .seconds(2)) // interrupted transfers report back with their resume data first
                     await app.resumeQueue()
                 }
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { app.startProgressReplay() }
         }
         .overlay(alignment: .top) {
             if let t = app.toast {

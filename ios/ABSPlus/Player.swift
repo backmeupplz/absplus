@@ -2,11 +2,12 @@ import AVFoundation
 import MediaPlayer
 import UIKit
 
-@MainActor let player = Player()
+@MainActor let player = Player(source: app)
 
 /// One title at a time, its files queued as one timeline. Progress goes to the server every 20s, on pause and at the end.
 @MainActor @Observable final class Player {
     @ObservationIgnored let p = AVQueuePlayer()
+    @ObservationIgnored let source: Abs
     var now: Now?
     var pos: Double = 0
     var playing = false
@@ -17,10 +18,12 @@ import UIKit
 
     @ObservationIgnored private var index: [AVPlayerItem: Int] = [:]
     @ObservationIgnored private var idx = 0
+    @ObservationIgnored private var scope: UUID?
     @ObservationIgnored private var lastRetry = Date.distantPast
     @ObservationIgnored private var obs: [NSKeyValueObservation] = []
 
-    init() {
+    init(source: Abs) {
+        self.source = source
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         p.defaultRate = speed
         p.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 2), queue: .main) { [weak self] _ in
@@ -103,7 +106,7 @@ import UIKit
     private func failed(_ e: Error?) {
         guard let n = now else { return }
         if Date().timeIntervalSince(lastRetry) < 30 {
-            app.toast = "Playback failed: \(e?.localizedDescription ?? "unknown error")"
+            source.toast = "Playback failed: \(e?.localizedDescription ?? "unknown error")"
             return
         }
         lastRetry = Date()
@@ -112,9 +115,9 @@ import UIKit
     }
 
     private func sync(finished: Bool = false) {
-        guard let n = now else { return }
+        guard let n = now, scope == source.accountGeneration else { return }
         let at = finished ? n.duration : pos
-        Task { await app.push(n, at, finished: finished) }
+        source.push(n, at, finished: finished)
     }
 
     // --- control
@@ -165,37 +168,38 @@ import UIKit
 
     func playCard(_ c: Card) async {
         do {
-            let it = try await app.item(c.id)
+            let it = try await source.item(c.id)
             if let ep = c.ep {
                 guard let e = it.media.episodes?.first(where: { $0.id == ep }), let af = e.audioFile else { throw Msg(errorDescription: "Episode not found") }
                 await play(Now(item: c.id, ep: ep, title: e.title ?? "", author: it.card.title, tracks: [af.track(0)]))
             } else {
                 await play(Now(item: c.id, ep: nil, title: c.title, author: c.sub, tracks: (it.media.tracks ?? []).map { $0.track() }))
             }
-        } catch { app.say(error) }
+        } catch { source.say(error) }
     }
 
     func play(_ n: Now) async {
-        if n.tracks.isEmpty { app.toast = "No audio"; return }
-        let ps = await app.positions(n)
+        if n.tracks.isEmpty { source.toast = "No audio"; return }
+        let ps = await source.positions(n)
         if ps.count == 1 { start(n, ps[0].time) } else { choices = (n, ps) }
     }
 
     /// After an app restart: put the last title back in the player, paused, at its latest position.
     func restore() async {
-        guard now == nil, app.me != nil, let n = app.loadNow() else { return }
-        let t = await app.positions(n).first?.time ?? 0
+        guard now == nil, source.me != nil, let n = source.loadNow() else { return }
+        let t = await source.positions(n).first?.time ?? 0
         if now == nil { start(n, t, play: false) }
     }
 
     func start(_ n: Now, _ t: Double, play: Bool = true) {
-        if let old = now, old.key != n.key, p.currentItem != nil {
+        if let old = now, old.key != n.key, p.currentItem != nil, scope == source.accountGeneration {
             let at = pos
-            Task { await app.push(old, at, finished: false) }
+            source.push(old, at, finished: false)
         }
         now = n
-        app.saveNow(n)
-        if play { app.addHistory(n) }
+        scope = source.accountGeneration
+        source.saveNow(n)
+        if play { source.addHistory(n) }
         let (i, off) = n.at(t > n.duration - 5 ? 0 : t)
         pos = n.tracks[i].start + off
         Task {
@@ -206,12 +210,12 @@ import UIKit
     }
 
     private func queue(_ n: Now, _ i: Int, _ off: Double, play: Bool) async {
-        let auth = (try? await app.token()).map { ["Authorization": "Bearer " + $0] } ?? [:]
-        guard now == n else { return }
+        let auth = (try? await source.token()).map { ["Authorization": "Bearer " + $0] } ?? [:]
+        guard now == n, scope == source.accountGeneration else { return }
         p.removeAllItems()
         index = [:]
         for k in i..<n.tracks.count {
-            let asset = AVURLAsset(url: app.url(n.item, n.tracks[k]), options: ["AVURLAssetHTTPHeaderFieldsKey": auth])
+            let asset = AVURLAsset(url: source.url(n.item, n.tracks[k]), options: ["AVURLAssetHTTPHeaderFieldsKey": auth])
             let it = AVPlayerItem(asset: asset)
             it.audioTimePitchAlgorithm = .timeDomain
             index[it] = k
