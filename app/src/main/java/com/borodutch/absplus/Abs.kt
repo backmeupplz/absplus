@@ -59,18 +59,44 @@ class Card(val id: String, val title: String, val sub: String, val ep: String? =
 class Pos(val who: String, val time: Double, val at: Long)
 
 class HttpErr(val code: Int) : IOException(when (code) { 401 -> "Unauthorized (401)"; 403 -> "Not allowed (403)"; else -> "HTTP $code" })
-class Expired : IOException("Session expired, please log in again")
+open class Expired : IOException("Session expired, please log in again")
+
+class StaleScope : Expired()
 
 /** Server API, accounts, downloads, progress. Everything lives in one SharedPreferences file. */
 object Abs {
     lateinit var p: SharedPreferences
     lateinit var dir: File
     private lateinit var cacheDir: File
-    var now: Now? = null
+    @Volatile var now: Now? = null
+        private set
+    @Volatile internal var nowScope: Scope? = null
+        private set
     internal lateinit var progressSync: ProgressSync
     private val accountLock = Any()
-    // Guarded by accountLock; unlike server/username, this changes across identical logins.
-    private var accountGeneration = 0L
+    private val refreshLock = Any()
+    private var requestGeneration = 0L
+    private var playbackGeneration = 0L
+    @ConsistentCopyVisibility
+    data class Scope internal constructor(val generation: Long, val server: String, val owner: String?, val playback: Boolean)
+    fun scope(playback: Boolean = false): Scope = synchronized(accountLock) {
+        Scope(if (playback) playbackGeneration else requestGeneration, server, me, playback)
+    }
+    private fun current(s: Scope) = s == scope(s.playback)
+    fun <T> inScope(s: Scope, work: () -> T): T = synchronized(accountLock) {
+        if (!current(s)) throw StaleScope()
+        work()
+    }
+    fun ifCurrent(s: Scope, work: () -> Unit) = synchronized(accountLock) {
+        if (current(s)) work()
+    }
+    fun bindPlayback(n: Now, s: Scope) = inScope(s) {
+        require(s.playback)
+        now = n
+        nowScope = s
+    }
+    fun clearPlayback() = synchronized(accountLock) { now = null; nowScope = null }
+    fun mediaId(n: Now, s: Scope, index: Int) = "${n.key}#${s.generation}#$index"
 
     internal fun startProgress(automatic: Boolean = true, clock: () -> Long = System::currentTimeMillis) {
         if (::progressSync.isInitialized) progressSync.close()
@@ -136,6 +162,7 @@ object Abs {
 
     /** Logs in; main = the account this app runs as, otherwise a linked account for progress sharing. */
     fun login(url: String, user: String, pass: String, main: Boolean): String {
+        val captured = scope()
         val s = url.trim().trimEnd('/')
         val endpoint = if (!main) server else if ("://" in s) s else "https://$s"
         val body = JSONObject().put("username", user.trim()).put("password", pass).toString()
@@ -145,15 +172,16 @@ object Abs {
             throw if (e.code == 401) IOException("Wrong username or password") else e
         }
         val userData = JSONObject(r).getJSONObject("user")
-        // A successful owner/server change is a new authorization scope. Failed login never changes it.
-        if (main && (server != endpoint || me != userData.getString("username"))) logout()
-        val name = synchronized(accountLock) {
-            if (main) accountGeneration++
-            save(userData).also { if (main) p.edit().putString("server", endpoint).putString("me", it).commit() }
+        return inScope(captured) {
+            // Reauthentication invalidates requests, not legitimate ongoing playback.
+            if (main && (server != endpoint || me != userData.getString("username"))) logout()
+            requestGeneration++
+            val name = save(userData)
+            if (main) p.edit().putString("server", endpoint).putString("me", name).commit()
+            progressSync.prune()
+            progressSync.wake()
+            name
         }
-        progressSync.prune()
-        progressSync.wake()
-        return name
     }
 
     /** Forgets a linked account: its tokens, its shares, and its server session. */
@@ -169,15 +197,14 @@ object Abs {
 
     fun accounts() = p.all.keys.filter { it.startsWith("acct:") }.map { it.drop(5) }.filter { it != me }.sorted()
 
-    fun logout() {
+    fun logout() = synchronized(accountLock) {
+        requestGeneration++
+        playbackGeneration++
         Dl.clear()
         progressSync.close()
-        synchronized(accountLock) {
-            accountGeneration++
-            p.edit().clear().commit()
-            cacheDir.listFiles()?.forEach { it.delete() }
-        }
-        now = null
+        p.edit().clear().commit()
+        cacheDir.listFiles()?.forEach { it.delete() }
+        clearPlayback()
         progress = emptyMap()
         startProgress()
     }
@@ -187,66 +214,68 @@ object Abs {
     }.getOrDefault(Long.MAX_VALUE / 1000)
 
     /** A valid access token for [name], refreshing it if it's about to expire. */
-    @Synchronized
-    fun token(name: String = me ?: throw Expired(), force: Boolean = false): String {
-        val (stored, scope, generation) = synchronized(accountLock) {
-            Triple(p.getString("acct:$name", null) ?: throw Expired(), server to me, accountGeneration)
+    fun token(name: String? = null, force: Boolean = false, captured: Scope = scope()): String {
+        val request = inScope(captured) { scope() }
+        val account = name ?: request.owner ?: throw Expired()
+        return try { requestToken(account, force, request) } catch (e: IOException) {
+            if (!captured.playback) throw e
+            // Reauth may replace an in-flight refresh. Keep this playback alive with the
+            // new credentials, never store the old response or cross a logout boundary.
+            val fresh = inScope(captured) { scope().also { if (it == request) throw e } }
+            requestToken(account, false, fresh)
         }
+    }
+
+    private fun requestToken(name: String, force: Boolean, request: Scope): String = synchronized(refreshLock) {
+        val stored = inScope(request) { p.getString("acct:$name", null) ?: throw Expired() }
         val a = JSONObject(stored)
         val t = a.getString("a")
-        if (!force && exp(t) * 1000 - System.currentTimeMillis() > 60_000) return t
+        if (!force && exp(t) * 1000 - System.currentTimeMillis() > 60_000) return@synchronized inScope(request) { t }
         val r = try {
-            http("POST", "/auth/refresh", "{}", mapOf("x-refresh-token" to a.getString("r")), scope.first)
+            http("POST", "/auth/refresh", "{}", mapOf("x-refresh-token" to a.getString("r")), request.server)
         } catch (e: HttpErr) {
-            throw if (e.code == 401 && name == me) Expired() else e
+            throw if (e.code == 401 && name == request.owner) Expired() else e
         }
-        return synchronized(accountLock) {
-            // Revocation wins atomically, but removing one title share must not discard a
-            // rotated token still needed by the account's other authorized titles.
-            if (generation != accountGeneration || p.getString("acct:$name", null) != stored || scope != (server to me)) throw Expired()
+        inScope(request) {
+            if (p.getString("acct:$name", null) != stored) throw Expired()
             save(JSONObject(r).getJSONObject("user"))
             JSONObject(p.getString("acct:$name", null)!!).getString("a")
         }
     }
 
-    fun api(method: String, path: String, body: JSONObject? = null, name: String = me ?: throw Expired(), allowed: () -> Boolean = { true }): String {
-        val (scope, generation) = synchronized(accountLock) { (server to me) to accountGeneration }
-        // allowed() may acquire ProgressSync's lock. Never invoke it under accountLock.
+    fun api(method: String, path: String, body: JSONObject? = null, name: String? = null, allowed: () -> Boolean = { true }, captured: Scope = scope()): String {
+        val request = inScope(captured) { scope() }
+        val account = name ?: request.owner ?: throw Expired()
+        // Replay authorization takes ProgressSync's lock. Keep it outside accountLock;
+        // account mutations and playback consistently acquire accountLock before that lock.
         fun checkScope() {
             if (!allowed()) throw Expired()
-            synchronized(accountLock) {
-                if (generation != accountGeneration || scope != (server to me) || !p.contains("acct:$name")) throw Expired()
-            }
+            inScope(request) { if (!p.contains("acct:$account")) throw Expired() }
         }
         checkScope()
-        val access = token(name)
+        val access = token(account, captured = request)
         checkScope()
-        val response = try {
-            http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $access"), scope.first)
+        val result = try {
+            http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $access"), captured.server)
         } catch (e: HttpErr) {
             checkScope()
-            if (e.code != 401) throw e
-            val refreshed = token(name, force = true)
+            if (e.code != 401 || !p.contains("acct:$account")) throw e
+            val refreshed = token(account, force = true, captured = request)
             checkScope()
-            http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $refreshed"), scope.first)
+            http(method, path, body?.toString(), mapOf("Authorization" to "Bearer $refreshed"), captured.server)
         }
         checkScope()
-        return response
+        return result
     }
 
     // --- json cache, so screens render instantly and work offline
 
     private fun cacheFile(path: String) = File(cacheDir, path.replace(Regex("[^A-Za-z0-9]"), "_"))
-    fun cached(path: String) = synchronized(accountLock) { cacheFile(path).takeIf { it.exists() }?.readText() }
-    fun get(path: String): String {
-        val generation = synchronized(accountLock) { accountGeneration }
-        val response = api("GET", path)
-        return synchronized(accountLock) {
-            // The post-response check and cache write must be atomic with logout/cache clearing.
-            if (generation != accountGeneration) throw Expired()
-            cacheFile(path).writeText(response)
-            response
-        }
+    fun cached(path: String, captured: Scope = scope()) = inScope(captured) { cacheFile(path).takeIf { it.exists() }?.readText() }
+    fun get(path: String, captured: Scope = scope()): String {
+        val request = inScope(captured) { scope() }
+        val result = api("GET", path, captured = request)
+        return inScope(request) { cacheFile(path).writeText(result); result }
     }
 
     // --- tracks & downloads
@@ -326,29 +355,34 @@ object Abs {
 
     fun pos(pl: Player, n: Now) = (n.tracks.getOrNull(pl.currentMediaItemIndex)?.start ?: 0.0) + pl.currentPosition / 1000.0
 
-    private fun remote(name: String, key: String) = runCatching {
+    private fun remote(name: String, key: String, captured: Scope) = runCatching {
+        val request = inScope(captured) { scope() }
         val sync = progressSync
-        val response = JSONObject(api("GET", "/api/me/progress/$key", name = name, allowed = { sync === progressSync }))
-        if (sync !== progressSync) throw Expired()
-        val j = if (name == me) sync.observe(key, response) else response
+        val response = JSONObject(api("GET", "/api/me/progress/$key", name = name, allowed = { sync === progressSync }, captured = request))
+        val j = inScope(request) {
+            if (sync !== progressSync) throw Expired()
+            if (name == me) sync.observe(key, response) else response
+        }
         Pos(name, if (j.optBoolean("isFinished")) 0.0 else j.optDouble("currentTime", 0.0), j.optLong("lastUpdate"))
     }.getOrNull()
 
     /** First = where this account should resume; the rest = linked accounts that listened more recently elsewhere. */
-    fun positions(n: Now): List<Pos> {
+    fun positions(n: Now, captured: Scope = scope()): List<Pos> {
+        inScope(captured) {}
         val saved = progressSync.local()[n.key]
         val local = saved?.let { Pos("You", if (it.optBoolean("isFinished")) 0.0 else it.optDouble("currentTime"), it.optLong("lastUpdate")) }
             ?: p.getString("pos:${n.key}", null)?.split(',')?.let { Pos("You", it[0].toDouble(), it[1].toLong()) }
-        val mine = listOfNotNull(local, me?.let { remote(it, n.key) }?.let { Pos("You", it.time, it.at) })
+        val mine = listOfNotNull(local, me?.let { remote(it, n.key, captured) }?.let { Pos("You", it.time, it.at) })
             .maxByOrNull { it.at } ?: Pos("You", 0.0, 0)
-        return listOf(mine) + shares(n.item).mapNotNull { remote(it, n.key) }
+        val result = listOf(mine) + inScope(captured) { shares(n.item) }.mapNotNull { remote(it, n.key, captured) }
             .filter { it.at > mine.at && abs(it.time - mine.time) > 30 }
+        return inScope(captured) { result }
     }
 
     /** latest known progress per key, from /api/me plus our own pushes */
     @Volatile var progress: Map<String, JSONObject> = emptyMap()
 
-    fun setMe(j: JSONObject) {
+    fun setMe(j: JSONObject, captured: Scope) = inScope(captured) {
         val a = j.getJSONArray("mediaProgress")
         val remote = (0 until a.length()).map { a.getJSONObject(it) }.associateBy {
             if (it.isNull("episodeId")) it.getString("libraryItemId") else it.getString("libraryItemId") + "/" + it.getString("episodeId")
@@ -374,26 +408,26 @@ object Abs {
     fun favs(): List<Card> = JSONObject(p.getString("fav", "{}")).let { o -> o.keys().asSequence().map { Card.of(o.getJSONObject(it)) }.toList().reversed() }
     fun isFav(id: String) = JSONObject(p.getString("fav", "{}")).has(id)
 
-    @Synchronized
-    fun toggleFav(c: Card): Boolean {
+    fun toggleFav(c: Card): Boolean = synchronized(accountLock) {
         val o = JSONObject(p.getString("fav", "{}"))
         val on = o.remove(c.id) == null
         if (on) o.put(c.id, c.json())
         val q = JSONObject(p.getString("favq", "{}")).put(c.id, on)
         p.edit().putString("fav", o.toString()).putString("favq", q.toString()).apply()
-        return on
+        on
     }
 
     /** Uploads queued favorite changes; call off the main thread. */
     fun pushFavs() {
+        val captured = scope()
         for (id in JSONObject(p.getString("favq", "{}")).keys().asSequence().toList()) {
-            val on = synchronized(this) { JSONObject(p.getString("favq", "{}")).optBoolean(id) }
+            val on = synchronized(accountLock) { JSONObject(p.getString("favq", "{}")).optBoolean(id) }
             val r = runCatching {
-                if (on) api("POST", "/api/me/item/$id/bookmark", JSONObject().put("time", FAV_T).put("title", FAV))
-                else api("DELETE", "/api/me/item/$id/bookmark/$FAV_T")
+                if (on) api("POST", "/api/me/item/$id/bookmark", JSONObject().put("time", FAV_T).put("title", FAV), captured = captured)
+                else api("DELETE", "/api/me/item/$id/bookmark/$FAV_T", captured = captured)
             }
             val gone = r.exceptionOrNull().let { it is HttpErr && it.code in 400..499 } // e.g. already removed
-            if (r.isSuccess || gone) synchronized(this) {
+            if (r.isSuccess || gone) ifCurrent(captured) {
                 val q = JSONObject(p.getString("favq", "{}"))
                 if (q.optBoolean(id) == on) q.remove(id) // unless toggled again meanwhile
                 p.edit().putString("favq", q.toString()).apply()
@@ -402,7 +436,6 @@ object Abs {
     }
 
     /** server favorites + changes not uploaded yet -> local mirror (cards for new ids get filled in by [fillFav]) */
-    @Synchronized
     private fun syncFavs(bookmarks: JSONArray) {
         val q = JSONObject(p.getString("favq", "{}"))
         val server = (0 until bookmarks.length()).map { bookmarks.getJSONObject(it) }.filter { it.str("title") == FAV }.map { it.getString("libraryItemId") }
@@ -416,11 +449,13 @@ object Abs {
     }
 
     /** title/author for a favorite added on another device; call off the main thread */
-    @Synchronized
     fun fillFav(id: String) {
-        val c = Card.item(JSONObject(get("/api/items/$id")))
-        val o = JSONObject(p.getString("fav", "{}"))
-        if (o.has(id)) p.edit().putString("fav", o.put(id, c.json()).toString()).apply()
+        val captured = scope()
+        val c = Card.item(JSONObject(get("/api/items/$id", captured)))
+        inScope(captured) {
+            val o = JSONObject(p.getString("fav", "{}"))
+            if (o.has(id)) p.edit().putString("fav", o.put(id, c.json()).toString()).apply()
+        }
     }
 
     fun history(): List<Pair<Card, Long>> = JSONArray(p.getString("hist", "[]")).let { a ->

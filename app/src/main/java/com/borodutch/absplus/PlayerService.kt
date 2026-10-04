@@ -17,6 +17,18 @@ import androidx.media3.session.MediaSessionService
 
 class PlayerService : MediaSessionService() {
     private var session: MediaSession? = null
+    private val accountChanged = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == null || key == "me" || key == "server") h.post {
+            session?.player?.let { player ->
+                val captured = Abs.nowScope
+                val n = Abs.now
+                if (captured == null || n == null || player.currentMediaItem?.mediaId != Abs.mediaId(n, captured, player.currentMediaItemIndex)) {
+                    player.stop()
+                    player.clearMediaItems()
+                }
+            }
+        }
+    }
     private val h = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() {
@@ -30,7 +42,10 @@ class PlayerService : MediaSessionService() {
         Abs.init(this)
         // token is resolved per request on the loader thread, so it gets refreshed when it expires mid-book
         val http = ResolvingDataSource.Factory(DefaultHttpDataSource.Factory()) {
-            it.withAdditionalHeaders(mapOf("Authorization" to "Bearer " + Abs.token()))
+            val captured = Abs.nowScope ?: throw Expired()
+            val n = Abs.now ?: throw Expired()
+            if (it.key?.startsWith(n.key + "#" + captured.generation + "#") != true) throw Expired()
+            it.withAdditionalHeaders(mapOf("Authorization" to "Bearer " + Abs.token(captured = captured)))
         }
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http)))
@@ -44,6 +59,7 @@ class PlayerService : MediaSessionService() {
         session = MediaSession.Builder(this, player)
             .setSessionActivity(PendingIntent.getActivity(this, 0, Intent(this, Main::class.java), PendingIntent.FLAG_IMMUTABLE))
             .build()
+        Abs.p.registerOnSharedPreferenceChangeListener(accountChanged)
         h.post(tick)
     }
 
@@ -60,15 +76,19 @@ class PlayerService : MediaSessionService() {
     }
 
     private fun sync(p: Player, finished: Boolean = false, intentionalPlayback: Boolean = false) {
-        val n = Abs.now ?: return
-        if (p.currentMediaItem?.mediaId?.startsWith(n.key + "#") != true) return
-        val pos = if (finished) n.duration else Abs.pos(p, n)
-        Abs.push(n, pos, finished, intentionalPlayback)
+        val captured = Abs.nowScope ?: return
+        Abs.ifCurrent(captured) {
+            val n = Abs.now ?: return@ifCurrent
+            if (p.currentMediaItem?.mediaId != Abs.mediaId(n, captured, p.currentMediaItemIndex)) return@ifCurrent
+            val pos = if (finished) n.duration else Abs.pos(p, n)
+            Abs.push(n, pos, finished, intentionalPlayback)
+        }
     }
 
     override fun onGetSession(info: MediaSession.ControllerInfo) = session
 
     override fun onDestroy() {
+        Abs.p.unregisterOnSharedPreferenceChangeListener(accountChanged)
         h.removeCallbacksAndMessages(null)
         session?.run { player.release(); release() }
         session = null

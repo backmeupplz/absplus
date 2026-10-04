@@ -47,7 +47,7 @@ class ProgressSyncTest {
         Abs.openConnection = { if (disconnected) throw java.net.ConnectException("fixture offline") else JvmConnection(it) }
         Abs.progressSync.close()
         Abs.p.edit().clear().commit()
-        Abs.now = null
+        Abs.clearPlayback()
         server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { x ->
             val name = x.requestHeaders.getFirst("Authorization")?.removePrefix("Bearer ")?.removeSuffix("-fresh") ?: "owner"
@@ -134,10 +134,10 @@ class ProgressSyncTest {
 
     /** Exercise the real service capture path used by periodic play, pause and STATE_ENDED. */
     private fun playbackEvent(n: Now, position: Double, finished: Boolean = false, playing: Boolean = false) {
-        Abs.now = n
+        Abs.bindPlayback(n, Abs.scope(playback = true))
         val player = java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader, arrayOf(androidx.media3.common.Player::class.java)) { _, method, _ ->
             when (method.name) {
-                "getCurrentMediaItem" -> androidx.media3.common.MediaItem.Builder().setMediaId(n.key + "#0").build()
+                "getCurrentMediaItem" -> androidx.media3.common.MediaItem.Builder().setMediaId(Abs.mediaId(n, Abs.nowScope!!, 0)).build()
                 "getCurrentMediaItemIndex" -> 0
                 "getPlaybackState" -> if (finished) androidx.media3.common.Player.STATE_ENDED else androidx.media3.common.Player.STATE_READY
                 "getCurrentPosition" -> (position * 1000).toLong()
@@ -159,9 +159,9 @@ class ProgressSyncTest {
         assertEquals(1.0, Abs.pct(episode.key)!!, 0.0)
         assertFalse(Abs.p.getString("progressJournal", "")!!.contains("fixture-refresh"))
         // Reconstruct every replay object from persisted preferences (no title is played).
-        Abs.now = null
+        Abs.clearPlayback()
         Abs.startProgress(false) { time }
-        Abs.setMe(JSONObject().put("mediaProgress", JSONArray()).put("bookmarks", JSONArray()))
+        Abs.setMe(JSONObject().put("mediaProgress", JSONArray()).put("bookmarks", JSONArray()), Abs.scope())
         assertEquals(1.0, Abs.pct(episode.key)!!, 0.0)
         assertEquals(0.0, Abs.positions(episode).first().time, 0.0)
         disconnected = false; time += 1_000
@@ -195,7 +195,7 @@ class ProgressSyncTest {
     @Test fun remoteNewerWinsPerRecipientAndOlderReadCannotEraseFinished() {
         Abs.push(book, 100.0, true)
         remote["linked:book"] = JSONObject().put("currentTime", 8.0).put("lastUpdate", time + 500).put("progress", .08)
-        Abs.setMe(JSONObject().put("mediaProgress", JSONArray().put(JSONObject().put("libraryItemId", "book").put("lastUpdate", 1).put("progress", .01))))
+        Abs.setMe(JSONObject().put("mediaProgress", JSONArray().put(JSONObject().put("libraryItemId", "book").put("lastUpdate", 1).put("progress", .01))), Abs.scope())
         assertEquals(1.0, Abs.pct(book.key)!!, 0.0)
         replay()
         assertEquals(listOf("owner:book"), patches.toList())
