@@ -277,7 +277,7 @@ class NavigationTest {
             val removed = first + lm.spanCount // keep the visible anchor, remove another visible title
             lm.findViewByPosition(removed)!!.performClick()
             layout(a.content())
-            views(a.content()).single { it.contentDescription == "Remove download" }.performClick()
+            views(a.content()).single { it.contentDescription == "Remove download of Title $removed" }.performClick()
             val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog() as androidx.appcompat.app.AlertDialog
             dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()
             shadowOf(Looper.getMainLooper()).idle()

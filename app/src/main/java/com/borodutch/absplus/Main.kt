@@ -242,10 +242,10 @@ class Main : AppCompatActivity() {
     }
 
     private fun header(title: String) =
-        row(text(title, M.attr.textAppearanceHeadlineMedium).lp(0, -2, 1f), icon(R.drawable.i_settings) { push(::settings) }.apply { contentDescription = "Settings" }).pad(16, 8)
+        row(text(title, M.attr.textAppearanceHeadlineMedium).lp(0, -2, 1f), icon(R.drawable.i_settings, "Settings") { push(::settings) }).pad(16, 8)
 
     private fun subHeader(title: String) =
-        row(icon(R.drawable.i_arrow_back) { pop() }.apply { contentDescription = "Back" }, text(title, M.attr.textAppearanceTitleLarge, 1).lp(0, -2, 1f)).pad(4, 4)
+        row(icon(R.drawable.i_arrow_back, "Back") { pop() }, text(title, M.attr.textAppearanceTitleLarge, 1).lp(0, -2, 1f)).pad(4, 4)
 
     private fun section(title: String) = text(title, M.attr.textAppearanceTitleMedium).pad(16, 12)
 
@@ -526,7 +526,7 @@ class Main : AppCompatActivity() {
             val n = Abs.p.all.keys.count { it.startsWith("share:") && a in Abs.p.getStringSet(it, emptySet())!! }
             body.addView(row(
                 col(text(a, M.attr.textAppearanceTitleSmall), text("Shared on $n title${if (n == 1) "" else "s"}", M.attr.textAppearanceBodySmall, muted = true)).lp(0, -2, 1f),
-                icon(R.drawable.i_delete) {
+                icon(R.drawable.i_delete, "Unlink account $a") {
                     confirm("Unlink $a? Progress sharing with them stops on all titles. Their existing progress is not changed.") { Abs.unlink(a); settings() }
                 },
             ).pad(16, 4))
@@ -544,6 +544,18 @@ class Main : AppCompatActivity() {
             setBackgroundResource(res(android.R.attr.selectableItemBackground))
             setOnClickListener { push(::downloads) }
         })
+        body.addView(section("About"))
+        listOf(
+            "Website" to "https://absplus.app",
+            "Source code" to "https://github.com/backmeupplz/absplus",
+            "Privacy policy" to "https://absplus.app/privacy/",
+        ).forEach { (label, url) ->
+            body.addView(button(label, style = androidx.appcompat.R.attr.borderlessButtonStyle) {
+                startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+            }.lp(-1, -2))
+        }
+        val version = packageManager.getPackageInfo(packageName, 0)
+        body.addView(text("Version ${version.versionName} (${version.longVersionCode})", muted = true).pad(16, 12))
         show(NestedScrollView(this).apply { addView(body) })
     }
 
@@ -598,8 +610,7 @@ class Main : AppCompatActivity() {
         val r = row(
             cover,
             col(text(j.n.title, M.attr.textAppearanceTitleSmall, 2), meta, prog).pad(14, 0).lp(0, -2, 1f),
-            icon(R.drawable.i_close) { confirm("Cancel downloading “${j.n.title}”?") { Dl.cancel(j.n); Abs.dlChanged(); downloads() } }
-                .apply { contentDescription = "Cancel download" },
+            icon(R.drawable.i_close, "Cancel download of ${j.n.title}") { confirm("Cancel downloading “${j.n.title}”?") { Dl.cancel(j.n); Abs.dlChanged(); downloads() } },
         ).pad(16, 8)
         r.setBackgroundResource(res(android.R.attr.selectableItemBackground))
         r.setOnClickListener { push { item(j.n.item) } }
@@ -693,7 +704,7 @@ class Main : AppCompatActivity() {
         val cover = Cover(this).lp(dp(56), dp(56))
         if (c.id.isNotEmpty()) Covers.load(cover, c.id)
         val r = row(cover, col(text(c.title, M.attr.textAppearanceTitleSmall, 2), text(meta, M.attr.textAppearanceBodySmall, 1, muted = true)).pad(14, 0).lp(0, -2, 1f))
-        if (action != null) r.addView(icon(actionIcon, M.attr.materialIconButtonFilledTonalStyle) { action() })
+        if (action != null) r.addView(icon(actionIcon, if (actionIcon == R.drawable.i_delete) "Remove download of ${c.title}" else "Play ${c.title}", M.attr.materialIconButtonFilledTonalStyle) { action() })
         r.pad(16, 8)
         r.setBackgroundResource(res(android.R.attr.selectableItemBackground))
         r.setOnClickListener { open() }
@@ -730,15 +741,17 @@ class Main : AppCompatActivity() {
             pad = 16,
         ).apply { gravity = Gravity.CENTER_HORIZONTAL }
 
-        val fav = icon(if (Abs.isFav(c.id)) R.drawable.i_favorite_fill else R.drawable.i_favorite) {}
+        val fav = icon(if (Abs.isFav(c.id)) R.drawable.i_favorite_fill else R.drawable.i_favorite,
+            if (Abs.isFav(c.id)) "Remove from favorites" else "Add to favorites") {}
         fav.setOnClickListener {
             val on = Abs.toggleFav(c)
             val epoch = Abs.mediaEpoch
             thread { runCatching { Abs.pushFavs(epoch) } }
             fav.icon = ContextCompat.getDrawable(this, if (on) R.drawable.i_favorite_fill else R.drawable.i_favorite)
+            fav.contentDescription = if (on) "Remove from favorites" else "Add to favorites"
             toast(if (on) "Added to favorites" else "Removed from favorites")
         }
-        val share = icon(R.drawable.i_group) { share(c.id, c.title) }
+        val share = icon(R.drawable.i_group, "Share progress") { share(c.id, c.title) }
         var eps = listOf<Now>()
         var epAdapter: Rv? = null
 
@@ -786,7 +799,7 @@ class Main : AppCompatActivity() {
         val title = text("", M.attr.textAppearanceTitleSmall, 2)
         val meta = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
         val dl = dlView()
-        val play = icon(R.drawable.i_play_arrow_fill, M.attr.materialIconButtonFilledTonalStyle) {}
+        val play = icon(R.drawable.i_play_arrow_fill, "Play episode", M.attr.materialIconButtonFilledTonalStyle) {}
         return row(col(title, meta).lp(0, -2, 1f), dl, play).apply {
             pad(16, 6)
             layoutParams = RecyclerView.LayoutParams(-1, -2)
@@ -801,6 +814,7 @@ class Main : AppCompatActivity() {
         title.text = n.title
         meta.text = listOfNotNull(date, Abs.fmt(n.duration), p?.let { if (it >= 1) "Finished" else "${(it * 100).toInt()}%" }).joinToString(" · ")
         bindDl(dl, n)
+        play.contentDescription = "Play ${n.title}"
         play.setOnClickListener { play(n) }
         v.setOnClickListener { play(n) }
     }
@@ -809,7 +823,7 @@ class Main : AppCompatActivity() {
 
     /** download button; while the title downloads, a ring around a stop icon shows its progress */
     private fun dlView(): View {
-        val btn = icon(R.drawable.i_download) {}
+        val btn = icon(R.drawable.i_download, "Download") {}
         val ring = CircularProgressIndicator(this).apply { max = 1000; indicatorSize = dp(30); trackThickness = dp(3); isVisible = false }
         return FrameLayout(this).apply {
             addView(btn)
@@ -823,7 +837,11 @@ class Main : AppCompatActivity() {
         val done = n.tracks.all { Abs.done(n.item, it) }
         val j = if (done) null else Dl.job(n.key)
         btn.icon = ContextCompat.getDrawable(this@Main, if (done) R.drawable.i_download_done_fill else if (j != null) R.drawable.i_stop else R.drawable.i_download)
-        btn.contentDescription = if (done) "Remove download" else if (j != null) "Cancel download" else "Download"
+        btn.contentDescription = when {
+            done -> "Remove download of ${n.title}"
+            j != null -> "Cancel download of ${n.title}"
+            else -> "Download ${n.title}"
+        }
         ring.isVisible = j != null
         if (j != null) progress(ring, j)
         btn.setOnClickListener { if (done || j != null) removeDl(n, j != null) else download(n) }
@@ -993,7 +1011,7 @@ class Main : AppCompatActivity() {
         miniCover = Cover(this).lp(dp(44), dp(44))
         miniTitle = text("", M.attr.textAppearanceTitleSmall, 1)
         miniSub = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
-        miniPlay = icon(R.drawable.i_play_arrow_fill) { ctl?.let { Util.handlePlayPauseButtonAction(it) } }
+        miniPlay = icon(R.drawable.i_play_arrow_fill, "Play") { ctl?.let { Util.handlePlayPauseButtonAction(it) } }
         miniProg = LinearProgressIndicator(this).apply { max = 1000; trackThickness = dp(2) }
         return MaterialCardView(this, null, M.attr.materialCardViewFilledStyle).apply {
             addView(col(row(miniCover, col(miniTitle, miniSub).pad(12, 0).lp(0, -2, 1f), miniPlay).pad(8, 6), miniProg))
@@ -1013,6 +1031,7 @@ class Main : AppCompatActivity() {
         miniTitle.text = n.title
         miniSub.text = n.author
         miniPlay.icon = ContextCompat.getDrawable(this, if (playing) R.drawable.i_pause_fill else R.drawable.i_play_arrow_fill)
+        miniPlay.contentDescription = if (playing) "Pause" else "Play"
         miniProg.progress = (pos / n.duration * 1000).toInt()
         sheet?.invoke(c, n, pos, playing)
     }
@@ -1027,6 +1046,7 @@ class Main : AppCompatActivity() {
         val sub = text(n.author, M.attr.textAppearanceTitleMedium, 1, muted = true).apply { gravity = Gravity.CENTER }
         var dragging = false
         val slider = Slider(this).apply {
+            contentDescription = "Playback position"
             valueTo = max(1f, n.duration.toFloat())
             setLabelFormatter { Abs.fmt(it.toDouble()) }
             addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
@@ -1036,7 +1056,7 @@ class Main : AppCompatActivity() {
         }
         val el = text("", M.attr.textAppearanceLabelMedium, muted = true)
         val rem = text("", M.attr.textAppearanceLabelMedium, muted = true)
-        val play = icon(R.drawable.i_play_arrow_fill, M.attr.materialIconButtonFilledStyle) { ctl?.let { Util.handlePlayPauseButtonAction(it) } }.apply {
+        val play = icon(R.drawable.i_play_arrow_fill, "Play", M.attr.materialIconButtonFilledStyle) { ctl?.let { Util.handlePlayPauseButtonAction(it) } }.apply {
             iconSize = dp(36)
             iconPadding = 0
             iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START // with no text this centers the icon
@@ -1045,6 +1065,7 @@ class Main : AppCompatActivity() {
             insetBottom = 0
         }
         val speed = button("1×", style = androidx.appcompat.R.attr.borderlessButtonStyle) {}
+            .apply { contentDescription = "Playback speed, 1×" }
         speed.setOnClickListener {
             val c = ctl ?: return@setOnClickListener
             val s = speeds[(speeds.indexOf(c.playbackParameters.speed) + 1) % speeds.size]
@@ -1053,9 +1074,9 @@ class Main : AppCompatActivity() {
         }
         val controls = row(
             speed.lp(dp(72), -2),
-            icon(R.drawable.i_replay_30) { ctl?.seekBack() }.apply { iconSize = dp(32) },
+            icon(R.drawable.i_replay_30, "Rewind 30 seconds") { ctl?.seekBack() }.apply { iconSize = dp(32) },
             play.lp(dp(80), dp(80), m = 12),
-            icon(R.drawable.i_forward_30) { ctl?.seekForward() }.apply { iconSize = dp(32) },
+            icon(R.drawable.i_forward_30, "Forward 30 seconds") { ctl?.seekForward() }.apply { iconSize = dp(32) },
             View(this).lp(dp(72), 1),
         ).apply { gravity = Gravity.CENTER }
         val body = col(
@@ -1071,7 +1092,9 @@ class Main : AppCompatActivity() {
             el.text = Abs.fmt(pos)
             rem.text = "-" + Abs.fmt(max(0.0, now.duration - pos))
             play.icon = ContextCompat.getDrawable(this, if (playing) R.drawable.i_pause_fill else R.drawable.i_play_arrow_fill)
+            play.contentDescription = if (playing) "Pause" else "Play"
             speed.text = "${c.playbackParameters.speed}×".replace(".0×", "×")
+            speed.contentDescription = "Playback speed, ${speed.text}"
         }
         d.setOnDismissListener { sheet = null }
         d.show()
