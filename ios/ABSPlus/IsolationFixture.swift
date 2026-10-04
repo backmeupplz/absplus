@@ -100,14 +100,19 @@ struct IsolationFixture: View {
         try await wait("/auth/refresh"); app.unlink("linked"); release()
         _ = try? await refresh.value
         try check(app.accts["linked"] == nil, "unlinked refresh resurrected account")
-        // Sheet cancellation and unlink both invalidate pending linked login attempts.
+        // The entered name may differ from the canonical account being unlinked.
         for cancel in [true, false] {
+            try await app.login(b, "ALICE", "fixture", main: false)
+            try check(app.accts["alice"] != nil && app.accts["ALICE"] == nil, "fixture did not canonicalize login")
             hold("/login")
-            let linking = Task { try await app.login(b, "late-link", "fixture", main: false) }
+            let linking = Task { try await app.login(b, "ALICE", "fixture", main: false) }
             try await wait("/login")
-            if cancel { linking.cancel() } else { app.unlink("late-link") }
-            release(); _ = try? await linking.value
-            try check(app.accts["late-link"] == nil, "dismissed linked login committed")
+            if cancel { linking.cancel() } else { app.unlink("alice") }
+            release()
+            do { _ = try await linking.value; throw Msg(errorDescription: "invalidated canonical login committed") }
+            catch is CancellationError {}
+            if cancel { app.unlink("alice") }
+            try check(app.accts["alice"] == nil && app.accts["ALICE"] == nil, "unlinked canonical account resurrected")
         }
         // A stale network failure must not mark the replacement session offline.
         hold("/api/failure")
@@ -307,8 +312,9 @@ final class IsolationProtocol: URLProtocol, @unchecked Sendable {
         }
         let login = path == "/login" || path == "/auth/refresh"
         let identity = Self.state.withLock { ($0.omitID, $0.accountID) }
-        var user = ["username": username, "accessToken": host + "|" + username, "refreshToken": host + "|" + username]
-        if !identity.0 { user["id"] = identity.1 ?? "id-" + username }
+        let canonical = username.lowercased()
+        var user = ["username": canonical, "accessToken": host + "|" + canonical, "refreshToken": host + "|" + canonical]
+        if !identity.0 { user["id"] = identity.1 ?? "id-" + canonical }
         let restricted = path == "/api/items/restricted"
         let denied = restricted && request.value(forHTTPHeaderField: "Authorization")?.hasSuffix("|account-b") == true
         let json: [String: Any] = login ? ["user": user] : restricted ? ["id": "restricted", "media": ["metadata": ["title": "A private book"], "tracks": [["ino": "1", "duration": 1, "metadata": ["ext": ".wav", "size": RetainedProtocol.audio.count]]]]] : ["mediaProgress": []]

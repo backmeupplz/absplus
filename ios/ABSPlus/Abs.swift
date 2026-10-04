@@ -312,7 +312,8 @@ let resumeDir: URL = {
     /// Capture the token's immutable origin before removing it; never resolve a later global server.
     func unlink(_ name: String) {
         guard name != me else { return }
-        linkedAttempts[name] = UUID()
+        // The server may canonicalize any entered alias; its pending result is not known yet.
+        linkedAttempts.removeAll()
         refreshing.removeValue(forKey: name)?.cancel()
         let epoch = mediaEpoch
         let tok = accts.removeValue(forKey: name)

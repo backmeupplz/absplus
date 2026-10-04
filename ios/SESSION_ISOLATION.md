@@ -4,6 +4,8 @@
   tokens, offline state, or media selection until authentication validates and the live
   attempt/cancellation/generation guards pass. Latest main attempt wins. Linked login
   cannot replace the main account; dismissal, unlink, expiry and replacement invalidate it.
+  Unlink invalidates all pending linked attempts because the server may canonicalize an
+  entered alias (for example ALICE → alice) only after its response arrives.
 - Every credential carries its host and account identity in the Keychain. Legacy tokens
   without provable origin require fresh login, rather than guessing their server.
 - Every API/refresh request captures host, login generation (mediaEpoch), and account id
@@ -26,9 +28,9 @@
 SessionIsolation runs actual URLSession requests between isolation-a.invalid and
 isolation-b.invalid with synthetic credentials: same/different usernames, A refresh401
 then B login/unlink, failure/cancellation, delayed main/linked login, refresh/read/error,
-unlink during refresh, stale cover, persisted host binding, and real AVFoundation range
-loading of generated silent WAV. Redirect delegates and unsafe resume archives are also
-asserted. No real server or credentials are used. RetainedDownloads and ListLifecycle
+unlink during refresh and delayed canonicalized linked login, stale cover, persisted host
+binding, and real AVFoundation range loading of generated silent WAV. Redirect delegates
+and unsafe resume archives are also asserted. No real server or credentials are used. RetainedDownloads and ListLifecycle
 remain in the suite. Debug launch fixtures alone use a synthetic UserDefaults credential
 store so unsigned simulator persistence does not depend on Keychain entitlements; release
 continues using device-only Keychain.
