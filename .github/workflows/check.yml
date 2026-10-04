@@ -19,12 +19,13 @@ jobs:
       - run: ./gradlew testDebugUnitTest assembleDebug
   ios:
     runs-on: macos-26
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - name: Build and exercise navigation and loading states
         run: >-
           xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
           -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
+          -parallel-testing-enabled NO
           -only-testing:UITests/ListLifecycle -only-testing:UITests/OfflineHome
           -only-testing:UITests/LoadingLifecycle -only-testing:UITests/PlaybackPreparation -only-testing:UITests/Accessibility test
