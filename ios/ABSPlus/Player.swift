@@ -115,7 +115,7 @@ import UIKit
     }
 
     private func sync(finished: Bool = false) {
-        guard let n = now, scope == source.accountGeneration else { return }
+        guard let n = now, scope == source.playbackGeneration else { return }
         let at = finished ? n.duration : pos
         source.push(n, at, finished: finished)
     }
@@ -123,7 +123,7 @@ import UIKit
     // --- control
 
     func play() {
-        if let n = now, scope == source.accountGeneration, source.progressDisk.local[n.key]?.isFinished == true {
+        if let n = now, scope == source.playbackGeneration, source.progressDisk.local[n.key]?.isFinished == true {
             index = [:] // ignore end notifications from the previous listen
             pos = 0
             source.push(n, 0, finished: false, restarting: true)
@@ -199,12 +199,12 @@ import UIKit
     }
 
     func start(_ n: Now, _ t: Double, play: Bool = true) {
-        if let old = now, old.key != n.key, p.currentItem != nil, scope == source.accountGeneration {
+        if let old = now, old.key != n.key, p.currentItem != nil, scope == source.playbackGeneration {
             let at = pos
             source.push(old, at, finished: false)
         }
         now = n
-        scope = source.accountGeneration
+        scope = source.playbackGeneration
         source.saveNow(n)
         if play { source.addHistory(n) }
         let (i, off) = n.at(t > n.duration - 5 ? 0 : t)
@@ -223,7 +223,7 @@ import UIKit
 
     private func queue(_ n: Now, _ i: Int, _ off: Double, play: Bool) async {
         let auth = (try? await source.token()).map { ["Authorization": "Bearer " + $0] } ?? [:]
-        guard now == n, scope == source.accountGeneration else { return }
+        guard now == n, scope == source.playbackGeneration else { return }
         p.removeAllItems()
         index = [:]
         for k in i..<n.tracks.count {

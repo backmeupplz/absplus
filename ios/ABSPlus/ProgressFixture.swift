@@ -33,6 +33,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         var requests = 0
         var rows: [String: [String: Any]] = [:]
         var holdLogin = false
+        var holdRefresh = false
         var holdPatch = false
         var holdLinkedRead = false
         var held: ProgressServer?
@@ -42,6 +43,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let held = Self.state.withLock { s in
+            if s.holdRefresh && request.url?.path == "/auth/refresh" { s.held = self; s.holdRefresh = false; return true }
             if s.holdLogin && request.url?.path == "/login" { s.held = self; s.holdLogin = false; return true }
             if s.holdLinkedRead && request.httpMethod == "GET" && request.value(forHTTPHeaderField: "Authorization") == "Bearer linked" { s.held = self; s.holdLinkedRead = false; return true }
             if s.holdPatch && request.httpMethod == "PATCH" { s.held = self; s.holdPatch = false; return true }
@@ -68,26 +70,24 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                 if s.failRefresh { return (401, [:]) }
                 let name = request.value(forHTTPHeaderField: "x-refresh-token") ?? "own"
                 s.reject = false
-                return (200, ["user": ["username": name, "accessToken": name, "refreshToken": name]])
+                return (200, ["user": ["username": name, "accessToken": name + "-refreshed", "refreshToken": name]])
             }
             if s.reject { return (401, [:]) }
             if path == "/login" {
                 let name = json["username"] as? String ?? "own"
                 return (200, ["user": ["username": name, "accessToken": name, "refreshToken": name]])
             }
-            let name = request.value(forHTTPHeaderField: "Authorization")?.replacingOccurrences(of: "Bearer ", with: "") ?? ""
+            let name = request.value(forHTTPHeaderField: "Authorization")?.replacingOccurrences(of: "Bearer ", with: "").replacingOccurrences(of: "-refreshed", with: "") ?? ""
             let key = name + ":" + path.replacingOccurrences(of: "/api/me/progress/", with: "")
             if request.httpMethod == "PATCH" {
                 if s.failPatch { return (503, [:]) }
                 s.patches += 1
-                var row = json
+                let row = Self.apply(json, to: s.rows[key])
+                var identified = row
                 let parts = path.replacingOccurrences(of: "/api/me/progress/", with: "").split(separator: "/")
-                row["libraryItemId"] = String(parts[0])
-                if parts.count > 1 { row["episodeId"] = String(parts[1]) }
-                // ABS first-row creation uses server time rather than lastUpdate.
-                if s.rows[key] == nil { row["lastUpdate"] = ms() + 1000 }
-                row["isFinished"] = row["isFinished"] as? Bool ?? s.rows[key]?["isFinished"] as? Bool ?? false
-                s.rows[key] = row
+                identified["libraryItemId"] = String(parts[0])
+                if parts.count > 1 { identified["episodeId"] = String(parts[1]) }
+                s.rows[key] = identified
                 return (200, [:])
             }
             return s.rows[key].map { (200, $0) } ?? (404, [:])
@@ -96,6 +96,47 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: response.0, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: response.1))
         client?.urlProtocolDidFinishLoading(self)
+    }
+    /// Mirrors User.createUpdateMediaProgressFromPayload and MediaProgress.applyProgressUpdate:
+    /// wire progress is extraData.progress, not the computed currentTime/duration getter.
+    static func apply(_ payload: [String: Any], to existing: [String: Any]?) -> [String: Any] {
+        guard var row = existing else {
+            var row = payload
+            row["isFinished"] = payload["isFinished"] as? Bool ?? false
+            row["progress"] = (row["isFinished"] as? Bool == true) ? 1.0 : payload["progress"] ?? 0.0
+            row["lastUpdate"] = ms() + 1000 // first creation ignores client lastUpdate
+            return row
+        }
+        var update = payload
+        let oldTime = row["currentTime"] as? Double ?? 0
+        let wasFinished = row["isFinished"] as? Bool ?? false
+        let oldDuration = row["duration"] as? Double ?? 0
+        let fraction = oldDuration > 0 ? min(1, max(0, oldTime / oldDuration)) : 0
+        if let finished = update["isFinished"] as? Bool {
+            if finished && !wasFinished { row["progress"] = 1.0 }
+            else if !finished && wasFinished {
+                row["progress"] = 0.0
+                row["currentTime"] = 0.0
+                update["currentTime"] = nil // ABS explicitly discards the supplied position
+            }
+        } else if let progress = update["progress"] as? Double, progress != fraction {
+            row["progress"] = min(1, max(0, progress))
+        }
+        update["progress"] = nil // not a model column; only the branch above updates extraData
+        row.merge(update) { _, new in new }
+        let time = row["currentTime"] as? Double ?? 0
+        let duration = row["duration"] as? Double ?? 0
+        let threshold = payload["markAsFinishedPercentComplete"] as? Double ?? 0
+        let done = duration > 0 && (threshold > 0
+            ? min(1, max(0, time / duration)) > threshold / 100
+            : duration - time < (payload["markAsFinishedTimeRemaining"] as? Double ?? 10))
+        if row["isFinished"] as? Bool != true && done {
+            row["isFinished"] = true
+            row["progress"] = 1.0
+        } else if row["isFinished"] as? Bool == true && time != oldTime && !done {
+            row["isFinished"] = false
+        }
+        return row
     }
     override func stopLoading() {}
 }
@@ -216,6 +257,56 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         ProgressServer.state.withLock { $0.rows["own:book"] = nil }
     }
 
+    static func rereadRegressions(_ book: Now) async throws {
+        let suite = "progress-reread-" + UUID().uuidString
+        let d = UserDefaults(suiteName: suite)!
+        defer { d.removePersistentDomain(forName: suite) }
+        d.set("http://abs-progress-fixture.invalid", forKey: "server"); d.set("own", forKey: "me")
+        let file = URL.temporaryDirectory.appending(path: suite + ".json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let accounts = ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")]
+        var a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        defer { a.progressTask?.cancel() }
+        let titles = [Now(item: "reread-book", ep: nil, title: "Book", author: "", tracks: book.tracks),
+                      Now(item: "reread-pod", ep: "episode", title: "Episode", author: "", tracks: book.tracks)]
+        let finished: [String: Any] = ["currentTime": 100.0, "duration": 100.0, "progress": 1.0, "isFinished": true, "lastUpdate": 1.0]
+        let unread = ProgressServer.apply(["currentTime": 24.0, "progress": 0.24, "isFinished": false], to: finished)
+        try check(unread["currentTime"] as? Double == 0 && unread["progress"] as? Double == 0, "fixture must discard time on explicit mark-unread")
+        let suppressed = ProgressServer.apply(["currentTime": 25.0, "progress": 0.25, "isFinished": false], to: unread)
+        try check(suppressed["progress"] as? Double == 0, "fixture must suppress extraData progress with explicit isFinished")
+        ProgressServer.state.withLock { s in
+            s.offline = true
+            for title in titles { for account in accounts.keys {
+                var row = finished
+                row["libraryItemId"] = title.item
+                row["episodeId"] = title.ep
+                s.rows[account + ":" + title.key] = row
+            } }
+        }
+        for title in titles {
+            a.shares[title.item] = ["linked"]
+            a.progressDisk.local[title.key] = Prog(libraryItemId: title.item, episodeId: title.ep, progress: 1, currentTime: 100, isFinished: true, lastUpdate: 1)
+            a.push(title, 0, finished: false, restarting: true)
+            a.push(title, 24, finished: false)
+        }
+        await stop(a)
+        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        due(a)
+        ProgressServer.state.withLock { $0.offline = false }
+        await a.replayProgress()
+        try check(a.progressDisk.pending.isEmpty, "reread queue did not drain")
+        for title in titles {
+            for account in accounts.keys {
+                let row = ProgressServer.state.withLock { $0.rows[account + ":" + title.key]! }
+                try check(row["currentTime"] as? Double == 24 && row["progress"] as? Double == 0.24 && row["isFinished"] as? Bool == false, "reread lost remote position/progress: " + account + ":" + title.key)
+            }
+        }
+        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        for title in titles {
+            try check(a.progressDisk.local[title.key]?.currentTime == 24 && a.pct(title.key) == 0.24, "reread readback lost durable position")
+        }
+    }
+
     static func run() async throws {
         URLProtocol.registerClass(ProgressServer.self)
         ProgressServer.state.withLock { $0 = .init() }
@@ -262,6 +353,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         await stop(a)
 
         try await reviewRegressions(book)
+        try await rereadRegressions(book)
 
         // Newer local event arrives while the old first-create PATCH is held.
         ProgressServer.state.withLock { $0.holdPatch = true }
@@ -368,13 +460,31 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             buffer.frameLength = 24000
             try audio.write(from: buffer)
         }
-        let track = Track(ino: "silent", ext: ".wav", size: a.size(wav), duration: 3, start: 0)
+        // The short WAV ends naturally; metadata stays >10s so rereads do not
+        // immediately hit ABS's default finished-within-ten-seconds threshold.
+        let track = Track(ino: "silent", ext: ".wav", size: a.size(wav), duration: 100, start: 0)
         let title = Now(item: audioID, ep: nil, title: "Silent fixture", author: "", tracks: [track])
         let playback = Player(source: a)
         playback.start(title, 0)
         try await wait { playback.pos > 0.3 }
+        // Reauthentication invalidates old requests, not this same-account player.
+        let playbackScope = a.playbackGeneration, requestScope = a.accountGeneration
+        ProgressServer.state.withLock { $0.offline = false; $0.holdRefresh = true }
+        let refreshingSource = a
+        let staleRefresh = Task { try await refreshingSource.token(fresh: .infinity) }
+        try await wait { ProgressServer.state.withLock { $0.held != nil } }
+        let heldRefresh = ProgressServer.state.withLock { s in let p = s.held; s.held = nil; return p }
+        _ = try await a.login(a.server, "own", "fixture", main: true)
+        try check(a.playbackGeneration == playbackScope && a.accountGeneration != requestScope, "reauth changed playback scope or retained request scope")
+        // Let the cancelled transport settle; then deliver its stale response.
+        _ = try? await staleRefresh.value
+        heldRefresh!.respond()
+        try check(a.accts["own"]?.a == "own", "stale refresh replaced login credentials")
+        ProgressServer.state.withLock { $0.offline = true }
         playback.p.pause()
         try await wait { a.progressDisk.local[title.key]?.currentTime ?? 0 > 0 }
+        let paused = try JSONDecoder().decode(ProgressDisk.self, from: Data(contentsOf: file))
+        try check((paused.local[title.key]?.currentTime ?? 0) > 0 && paused.pending.contains { $0.key == title.key && !$0.finished }, "same-account reauth pause was not durable")
         playback.play()
         try await wait { a.progressDisk.local[title.key]?.isFinished == true }
         playback.clear()
@@ -406,6 +516,27 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         ProgressServer.state.withLock { $0.offline = false }
         await a.replayProgress()
         try check(ProgressServer.state.withLock { $0.rows["own:" + title.key]?["isFinished"] as? Bool } == false, "reread failed to clear remote completion")
+        try check(ProgressServer.state.withLock { $0.rows["own:" + title.key]?["currentTime"] as? Double } == rereadTime && a.progressDisk.local[title.key]?.currentTime == rereadTime, "player reread lost replay position")
+        // The actual old AVQueuePlayer keeps callbacks after a switch. None may
+        // capture under a different user/server, or after logout + same-user login.
+        for change in ["user", "server", "logout"] {
+            let oldPlayer = Player(source: a)
+            oldPlayer.start(title, 0)
+            try await wait { oldPlayer.pos > 0.3 }
+            ProgressServer.state.withLock { $0.offline = false }
+            let oldServer = a.server, oldUser = a.me!
+            if change == "logout" { a.logout() }
+            _ = try await a.login(change == "server" ? "http://abs-progress-other.invalid" : oldServer,
+                                  change == "user" ? "different" : oldUser, "fixture", main: true)
+            ProgressServer.state.withLock { $0.offline = true }
+            oldPlayer.p.pause()
+            try await wait { !oldPlayer.playing }
+            oldPlayer.play()
+            try await wait { oldPlayer.pos == title.duration }
+            try check(a.progressDisk.local[title.key] == nil && a.progressDisk.pending.isEmpty, "old player captured after " + change)
+            oldPlayer.clear()
+            await stop(a)
+        }
         a.logout()
         await stop(a)
         let saved = try JSONDecoder().decode(ProgressDisk.self, from: Data(contentsOf: file))

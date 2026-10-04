@@ -116,6 +116,8 @@ let resumeDir: URL = {
     @ObservationIgnored var progressTask: Task<Void, Never>?
     @ObservationIgnored var replayingProgress = false
     @ObservationIgnored var accountGeneration = UUID()
+    // Credentials may rotate without revoking an already-playing title.
+    @ObservationIgnored var playbackGeneration = UUID()
     @ObservationIgnored private var loginAttempt = UUID()
     @ObservationIgnored let cacheDir = URL.applicationSupportDirectory.appending(path: "json")
 
@@ -123,7 +125,7 @@ let resumeDir: URL = {
     var offline = false
     var expired = false
     var toast: String?
-    var me: String? { didSet { d.set(me, forKey: "me"); if oldValue != me { accountGeneration = UUID(); pruneProgress() } } }
+    var me: String? { didSet { d.set(me, forKey: "me"); if oldValue != me { accountGeneration = UUID(); playbackGeneration = UUID(); pruneProgress() } } }
     var accts: [String: Tok] = [:] { didSet { if usesKeychain { kcWrite(accts) }; pruneProgress() } }
     /// latest known progress per key, from /api/me plus our own pushes
     var progress: [String: Prog] = [:]
@@ -238,6 +240,7 @@ let resumeDir: URL = {
             refreshing.values.forEach { $0.cancel() }
             refreshing = [:]
             if endpoint != server || u.username != me {
+                playbackGeneration = UUID()
                 accts = [:]
                 shares = [:]
             }
@@ -263,6 +266,7 @@ let resumeDir: URL = {
 
     func logout() {
         accountGeneration = UUID()
+        playbackGeneration = UUID()
         refreshing.values.forEach { $0.cancel() }
         refreshing = [:]
         clearProgress()

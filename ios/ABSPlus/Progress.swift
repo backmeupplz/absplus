@@ -26,7 +26,9 @@ struct PendingProgress: Codable, Equatable {
     var fraction: Double { duration > 0 ? min(1, max(0, time / duration)) : 0 }
     var body: [String: Any] {
         var b: [String: Any] = ["currentTime": time, "duration": duration, "progress": fraction, "lastUpdate": at]
-        b["isFinished"] = finished
+        // ABS treats explicit false as "mark unread": it discards currentTime.
+        // Omit it during listening; ABS derives reread completion from position.
+        if finished { b["isFinished"] = true }
         return b
     }
     static func delay(_ attempts: Int) -> Double { min(300, pow(2, Double(min(attempts, 9)))) }
