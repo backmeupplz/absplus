@@ -12,4 +12,6 @@ UITests/DownloadRetries exercises production delegate callbacks for 503 without 
 
 Android DownloadQueueTest covers existing behavior: controlled 503 then range-success, retained completed/partial siblings, durable queue reload and cancellation. No Android production semantics changed (bounded iOS retries are this ticket's scope); Android still uses its existing capped exponential waiting policy.
 
+Local Android validation: 14 tests plus assembleDebug/assembleRelease passed (Gradle 9.8.0, JDK 21). iOS tests use an isolated ABS32-Retry simulator, not any sibling worker device. Commands: `./gradlew testDebugUnitTest assembleDebug assembleRelease`; `xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus -destination <simulator> -only-testing:UITests/DownloadRetries -only-testing:UITests/ListLifecycle -only-testing:UITests/OfflineHome test`.
+
 These are disposable native fixtures, not physical-device/store publication evidence. No personal credentials/library are used.
