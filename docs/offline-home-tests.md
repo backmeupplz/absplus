@@ -1,0 +1,8 @@
+# Offline Home episode regression (#35)
+
+Home continue/history and tile download badges use a Card-aware download predicate on Android and iOS. Episode cards require that episode’s complete cached audio file; parent podcast cards in Library/Favorites retain “any saved episode” semantics. Books retain the existing all-tracks check. Download invalidation refreshes Home in place; Android retains the page and horizontal continue anchor across detail navigation.
+
+- Android: `./gradlew testDebugUnitTest assembleDebug assembleRelease`. `OfflineHomeTest` covers a saved sibling plus unsaved recent episode, missing episode/audio/cache, absent zero-size file, partial and wrong-size files, completion/removal invalidation, complete/incomplete books, actual Home continue/history membership, and retained Home after detail navigation. Existing `NavigationTest` remains unchanged.
+- iOS: run `xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus -destination "platform=iOS Simulator,name=<disposable simulator>" -only-testing:UITests/OfflineHome test`. The debug-only `--offline-home-test` fixture seeds synthetic cached metadata/files, intercepts only its `.invalid` host with offline errors, and renders the real Home/Item navigation. UI assertions verify both sections, live save/remove, unchanged complete books, and removal while details are open. Predicate assertions cover sibling, absent audio/episode/cache and wrong-size files. Use only a disposable simulator: this fixture writes simulator preferences, fixture account and synthetic downloads. Release builds omit it.
+
+CI includes the existing list lifecycle regression and new offline Home regression. These are source/simulator checks, not evidence of installed device or store release state.

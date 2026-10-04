@@ -272,6 +272,21 @@ object Abs {
         }.getOrDefault(false)
     }
 
+    /** Episode cards require that exact audio file; item cards keep the library semantics above. */
+    fun downloaded(card: Card): Boolean {
+        val ep = card.ep ?: return downloaded(card.id)
+        return dlMemo.getOrPut("$mediaEpoch:${card.key}") {
+            runCatching {
+                val episodes = JSONObject(cached("/api/items/${card.id}?expanded=1")!!).getJSONObject("media").getJSONArray("episodes")
+                (0 until episodes.length()).map { episodes.getJSONObject(it) }.firstOrNull { it.str("id") == ep }
+                    ?.optJSONObject("audioFile")?.let {
+                        val t = track(it, 0.0)
+                        file(card.id, t).isFile && done(card.id, t)
+                    } == true
+            }.getOrDefault(false)
+        }
+    }
+
     /** item folders that hold finished files (a download in progress also leaves "*.part" files) */
     fun downloads() = File(mediaDir, "audio").listFiles { f -> f.isDirectory && f.list()?.any { !it.endsWith(".part") } == true }?.toList() ?: emptyList()
 
