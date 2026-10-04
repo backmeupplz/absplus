@@ -241,6 +241,7 @@ let resumeDir: URL = {
             refreshing = [:]
             if endpoint != server || u.username != me {
                 playbackGeneration = UUID()
+                clearAccountMirrors()
                 accts = [:]
                 shares = [:]
             }
@@ -264,18 +265,29 @@ let resumeDir: URL = {
 
     var accounts: [String] { accts.keys.filter { $0 != me }.sorted() }
 
+    /// Unscoped account mirrors cannot survive a successful identity change.
+    /// Download files/queues are handled separately from these mirrors.
+    private func clearAccountMirrors() {
+        clearProgress()
+        try? FileManager.default.removeItem(at: cacheDir)
+        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        for key in d.dictionaryRepresentation().keys where key == "now" || key == "lib" || key.hasPrefix("pos:") || key.hasPrefix("ratio:") {
+            d.removeObject(forKey: key)
+        }
+        progress = [:]; fav = []; favq = [:]; hist = []; shares = [:]
+        dlMemo = [:]
+    }
+
     func logout() {
         accountGeneration = UUID()
         playbackGeneration = UUID()
         refreshing.values.forEach { $0.cancel() }
         refreshing = [:]
-        clearProgress()
+        clearAccountMirrors()
         cancel(inflight) // downloads stop, files stay
         dlq = []
         d.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
-        try? FileManager.default.removeItem(at: cacheDir)
-        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-        accts = [:]; progress = [:]; fav = []; favq = [:]; hist = []; shares = [:]
+        accts = [:]
         me = nil
     }
 
@@ -329,17 +341,21 @@ let resumeDir: URL = {
     }
     func cached(_ path: String) -> Data? { try? Data(contentsOf: cacheFile(path)) }
     func get(_ path: String) async throws -> Data {
+        let generation = accountGeneration
         let data = try await api("GET", path)
+        guard generation == accountGeneration, !Task.isCancelled else { throw CancellationError() }
         try? data.write(to: cacheFile(path))
         return data
     }
 
     /// Renders cached JSON instantly, then refreshes from the server.
     func load<T: Decodable>(_ path: String, _ render: (T) -> Void) async {
+        let generation = accountGeneration
         let old = cached(path)
         if let old, let v = try? JSONDecoder().decode(T.self, from: old) { render(v) }
         do {
             let new = try await get(path)
+            guard generation == accountGeneration, !Task.isCancelled else { return }
             if new != old { render(try JSONDecoder().decode(T.self, from: new)) }
         } catch {
             if (old == nil && !offline) || error is Expired { say(error) }
@@ -490,26 +506,30 @@ let resumeDir: URL = {
 
     /// First = where this account should resume; the rest = linked accounts that listened more recently elsewhere.
     func positions(_ n: Now) async -> [Pos] {
+        let generation = playbackGeneration
         var mine = Pos(who: "You", time: 0, at: 0)
         if let s = d.string(forKey: "pos:\(n.key)")?.split(separator: ","), s.count == 2, let t = Double(s[0]), let at = Double(s[1]) {
             mine = Pos(who: "You", time: t, at: at)
         }
         if let p = progressDisk.local[n.key] { mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0) }
         if let me, let r = await remote(me, n.key) {
+            guard generation == playbackGeneration else { return [] }
             mergeProgress(r, key: n.key)
             persistProgress()
             if let p = progressDisk.local[n.key], (p.lastUpdate ?? 0) >= mine.at {
                 mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
             }
         }
+        guard generation == playbackGeneration else { return [] }
         var out = [mine]
         for a in shares[n.item] ?? [] {
             if let p = await remote(a, n.key) {
+                guard generation == playbackGeneration else { return [] }
                 let r = Pos(who: a, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
                 if r.at > mine.at, abs(r.time - mine.time) > 30 { out.append(r) }
             }
         }
-        return out
+        return generation == playbackGeneration ? out : []
     }
 
     func setMe(_ m: Me) {
@@ -544,13 +564,16 @@ let resumeDir: URL = {
         if pushingFavs { return }
         pushingFavs = true
         defer { pushingFavs = false }
+        let generation = playbackGeneration
         for (id, on) in favq {
+            guard generation == playbackGeneration else { return }
             var ok = true
             do {
                 if on { _ = try await api("POST", "/api/me/item/\(id)/bookmark", ["time": FAV_T, "title": FAV]) }
                 else { _ = try await api("DELETE", "/api/me/item/\(id)/bookmark/\(FAV_T)") }
             } catch let e as HttpErr where (400..<500).contains(e.code) { // e.g. already removed
             } catch { ok = false }
+            guard generation == playbackGeneration else { return }
             if ok && favq[id] == on { favq[id] = nil } // unless toggled again meanwhile
         }
     }

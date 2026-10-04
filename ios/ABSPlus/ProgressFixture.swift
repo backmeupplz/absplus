@@ -34,6 +34,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         var rows: [String: [String: Any]] = [:]
         var holdLogin = false
         var holdRefresh = false
+        var holdGet: String?
         var holdPatch = false
         var holdLinkedRead = false
         var held: ProgressServer?
@@ -43,6 +44,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let held = Self.state.withLock { s in
+            if s.holdGet == request.url?.path && request.httpMethod == "GET" { s.held = self; s.holdGet = nil; return true }
             if s.holdRefresh && request.url?.path == "/auth/refresh" { s.held = self; s.holdRefresh = false; return true }
             if s.holdLogin && request.url?.path == "/login" { s.held = self; s.holdLogin = false; return true }
             if s.holdLinkedRead && request.httpMethod == "GET" && request.value(forHTTPHeaderField: "Authorization") == "Bearer linked" { s.held = self; s.holdLinkedRead = false; return true }
@@ -307,6 +309,162 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         }
     }
 
+
+    static func scopeRegressions(_ book: Now) async throws {
+        for change in ["user", "server"] {
+            let suite = "scope-" + UUID().uuidString
+            let d = UserDefaults(suiteName: suite)!
+            let file = URL.temporaryDirectory.appending(path: suite + ".json")
+            defer { d.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: file) }
+            let origin = "http://abs-progress-fixture.invalid"
+            d.set(origin, forKey: "server"); d.set("own", forKey: "me")
+            let a = Abs(defaults: d, progressFile: file, accounts: ["own": Tok(a: "own", r: "own")])
+            ProgressServer.state.withLock { s in
+                s.offline = false
+                s.rows["own:/api/me"] = ["mediaProgress": [["libraryItemId": book.item, "currentTime": 80.0, "lastUpdate": ms()]], "bookmarks": []]
+            }
+            await a.load("/api/me") { (m: Me) in a.setMe(m) }
+            let cached = a.cached("/api/me")
+            try check(cached != nil && a.progressDisk.local[book.key]?.currentTime == 80, "scope fixture failed to populate cache")
+            let media = dlDir.appending(path: suite + ".fixture")
+            try Data([1, 2, 3]).write(to: media)
+            defer { try? FileManager.default.removeItem(at: media) }
+            a.saveNow(book); d.set("80,9999999999999", forKey: "pos:" + book.key)
+            a.fav = [Card(id: book.item, title: "Private A", sub: "")]
+            a.favq = [book.item: true]; a.addHistory(book)
+            ProgressServer.state.withLock { $0.reject = true }
+            _ = try? await a.login(origin, "different", "fixture", main: true)
+            try check(a.cached("/api/me") == cached && a.loadNow() == book && !a.favq.isEmpty, "failed login cleared account mirrors")
+            ProgressServer.state.withLock { $0.reject = false }
+            _ = try await a.login(origin, "own", "fixture", main: true)
+            try check(a.cached("/api/me") == cached && a.loadNow() == book && !a.hist.isEmpty, "reauth cleared account mirrors")
+            ProgressServer.state.withLock { $0.holdGet = "/api/me" }
+            let staleLoad = Task { await a.load("/api/me") { (m: Me) in a.setMe(m) } }
+            try await wait { ProgressServer.state.withLock { $0.held != nil } }
+            let oldLoad = ProgressServer.state.withLock { s in let p = s.held; s.held = nil; return p }!
+            let name = change == "user" ? "different" : "own"
+            _ = try await a.login(change == "server" ? "http://abs-progress-other.invalid" : origin, name, "fixture", main: true)
+            oldLoad.respond()
+            await staleLoad.value
+            ProgressServer.state.withLock { $0.rows[name + ":/api/me"] = ["mediaProgress": [], "bookmarks": []] }
+            // This is Home.load's real cached-then-fresh /me path, not a journal-only check.
+            var renders = 0
+            await a.load("/api/me") { (m: Me) in renders += 1; a.setMe(m) }
+            try check(renders == 1 && a.progressDisk.local.isEmpty && a.progress.isEmpty, "old cached /me contaminated " + change)
+            try check(FileManager.default.fileExists(atPath: media.path), "scope change deleted media")
+            try check(a.loadNow() == nil && d.object(forKey: "pos:" + book.key) == nil && a.fav.isEmpty && a.favq.isEmpty && a.hist.isEmpty, "old account mirrors survived " + change)
+            let reloaded = Abs(defaults: d, progressFile: file, accounts: a.accts)
+            ProgressServer.state.withLock { $0.offline = true }
+            let ps = await reloaded.positions(book)
+            try check(ps.first?.time == 0 && reloaded.progressDisk.local.isEmpty, "shared item resumed A after " + change)
+        }
+        ProgressServer.state.withLock { $0.offline = false }
+    }
+
+    static func acknowledgmentRegressions(_ book: Now) async throws {
+        for observation in [false, true] {
+            let suite = "ack-" + UUID().uuidString
+            let d = UserDefaults(suiteName: suite)!
+            let file = URL.temporaryDirectory.appending(path: suite + ".json")
+            defer { d.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: file) }
+            d.set("http://abs-progress-fixture.invalid", forKey: "server"); d.set("own", forKey: "me")
+            let accounts = ["own": Tok(a: "own", r: "own")]
+            var a = Abs(defaults: d, progressFile: file, accounts: accounts)
+            let n = Now(item: suite, ep: nil, title: "Ack", author: "", tracks: book.tracks)
+            ProgressServer.state.withLock { $0.offline = false; $0.holdPatch = true }
+            a.push(n, 10, finished: false)
+            try await wait { ProgressServer.state.withLock { $0.held != nil } }
+            a.push(n, 60, finished: false)
+            // Stop the background loop after this attempt, but allow successful readback.
+            for i in a.progressDisk.pending.indices { a.progressDisk.pending[i].retryAt = ms() + 300000 }
+            let held = ProgressServer.state.withLock { s in let p = s.held; s.held = nil; return p }!
+            if observation {
+                await stop(a) // uncertain acknowledgement / process death
+                ProgressServer.state.withLock { $0.rows["own:" + n.key] = ["libraryItemId": n.item, "currentTime": 10.0, "isFinished": false, "lastUpdate": ms() + 1000] }
+                a = Abs(defaults: d, progressFile: file, accounts: accounts)
+                let ps = await a.positions(n)
+                try check(ps.first?.time == 60, "uncertain send overwrote coalesced event")
+            } else {
+                held.respond()
+                try await wait { a.progressDisk.pending.first?.acknowledged != nil }
+                await stop(a)
+            }
+            try check(a.progressDisk.pending.first?.sent == nil && a.progressDisk.pending.first?.acknowledged != nil, "attempt did not resolve to exact ack")
+            a = Abs(defaults: d, progressFile: file, accounts: accounts)
+            let ack = a.progressDisk.pending[0].acknowledged!
+            try check(a.progressDisk.local[n.key]?.currentTime == 60, "old ack replaced newer local event")
+            ProgressServer.state.withLock { $0.rows["own:" + n.key] = ["libraryItemId": n.item, "currentTime": 10.0, "isFinished": false, "lastUpdate": ack.at + 2000] }
+            let patches = ProgressServer.state.withLock { $0.patches }
+            if observation {
+                let ps = await a.positions(n)
+                try check(ps.first?.time == 10, "new external identical payload was exempted on observation")
+            } else { due(a); await a.replayProgress() }
+            try check(a.progressDisk.pending.isEmpty && a.progressDisk.local[n.key]?.currentTime == 10 && ProgressServer.state.withLock { $0.patches } == patches, "new external identical payload overwritten")
+        }
+    }
+
+    static func preparationRegressions(_ book: Now) async throws {
+        for change in ["user", "server", "logout"] {
+            for path in ["play", "cachedCard", "item", "restore", "choices", "queue"] {
+                let suite = "prepare-" + UUID().uuidString
+                let d = UserDefaults(suiteName: suite)!
+                let file = URL.temporaryDirectory.appending(path: suite + ".json")
+                defer { d.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: file) }
+                let origin = "http://abs-progress-fixture.invalid"
+                d.set(origin, forKey: "server"); d.set("own", forKey: "me")
+                let a = Abs(defaults: d, progressFile: file, accounts: ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")])
+                let p = Player(source: a)
+                let n = Now(item: suite, ep: nil, title: "Old title", author: "", tracks: book.tracks)
+                let itemPath = "/api/items/" + n.item
+                let item: [String: Any] = ["id": n.item, "media": ["metadata": ["title": n.title], "tracks": [["ino": "0", "duration": 100.0]]]]
+                ProgressServer.state.withLock { s in
+                    s.offline = false
+                    s.rows["own:" + itemPath] = item
+                    s.rows["own:" + n.key] = ["libraryItemId": n.item, "currentTime": 10.0, "lastUpdate": 1.0]
+                    s.rows["linked:" + n.key] = ["libraryItemId": n.item, "currentTime": 70.0, "lastUpdate": 2.0]
+                }
+                if path == "cachedCard" { _ = try await a.get(itemPath + "?expanded=1") }
+                var preparation: Task<Void, Never>?
+                var choice: Player.ResumeChoices?
+                if path == "choices" {
+                    a.shares[n.item] = ["linked"]
+                    await p.play(n)
+                    choice = p.choices
+                    try check(choice?.positions.count == 2, "resume choice fixture failed")
+                } else if path == "queue" {
+                    // Expired synthetic token forces the actual queue through an await.
+                    a.accts["own"] = Tok(a: "x.eyJleHAiOjB9.x", r: "own")
+                    ProgressServer.state.withLock { $0.holdRefresh = true }
+                    p.start(n, 0, generation: a.playbackGeneration)
+                } else {
+                    a.saveNow(n)
+                    ProgressServer.state.withLock { $0.holdGet = path == "item" ? itemPath : "/api/me/progress/" + n.key }
+                    preparation = Task {
+                        if path == "restore" { await p.restore() }
+                        else if path == "item" || path == "cachedCard" { await p.playCard(Card(id: n.item, title: n.title, sub: "")) }
+                        else { await p.play(n) }
+                    }
+                }
+                if path != "choices" { try await wait { ProgressServer.state.withLock { $0.held != nil } } }
+                let held = ProgressServer.state.withLock { s in let p = s.held; s.held = nil; return p }
+                if change == "logout" {
+                    a.logout()
+                    // Same user logging back in must not resurrect a pre-logout choice.
+                    if path == "choices" { _ = try await a.login(origin, "own", "fixture", main: true) }
+                }
+                else { _ = try await a.login(change == "server" ? "http://abs-progress-other.invalid" : origin, change == "user" ? "different" : "own", "fixture", main: true) }
+                held?.respond()
+                await preparation?.value
+                if let choice { p.resume(choice, at: 1) }
+                try await Task.sleep(for: .milliseconds(20))
+                try check((p.now == nil || path == "queue") && p.p.currentItem == nil && p.p.timeControlStatus == .paused, "stale preparation started: " + path + "/" + change)
+                try check(a.loadNow() == nil && a.hist.isEmpty && a.progressDisk.local.isEmpty && a.progressDisk.pending.isEmpty, "stale preparation captured: " + path + "/" + change)
+                p.clear()
+                await stop(a)
+            }
+        }
+    }
+
     static func run() async throws {
         URLProtocol.registerClass(ProgressServer.self)
         ProgressServer.state.withLock { $0 = .init() }
@@ -354,6 +512,9 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
 
         try await reviewRegressions(book)
         try await rereadRegressions(book)
+        try await scopeRegressions(book)
+        try await acknowledgmentRegressions(book)
+        try await preparationRegressions(book)
 
         // Newer local event arrives while the old first-create PATCH is held.
         ProgressServer.state.withLock { $0.holdPatch = true }
@@ -465,7 +626,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         let track = Track(ino: "silent", ext: ".wav", size: a.size(wav), duration: 100, start: 0)
         let title = Now(item: audioID, ep: nil, title: "Silent fixture", author: "", tracks: [track])
         let playback = Player(source: a)
-        playback.start(title, 0)
+        playback.start(title, 0, generation: a.playbackGeneration)
         try await wait { playback.pos > 0.3 }
         // Reauthentication invalidates old requests, not this same-account player.
         let playbackScope = a.playbackGeneration, requestScope = a.accountGeneration
@@ -521,7 +682,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         // capture under a different user/server, or after logout + same-user login.
         for change in ["user", "server", "logout"] {
             let oldPlayer = Player(source: a)
-            oldPlayer.start(title, 0)
+            oldPlayer.start(title, 0, generation: a.playbackGeneration)
             try await wait { oldPlayer.pos > 0.3 }
             ProgressServer.state.withLock { $0.offline = false }
             let oldServer = a.server, oldUser = a.me!
@@ -532,7 +693,8 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             oldPlayer.p.pause()
             try await wait { !oldPlayer.playing }
             oldPlayer.play()
-            try await wait { oldPlayer.pos == title.duration }
+            try await Task.sleep(for: .milliseconds(50))
+            try check(oldPlayer.p.timeControlStatus == .paused, "old player resumed after " + change)
             try check(a.progressDisk.local[title.key] == nil && a.progressDisk.pending.isEmpty, "old player captured after " + change)
             oldPlayer.clear()
             await stop(a)

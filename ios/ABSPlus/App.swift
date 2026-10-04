@@ -94,10 +94,10 @@ struct RootView: View {
                 await app.ping()
             }
         }
-        .confirmationDialog("Resume “\(player.choices?.0.title ?? "")” from", isPresented: Bindable(player).choices.some(), titleVisibility: .visible) {
+        .confirmationDialog("Resume “\(player.choices?.title.title ?? "")” from", isPresented: Bindable(player).choices.some(), titleVisibility: .visible) {
             if let c = player.choices {
-                ForEach(c.1.indices, id: \.self) { i in
-                    Button("\(c.1[i].who) — \(fmt(c.1[i].time))") { player.start(c.0, c.1[i].time) }
+                ForEach(c.positions.indices, id: \.self) { i in
+                    Button("\(c.positions[i].who) — \(fmt(c.positions[i].time))") { player.resume(c, at: i) }
                 }
             }
         }

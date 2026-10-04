@@ -20,6 +20,7 @@ struct PendingProgress: Codable, Equatable {
     var attempts = 0
     var retryAt: Double = 0
     var sent: ProgressAttempt?
+    var acknowledged: ProgressAttempt?
     var key: String { episode.map { "\(item)/\($0)" } ?? item }
     var prog: Prog { Prog(libraryItemId: item, episodeId: episode, progress: finished ? 1 : fraction,
                          currentTime: time, isFinished: finished, lastUpdate: at) }
@@ -38,8 +39,9 @@ struct ProgressAttempt: Codable, Equatable {
     var time: Double
     var finished: Bool
     var at: Double
-    func matches(_ p: Prog) -> Bool {
-        p.currentTime == time && (p.isFinished ?? false) == finished && (p.lastUpdate ?? 0) >= at
+    func matches(_ p: Prog, exact: Bool = false) -> Bool {
+        p.currentTime == time && (p.isFinished ?? false) == finished &&
+        (exact ? p.lastUpdate == at : (p.lastUpdate ?? 0) >= at)
     }
 }
 
@@ -91,12 +93,23 @@ extension Abs {
         persistProgress()
     }
 
+    /// Resolve an uncertain send once; only that exact server version remains ours.
+    @discardableResult private func observeAttempt(_ remote: Prog, account: String, key: String) -> Bool {
+        guard let i = progressDisk.pending.firstIndex(where: { $0.account == account && $0.key == key }) else { return false }
+        if progressDisk.pending[i].sent?.matches(remote) == true {
+            progressDisk.pending[i].acknowledged = ProgressAttempt(time: remote.currentTime ?? 0, finished: remote.isFinished ?? false, at: remote.lastUpdate ?? 0)
+            progressDisk.pending[i].sent = nil
+        }
+        return progressDisk.pending[i].acknowledged?.matches(remote, exact: true) == true
+    }
+
     /// Reads use the same last-write-wins rule as replay. A server timestamp
     /// assigned to our own attempted write is not a new event from another device.
     func mergeProgress(_ remote: Prog, key: String) {
+        let ours = observeAttempt(remote, account: me ?? "", key: key)
         let pending = progressDisk.pending.first { $0.account == me && $0.key == key }
         guard (remote.lastUpdate ?? 0) > (progressDisk.local[key]?.lastUpdate ?? -1),
-              pending.map({ (remote.lastUpdate ?? 0) > $0.at && $0.sent?.matches(remote) != true }) ?? true else { return }
+              pending.map({ (remote.lastUpdate ?? 0) > $0.at && !ours }) ?? true else { return }
         progressDisk.local[key] = remote
         progress[key] = remote
         if let pending { progressDisk.pending.removeAll { $0.id == pending.id } }
@@ -113,7 +126,7 @@ extension Abs {
             let p = PendingProgress(account: account, item: n.item, episode: n.ep, time: max(0, pos),
                                     duration: n.duration, finished: done, at: at,
                                     attempts: old?.attempts ?? 0, retryAt: old?.retryAt ?? 0,
-                                    sent: old?.sent)
+                                    sent: old?.sent, acknowledged: old?.acknowledged)
             progressDisk.pending.removeAll { $0.account == account && $0.key == n.key }
             progressDisk.pending.append(p)
             if account == me { progressDisk.local[n.key] = p.prog; progress[n.key] = p.prog }
@@ -149,7 +162,8 @@ extension Abs {
             do {
                 let remote = try await progressRemote(entry)
                 guard generation == accountGeneration, !Task.isCancelled, authorized(entry), progressDisk.pending.contains(where: { $0.id == entry.id }) else { continue }
-                if let remote, (remote.lastUpdate ?? 0) > entry.at, entry.sent?.matches(remote) != true {
+                let ours = remote.map { observeAttempt($0, account: entry.account, key: entry.key) } ?? false
+                if let remote, (remote.lastUpdate ?? 0) > entry.at, !ours {
                     if entry.account == me {
                         progressDisk.local[entry.key] = remote
                         progress[entry.key] = remote
@@ -166,6 +180,7 @@ extension Abs {
                     guard generation == accountGeneration, !Task.isCancelled, authorized(entry) else { continue }
                     let acknowledged = try await progressRemote(entry)
                     guard generation == accountGeneration, !Task.isCancelled, authorized(entry) else { continue }
+                    if let acknowledged { observeAttempt(acknowledged, account: entry.account, key: entry.key) }
                     if let i = progressDisk.pending.firstIndex(where: { $0.account == entry.account && $0.key == entry.key }) {
                         if progressDisk.pending[i].id == entry.id {
                             if entry.account == me, let acknowledged {
