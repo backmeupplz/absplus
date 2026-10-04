@@ -13,6 +13,8 @@ struct ABSPlusApp: App {
                 IsolationFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--retained-test") {
                 RetainedFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--offline-home-test") {
+                OfflineHomeFixture()
             } else { RootView() }
 #else
             RootView()

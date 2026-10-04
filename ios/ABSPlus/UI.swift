@@ -93,7 +93,7 @@ struct Tile: View {
         VStack(alignment: .leading, spacing: 4) {
             Cover(id: card.id, ratio: ratio)
                 .overlay(alignment: .topTrailing) {
-                    if app.downloaded(card.id) {
+                    if app.downloaded(card) {
                         Image(systemName: "arrow.down.circle.fill")
                             .symbolRenderingMode(.palette).foregroundStyle(.white, .tint)
                             .font(.system(size: 18)).padding(4)
@@ -292,7 +292,7 @@ extension Binding {
 }
 
 /// offline: only what's playable without the server
-@MainActor func avail(_ cards: [Card]) -> [Card] { app.offline ? cards.filter { app.downloaded($0.id) } : cards }
+@MainActor func avail(_ cards: [Card]) -> [Card] { app.offline ? cards.filter { app.downloaded($0) } : cards }
 
 /// library cover shape; ABS coverAspectRatio: 1 = square, 0 = book (1.6)
 @MainActor func ratio(_ lib: String) -> CGFloat {
