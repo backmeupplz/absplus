@@ -120,10 +120,14 @@ extension Abs {
         guard let me, accts[me] != nil, pos.isFinite, n.duration.isFinite else { return }
         pruneProgress()
         let at = max(ms(), (progressDisk.local[n.key]?.lastUpdate ?? 0) + 1)
-        let done = finished || (!restarting && progressDisk.local[n.key]?.isFinished == true)
+        let completed = !restarting && progressDisk.local[n.key]?.isFinished == true
+        let done = finished || completed
+        // ABS clears completion if a late passive callback moves the position back.
+        // Keep the completed position until an explicit new listen starts.
+        let time = completed ? (progressDisk.local[n.key]?.currentTime ?? n.duration) : max(0, pos)
         for account in Set([me] + (shares[n.item] ?? [])).sorted() where accts[account] != nil {
             let old = progressDisk.pending.first { $0.account == account && $0.key == n.key }
-            let p = PendingProgress(account: account, item: n.item, episode: n.ep, time: max(0, pos),
+            let p = PendingProgress(account: account, item: n.item, episode: n.ep, time: time,
                                     duration: n.duration, finished: done, at: at,
                                     attempts: old?.attempts ?? 0, retryAt: old?.retryAt ?? 0,
                                     sent: old?.sent, acknowledged: old?.acknowledged)

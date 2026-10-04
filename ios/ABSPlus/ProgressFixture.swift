@@ -260,6 +260,71 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         ProgressServer.state.withLock { $0.rows["own:book"] = nil }
     }
 
+    static func passiveCompletionRegressions(_ book: Now) async throws {
+        let suite = "progress-passive-" + UUID().uuidString
+        let d = UserDefaults(suiteName: suite)!
+        defer { d.removePersistentDomain(forName: suite) }
+        d.set("http://abs-progress-fixture.invalid", forKey: "server"); d.set("own", forKey: "me")
+        let file = URL.temporaryDirectory.appending(path: suite + ".json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let accounts = ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")]
+        var a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        defer { a.progressTask?.cancel() }
+        let titles = [Now(item: "passive-book", ep: nil, title: "Book", author: "", tracks: book.tracks),
+                      Now(item: "passive-pod", ep: "episode", title: "Episode", author: "", tracks: book.tracks)]
+        let finished: [String: Any] = ["currentTime": 100.0, "duration": 100.0, "progress": 1.0, "isFinished": true, "lastUpdate": 1.0]
+        let reset = ProgressServer.apply(["currentTime": 0.0, "duration": 100.0, "progress": 0.0, "isFinished": true], to: finished)
+        try check(reset["isFinished"] as? Bool == false, "fixture must normalize completion after a zero-position update")
+        ProgressServer.state.withLock { s in
+            s.offline = true
+            for title in titles { for account in accounts.keys {
+                var row = finished
+                row["libraryItemId"] = title.item
+                row["episodeId"] = title.ep
+                s.rows[account + ":" + title.key] = row
+            } }
+        }
+        for title in titles {
+            a.shares[title.item] = ["linked"]
+            a.push(title, 100, finished: true)
+            // Late pause, restore or title-switch callbacks can report zero.
+            a.push(title, 0, finished: false)
+        }
+        await stop(a)
+        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        due(a)
+        ProgressServer.state.withLock { $0.offline = false }
+        await a.replayProgress()
+        try check(a.progressDisk.pending.isEmpty, "passive completion queue did not drain")
+        for title in titles { for account in accounts.keys {
+            let row = ProgressServer.state.withLock { $0.rows[account + ":" + title.key]! }
+            try check(row["currentTime"] as? Double == 100 && row["progress"] as? Double == 1 && row["isFinished"] as? Bool == true,
+                      "passive zero cleared remote completion: " + account + ":" + title.key)
+        } }
+        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        // Completion already acknowledged and restored from disk needs the same guard.
+        ProgressServer.state.withLock { $0.offline = true }
+        for title in titles {
+            try check(a.progressDisk.local[title.key]?.currentTime == 100 && a.pct(title.key) == 1, "passive completion readback was not durable")
+            a.push(title, 0, finished: false)
+        }
+        await stop(a)
+        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        for title in titles {
+            try check(a.progressDisk.local[title.key]?.currentTime == 100 && a.pct(title.key) == 1, "passive zero replaced restored completed position")
+        }
+        try check(a.progressDisk.pending.count == 4 && a.progressDisk.pending.allSatisfy { $0.time == 100 && $0.finished }, "passive completed outbox lost recipient position")
+        due(a)
+        ProgressServer.state.withLock { $0.offline = false }
+        await a.replayProgress()
+        try check(a.progressDisk.pending.isEmpty, "restored passive completion queue did not drain")
+        for title in titles { for account in accounts.keys {
+            let row = ProgressServer.state.withLock { $0.rows[account + ":" + title.key]! }
+            try check(row["currentTime"] as? Double == 100 && row["isFinished"] as? Bool == true,
+                      "restored passive zero cleared remote completion: " + account + ":" + title.key)
+        } }
+    }
+
     static func rereadRegressions(_ book: Now) async throws {
         let suite = "progress-reread-" + UUID().uuidString
         let d = UserDefaults(suiteName: suite)!
@@ -514,6 +579,8 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
 
         print("Progress fixture phase: reviewRegressions")
         try await reviewRegressions(book)
+        print("Progress fixture phase: passiveCompletionRegressions")
+        try await passiveCompletionRegressions(book)
         print("Progress fixture phase: rereadRegressions")
         try await rereadRegressions(book)
         print("Progress fixture phase: scopeRegressions")
