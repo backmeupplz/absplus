@@ -152,7 +152,7 @@ final class RetainedProtocol: URLProtocol, @unchecked Sendable {
         let media: [String: Any] = pod
             ? ["metadata": ["title": "Fixture Podcast", "author": "Author"], "episodes": [["id": "ep", "title": "Episode", "audioFile": audio]]]
             : ["metadata": ["title": "Fixture Book", "authorName": "Author"], "tracks": [audio]]
-        let body: [String: Any] = login ? ["user": ["username": "fixture", "accessToken": "fixture"]]
+        let body: [String: Any] = login ? ["user": ["id": "retained-fixture-id", "username": "fixture", "accessToken": "fixture"]]
             : ["id": pod ? "pod" : "book", "mediaType": pod ? "podcast" : "book", "media": media, "token": "secret"]
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: flags.0 ? 401 : 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: body))

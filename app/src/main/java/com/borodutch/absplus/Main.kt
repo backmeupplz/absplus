@@ -129,7 +129,7 @@ class Main : AppCompatActivity() {
         ).pad(16, 0).apply { setBackgroundColor(color(M.attr.colorErrorContainer)); visibility = View.GONE }
         setContentView(col(content.lp(-1, 0, 1f), banner, dlBar, mini, nav))
         onBackPressedDispatcher.addCallback(this, back)
-        if (Abs.me == null) login() else {
+        if (Abs.me == null || Abs.loginPending) login() else {
             tab(0)
             Dl.start(this) // pick up downloads left unfinished last time
         }
@@ -139,7 +139,9 @@ class Main : AppCompatActivity() {
         super.onStart()
         val f = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlayerService::class.java))).buildAsync()
         fut = f
-        f.addListener({ ctl = runCatching { f.get() }.getOrNull(); restore(); tick.run() }, mainExecutor)
+        f.addListener({
+            if (fut === f) { ctl = runCatching { f.get() }.getOrNull(); restore(); tick.run() }
+        }, mainExecutor)
         Dl.onChange = { msg ->
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
@@ -162,7 +164,7 @@ class Main : AppCompatActivity() {
 
     override fun onConfigurationChanged(c: android.content.res.Configuration) {
         super.onConfigurationChanged(c)
-        if (Abs.me != null) {
+        if (Abs.me != null && !Abs.loginPending) {
             fun resize(v: View) {
                 if (v is RecyclerView) (v.layoutManager as? GridLayoutManager)?.spanCount = max(4, resources.displayMetrics.widthPixels / dp(96))
                 else if (v is ViewGroup) for (i in 0 until v.childCount) resize(v.getChildAt(i))
@@ -257,6 +259,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun login() {
+        Abs.requireLogin()
         loginAttempt?.cancel()
         ctl?.clearMediaItems()
         screen = ++generation
@@ -953,12 +956,13 @@ class Main : AppCompatActivity() {
     /** After an app restart: put the last title back in the player, paused, at its latest position. */
     private fun restore() {
         val c = ctl ?: return
-        if (c.mediaItemCount > 0 || Abs.me == null) return
+        if (c.mediaItemCount > 0 || Abs.me == null || Abs.loginPending || !nav.isVisible) return
         val n = Abs.now ?: Abs.loadNow() ?: return
         bg({ Abs.positions(n).first().time }) { t -> if (ctl === c && c.mediaItemCount == 0) start(n, t, play = false) }
     }
 
     private fun start(n: Now, t: Double, play: Boolean = true) {
+        if (Abs.me == null || Abs.loginPending || !nav.isVisible) return
         val c = ctl ?: return toast("Player not ready")
         Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0) Abs.pos(c, old).let { p -> val epoch = Abs.mediaEpoch; thread { runCatching { Abs.push(old, p, false, epoch) } } } }
         Abs.now = n

@@ -24,9 +24,14 @@ struct ABSPlusApp: App {
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        Downloader.shared.retireLegacyDownloads()
+        return true
+    }
+
     func application(_ a: UIApplication, handleEventsForBackgroundURLSession id: String, completionHandler: @escaping () -> Void) {
-        Downloader.shared.bgDone = completionHandler
-        _ = Downloader.shared.session
+        Downloader.shared.retireLegacyDownloads()
+        completionHandler() // obsolete background transfers are never adopted
     }
 }
 
@@ -64,9 +69,7 @@ struct RootView: View {
                 .sheet(isPresented: $full) { FullPlayer() }
                 .task(id: app.mediaEpoch) {
                     let epoch = app.mediaEpoch
-                    Downloader.shared.restore()
                     await player.restore()
-                    try? await Task.sleep(for: .seconds(2)) // interrupted transfers report back with their resume data first
                     guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
                     await app.resumeQueue()
                 }

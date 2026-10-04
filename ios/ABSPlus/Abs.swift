@@ -69,11 +69,17 @@ struct Prog: Decodable { var libraryItemId: String, episodeId: String?, progress
 struct Bookmark: Decodable { var libraryItemId: String, title: String? }
 struct Me: Decodable { var mediaProgress: [Prog], bookmarks: [Bookmark]? }
 struct LoginResp: Decodable {
-    struct U: Decodable { var username: String, accessToken: String?, token: String?, refreshToken: String? }
+    struct U: Decodable { var id: String?; var username: String, accessToken: String?, token: String?, refreshToken: String? }
     var user: U
 }
 
-struct Tok: Codable, Equatable { var a: String, r: String; var host: String? = nil; var id: String = UUID().uuidString }
+struct Tok: Codable, Equatable {
+    var a: String, r: String
+    var host: String? = nil
+    var id: String = UUID().uuidString // login generation, NOT the server account identity
+    var userID: String? = nil
+    var mediaID: String? = nil // persisted random fallback if /login omits user.id
+}
 struct Hist: Codable { var card: Card, at: Double }
 
 struct HttpErr: LocalizedError {
@@ -111,7 +117,8 @@ let resumeDir: URL = {
 /// Server API, accounts, downloads, progress. Settings live in UserDefaults, login tokens in the Keychain.
 @MainActor @Observable final class Abs {
     @ObservationIgnored let d = UserDefaults.standard
-    @ObservationIgnored let cacheDir = URL.applicationSupportDirectory.appending(path: "json")
+    // Legacy json/ remains quarantined in place; even failed cleanup cannot expose another account.
+    var cacheDir: URL { URL.applicationSupportDirectory.appending(path: "account-json/" + mediaScope) }
 
     /// set when the server can't be reached; cleared by the next successful request
     var offline = false
@@ -134,18 +141,29 @@ let resumeDir: URL = {
     var dlq: [Now] = [] { didSet { store("dlq", dlq) } }
     /// bytes received so far per download path
     var got: [String: Int64] = [:]
-    /// Current transfer description per path; persisted independently of the mutable title queue.
-    @ObservationIgnored var transfers: [String: String] = [:] { didSet { store("transfers", transfers) } }
+    /// Current process-only transfer ownership, independent of the persisted title queue.
+    @ObservationIgnored var transfers: [String: String] = [:]
     @ObservationIgnored private var dlMemo: [String: Bool] = [:]
     @ObservationIgnored private var refreshing: [String: Task<String, Error>] = [:]
     @ObservationIgnored private var pushingFavs = false
 
     @ObservationIgnored private var mediaServer: String?
+    @ObservationIgnored private var mediaAccount: String?
     private(set) var mediaEpoch = UserDefaults.standard.string(forKey: "mediaEpoch") ?? UUID().uuidString
-    private var mediaScope: String { mediaServer.map { SHA256.hash(data: Data($0.utf8)).map { String(format: "%02x", $0) }.joined() } ?? "locked" }
-    var mediaDir: URL { dlDir.appending(path: "servers/" + mediaScope) }
+    private var mediaScope: String {
+        guard let server = mediaServer, let account = mediaAccount else { return "locked" }
+        // Unambiguous pair encoding; the new root quarantines legacy server-only/unscoped
+        // bytes in place, without deleting or adopting them.
+        let identity = try! JSONEncoder().encode([server, account])
+        return SHA256.hash(data: identity).map { String(format: "%02x", $0) }.joined()
+    }
+    var mediaDir: URL { dlDir.appending(path: "accounts/" + mediaScope) }
     private var audioDir: URL { mediaDir.appending(path: "audio") }
-    private func selectMedia(_ s: String?) { mediaServer = s; mediaEpoch = UUID().uuidString; d.set(mediaEpoch, forKey: "mediaEpoch"); dlMemo = [:]; dlv += 1 }
+    private func selectMedia(_ s: String?, _ tok: Tok? = nil) {
+        mediaServer = s; mediaAccount = tok?.mediaID; mediaEpoch = UUID().uuidString
+        d.set(mediaEpoch, forKey: "mediaEpoch"); dlMemo = [:]; dlv += 1
+        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+    }
     private func expanded(_ path: String) -> Bool { path.hasPrefix("/api/items/") && path.hasSuffix("?expanded=1") }
     private func retainedFile(_ path: String) -> URL { mediaDir.appending(path: "metadata/" + SHA256.hash(data: Data(path.utf8)).map { String(format: "%02x", $0) }.joined()) }
 
@@ -171,7 +189,9 @@ let resumeDir: URL = {
         hist = load("hist") ?? []
         shares = load("shares") ?? [:]
         dlq = load("dlq") ?? []
-        transfers = load("transfers") ?? [:]
+        // Foreground tasks do not survive process termination. Never adopt background tasks.
+        transfers = [:]
+        d.removeObject(forKey: "transfers")
         if me == nil {
             // Quarantine legacy session metadata too; retained media remains on disk.
             fav = []; favq = [:]; hist = []; shares = [:]; dlq = []; transfers = [:]
@@ -183,8 +203,19 @@ let resumeDir: URL = {
             accts = [:]
             kcWrite([:])
         }
-        if me != nil && !server.isEmpty { mediaServer = server; d.set(mediaEpoch, forKey: "mediaEpoch") }
-        // Legacy unscoped bytes are kept but never assigned to a server by matching IDs.
+        if let name = me, var tok = accts[name], !server.isEmpty {
+            if tok.mediaID == nil {
+                // Legacy caches have no proven account binding. Preserve, but never adopt.
+                tok.mediaID = tok.userID.map { "user:" + $0 } ?? "login:" + UUID().uuidString
+                accts[name] = tok
+                kcWrite(accts) // init property observers are not a persistence guarantee
+            }
+            mediaServer = server; mediaAccount = tok.mediaID
+            d.set(mediaEpoch, forKey: "mediaEpoch")
+        }
+        // Old resume archives may contain redirected requests and credentials.
+        try? FileManager.default.removeItem(at: resumeDir)
+        try? FileManager.default.createDirectory(at: resumeDir, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }
 
@@ -235,7 +266,9 @@ let resumeDir: URL = {
         let u = try JSONDecoder().decode(LoginResp.self, from: data).user
         let access = u.accessToken.flatMap { $0.isEmpty ? nil : $0 } ?? u.token ?? ""
         guard !u.username.isEmpty, !access.isEmpty else { throw Msg(errorDescription: "Missing access token") }
-        return (u.username, Tok(a: access, r: u.refreshToken ?? "", host: host))
+        let userID = u.id.flatMap { $0.isEmpty ? nil : $0 }
+        return (u.username, Tok(a: access, r: u.refreshToken ?? "", host: host, userID: userID,
+                                mediaID: userID.map { "user:" + $0 } ?? "login:" + UUID().uuidString))
     }
 
     /// Authenticate a candidate without modifying the active session. Only the latest live attempt may commit.
@@ -265,7 +298,7 @@ let resumeDir: URL = {
         if main {
             resetSession()
             d.set(s, forKey: "server")
-            selectMedia(s)
+            selectMedia(s, tok)
             accts = [actual: tok]
             me = actual
         } else {
@@ -340,8 +373,9 @@ let resumeDir: URL = {
             do {
                 let data = try await http("POST", "/auth/refresh", [:], ["x-refresh-token": a.r], base: a.host!, epoch: epoch, account: (name, a.id))
                 let (actual, value) = try credentials(data, host: a.host!)
-                guard actual == name else { throw Expired(epoch: mediaEpoch) }
-                var tok = value; tok.id = a.id
+                guard actual == name, value.userID == nil || value.userID == a.userID else { throw Expired(epoch: mediaEpoch) }
+                // Refresh cannot establish a different media identity.
+                var tok = value; tok.id = a.id; tok.userID = a.userID; tok.mediaID = a.mediaID
                 accts[name] = tok
                 return tok.a
             } catch let e as HttpErr where e.code == 401 {
@@ -418,7 +452,7 @@ let resumeDir: URL = {
         if s == "." || s == ".." { return s.replacingOccurrences(of: ".", with: "%2E") }
         return s.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "._-"))) ?? "invalid"
     }
-    func rel(_ item: String, _ t: Track) -> String { "servers/\(mediaScope)/audio/\(component(item))/\(component(t.ino + t.ext))" }
+    func rel(_ item: String, _ t: Track) -> String { "accounts/\(mediaScope)/audio/\(component(item))/\(component(t.ino + t.ext))" }
     func file(_ item: String, _ t: Track) -> URL { dlDir.appending(path: rel(item, t)) }
     func done(_ item: String, _ t: Track) -> Bool { size(file(item, t)) == t.size }
     func size(_ u: URL) -> Int64 { Int64((try? u.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? -1) }
@@ -439,7 +473,7 @@ let resumeDir: URL = {
         let epoch = mediaEpoch
         do {
             try checkSession(epoch)
-            let auth = "Bearer " + (try await token(fresh: 1800)) // long enough for the system's own retries
+            let auth = "Bearer " + (try await token(fresh: 1800)) // long enough for bounded foreground retries
             guard epoch == mediaEpoch, me != nil else { return }
             for t in n.tracks where !done(n.item, t) && !inflight.contains(rel(n.item, t)) {
                 let r = rel(n.item, t)
@@ -519,7 +553,7 @@ let resumeDir: URL = {
 
     func removeAll(_ id: String) {
         let dir = audioDir.appending(path: component(id))
-        let prefix = "servers/\(mediaScope)/audio/\(component(id))/"
+        let prefix = "accounts/\(mediaScope)/audio/\(component(id))/"
         let rels = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).map { prefix + $0 }
         cancel(Set(rels).union(inflight.filter { $0.hasPrefix(prefix) }).union(dlq.filter { $0.item == id }.flatMap { n in n.tracks.map { rel(n.item, $0) } }))
         dlq.removeAll { $0.item == id }
@@ -686,16 +720,15 @@ let resumeDir: URL = {
     }
 }
 
-/// Background downloads: they keep going when the app is suspended. When it's force-quit, iOS cancels them with resume
-/// data; that is kept, and the file continues from there on the next launch with a fresh token in the saved request.
+/// Foreground-only downloads: background URLSession always follows redirects, ignoring the
+/// task delegate. Ephemeral transport can reject them. No suspended/terminated background
+/// continuity is promised; persisted title queues restart missing files on the next launch.
 final class Downloader: NSObject, URLSessionDownloadDelegate {
     static let shared = Downloader()
-    var bgDone: (() -> Void)?
     private var reported: [String: Date] = [:]
     private var tries: [String: Int] = [:]
     lazy var session: URLSession = {
-        let c = URLSessionConfiguration.background(withIdentifier: "com.borodutch.absplus.dl")
-        c.sessionSendsLaunchEvents = true
+        let c = URLSessionConfiguration.ephemeral
         return URLSession(configuration: c, delegate: self, delegateQueue: .main)
     }()
 
@@ -727,17 +760,15 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
         return parts[2]
     }
 
-    /// picks up downloads still running from an earlier launch
-    func restore() {
-        session.getAllTasks { ts in
-            Task { @MainActor in
-                for t in ts {
-                    guard let rel = self.activeRel(t) else { t.cancel(); continue }
-                    app.inflight.insert(rel)
-                    app.got[rel] = t.countOfBytesReceived
-                }
-            }
-        }
+    // Reconnect only to cancel obsolete OS-owned tasks on upgrade. Never adopt their
+    // callbacks or files, and never share this session's delegate with active downloads.
+    private lazy var legacySession = URLSession(
+        configuration: .background(withIdentifier: "com.borodutch.absplus.dl"))
+    private var retiredLegacy = false
+    func retireLegacyDownloads() {
+        guard !retiredLegacy else { return }
+        retiredLegacy = true
+        legacySession.invalidateAndCancel()
     }
 
     func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didWriteData _: Int64, totalBytesWritten w: Int64, totalBytesExpectedToWrite _: Int64) {
@@ -765,7 +796,7 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
             app.transfers[rel] = nil
             app.got[rel] = nil
             let n = app.dlq.first { q in q.tracks.contains { app.rel(q.item, $0) == rel } }
-            // force-quit, a dropped connection or an expired token: continue the file (start over after a 401)
+            // A dropped connection or expired token: bounded foreground retry (start over after 401)
             if let n, resume != nil || code == 401, tries[rel, default: 0] < 3 {
                 tries[rel, default: 0] += 1
                 if let resume, code != 401 { try? resume.write(to: app.resumeFile(rel)) }
@@ -789,13 +820,6 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
 
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
         completionHandler(nil)
-    }
-
-    func urlSessionDidFinishEvents(forBackgroundURLSession s: URLSession) {
-        Task { @MainActor in
-            self.bgDone?()
-            self.bgDone = nil
-        }
     }
 
     // Resume data is an archive holding the original request, token included. A file resumed after the token's

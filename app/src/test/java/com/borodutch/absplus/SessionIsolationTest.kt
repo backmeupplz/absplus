@@ -27,6 +27,8 @@ class SessionIsolationTest {
         val url get() = "http://127.0.0.1:" + server.address.port
         @Volatile var rejectRefresh = false
         @Volatile var expired = false
+        @Volatile var omitId = false
+        @Volatile var idOverride: String? = null
         @Volatile var blockedPath: String? = null
         @Volatile var redirect: String? = null
         var entered = CountDownLatch(1)
@@ -56,7 +58,7 @@ class SessionIsolationTest {
             }
             server.start()
         }
-        fun user(name: String) = JSONObject().put("user", JSONObject().put("username", name)
+        fun user(name: String) = JSONObject().put("user", JSONObject().put("username", name).put("id", if (omitId) null else idOverride ?: "$label-id-$name")
             .put("accessToken", if (expired) "x.eyJleHAiOjF9.x" else "$label-access-$name")
             .put("refreshToken", "$label-refresh-$name")).toString()
         fun block(path: String) { blockedPath = path; entered = CountDownLatch(1); release = CountDownLatch(1) }
@@ -69,6 +71,34 @@ class SessionIsolationTest {
     private fun assertNoCrossHost(a: Host, b: Host) {
         assertTrue(a.requests.none { it.second?.contains("B-") == true || it.third?.startsWith("B-") == true })
         assertTrue(b.requests.none { it.second?.contains("A-") == true || it.third?.startsWith("A-") == true })
+    }
+
+    @Test fun refreshPreservesIdentityRejectsChangedIdAndMissingIdNeverReusesUsername() {
+        setup()
+        Abs.dir = RuntimeEnvironment.getApplication().getExternalFilesDir(null)!!
+        Host("A").use { a ->
+            for (missing in listOf(false, true)) {
+                a.omitId = missing; login(a)
+                val root = Abs.mediaDir
+                val before = JSONObject(Abs.p.getString("acct:same", null)!!)
+                Abs.token(force = true)
+                val after = JSONObject(Abs.p.getString("acct:same", null)!!)
+                assertEquals(before.getString("id"), after.getString("id"))
+                assertEquals(before.getString("mediaIdentity"), after.getString("mediaIdentity"))
+                assertEquals(root, Abs.mediaDir)
+                // Simulate process reinitialization using persisted credentials, not username.
+                Abs::class.java.getDeclaredField("p").apply { isAccessible = true }.set(null, null)
+                Abs.init(RuntimeEnvironment.getApplication())
+                assertEquals(root, Abs.mediaDir)
+                login(a)
+                if (missing) assertNotEquals(root, Abs.mediaDir) else assertEquals(root, Abs.mediaDir)
+            }
+            a.omitId = false; login(a)
+            val stored = Abs.p.getString("acct:same", null)
+            a.idOverride = "replacement-user"
+            assertTrue(runCatching { Abs.token(force = true) }.exceptionOrNull() is StaleSession)
+            assertEquals(stored, Abs.p.getString("acct:same", null))
+        }
     }
 
     @Test fun rejectedRefreshThenNewHostClearsAllUserStateForSameAndDifferentNames() {

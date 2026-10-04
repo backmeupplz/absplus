@@ -70,12 +70,18 @@ object Abs {
     lateinit var dir: File
     private lateinit var cacheDir: File
     var now: Now? = null
-    // Selected only after successful login. Retained metadata contains no account state.
+    // Both server and immutable account identity must match before retained bytes are visible.
     @Volatile private var mediaServer: String? = null
+    @Volatile private var mediaAccount: String? = null
     @Volatile var mediaEpoch = 0L
         private set
     private fun scope(s: String) = MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
-    val mediaDir get() = File(dir, "servers/" + (mediaServer?.let(::scope) ?: "locked"))
+    val mediaDir get() = synchronized(mediaLock) {
+        val host = mediaServer
+        val account = mediaAccount
+        if (host != null && account != null) File(dir, "servers/${scope(host)}/accounts/${scope(account)}")
+        else File(dir, "locked")
+    }
     private fun retainedFile(path: String) = File(File(mediaDir, "metadata"), scope(path))
     private fun expanded(path: String) = path.startsWith("/api/items/") && path.endsWith("?expanded=1")
     internal val mediaLock = Any()
@@ -95,7 +101,17 @@ object Abs {
         try { checkSession(epoch); return work() } finally { workEpoch.set(prior) }
     }
     private fun expectedEpoch() = workEpoch.get() ?: mediaEpoch
-    private fun selectMedia(s: String?) { mediaServer = s; mediaEpoch++; dlChanged() }
+    private fun selectMedia(s: String?, account: String? = null) {
+        mediaServer = s; mediaAccount = account; mediaEpoch++; dlChanged()
+        PlayerService.invalidateSession()
+    }
+
+    // Persist UI reauthentication across recreation/process death without discarding old credentials.
+    val loginPending get() = p.getBoolean("loginPending", false)
+    fun requireLogin() = synchronized(mediaLock) {
+        p.edit().putBoolean("loginPending", true).commit()
+        PlayerService.invalidateSession()
+    }
 
     fun init(c: Context) {
         if (::p.isInitialized) return
@@ -106,7 +122,16 @@ object Abs {
             p.edit().clear().commit()
             cacheDir.listFiles()?.forEach { it.delete() }
         }
-        if (me != null && server.isNotEmpty()) selectMedia(server)
+        if (me != null && server.isNotEmpty()) {
+            val account = JSONObject(p.getString("acct:$me", "{}")!!)
+            // Old credentials have no verified media owner: quarantine old cache and allocate anew.
+            if (account.str("mediaIdentity").isEmpty()) {
+                account.put("mediaIdentity", "login:" + java.util.UUID.randomUUID())
+                p.edit().putString("acct:$me", account.toString()).commit()
+                cacheDir.listFiles()?.forEach { it.delete() }
+            }
+            selectMedia(server, account.getString("mediaIdentity"))
+        }
         // Legacy unscoped bytes have no trustworthy owner. Keep them, but never adopt by ID.
         if (!p.contains("favq")) { // first run with server favorites: upload the local ones
             val q = JSONObject()
@@ -158,7 +183,10 @@ object Abs {
         val name = u.getString("username")
         val access = u.str("accessToken").ifEmpty { u.str("token") }
         if (name.isBlank() || access.isEmpty()) throw IOException("Invalid login response")
-        return name to JSONObject().put("a", access).put("r", u.str("refreshToken")).put("server", base).put("id", java.util.UUID.randomUUID().toString()).toString()
+        val userId = u.str("id").takeIf { it.isNotBlank() }
+        return name to JSONObject().put("a", access).put("r", u.str("refreshToken")).put("server", base)
+            .put("id", java.util.UUID.randomUUID().toString()).put("userId", userId)
+            .put("mediaIdentity", userId?.let { "user:$it" } ?: "login:${java.util.UUID.randomUUID()}").toString()
     }
 
     /** The candidate host is not published until validated credentials commit atomically. */
@@ -190,7 +218,7 @@ object Abs {
                 cacheDir.listFiles()?.forEach { it.delete() }
                 now = null; progress = emptyMap(); offline = false
                 p.edit().clear().putString("server", base).putString("me", name).putString("acct:$name", tok).commit()
-                selectMedia(base)
+                selectMedia(base, JSONObject(tok).getString("mediaIdentity"))
             } else if (name != me) {
                 p.edit().putString("acct:$name", tok).commit()
             }
@@ -251,7 +279,9 @@ object Abs {
         val (returnedName, tok) = credentials(JSONObject(r).getJSONObject("user"), base)
         inSession(epoch) {
             if (returnedName != name || p.getString("acct:$name", null) != stored) throw StaleSession()
-            val rotated = JSONObject(tok).put("id", a.getString("id"))
+            val rotated = JSONObject(tok)
+            if (rotated.str("userId") != a.str("userId")) throw StaleSession()
+            rotated.put("id", a.getString("id")).put("mediaIdentity", a.getString("mediaIdentity"))
             p.edit().putString("acct:$name", rotated.toString()).commit()
         }
         JSONObject(tok).getString("a")

@@ -91,7 +91,7 @@ final class OfflineHomeProtocol: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)); return
         }
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(#"{"user":{"username":"home-fixture","accessToken":"fixture"}}"#.utf8))
+        client?.urlProtocol(self, didLoad: Data(#"{"user":{"id":"home-fixture-id","username":"home-fixture","accessToken":"fixture"}}"#.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}

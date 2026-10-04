@@ -13,7 +13,7 @@ struct ListLifecycleFixture: View {
         app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
         UserDefaults.standard.set("http://abs-list-fixture.invalid", forKey: "server")
         UserDefaults.standard.set("fixture", forKey: "lib")
-        app.accts["list-fixture"] = Tok(a: "fixture", r: "", host: "http://abs-list-fixture.invalid")
+        app.accts["list-fixture"] = Tok(a: "fixture", r: "", host: "http://abs-list-fixture.invalid", userID: "list-fixture-id", mediaID: "user:list-fixture-id")
         app.me = "list-fixture"
         // Remove only this fixture's cache, so each run starts with asynchronous data.
         for id in ["fixture", "other"] {

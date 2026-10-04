@@ -32,7 +32,7 @@ class RetainedTest {
             val path = x.requestURI.path
             if (path.endsWith("/late")) { entered.countDown(); release.await(5, TimeUnit.SECONDS) }
             val body = when {
-                path.endsWith("/login") -> """{"user":{"username":"fixture","accessToken":"fixture"}}"""
+                path.endsWith("/login") -> """{"user":{"id":"fixture-id","username":"fixture","accessToken":"fixture"}}"""
                 path.endsWith("/pod") -> """{"id":"pod","mediaType":"podcast","media":{"metadata":{"title":"Podcast","author":"Author"},"episodes":[{"id":"ep","title":"Episode","audioFile":$audio}]},"token":"secret"}"""
                 else -> """{"id":"book","mediaType":"book","media":{"metadata":{"title":"Book","authorName":"Author"},"tracks":[$audio]},"token":"secret"}"""
             }.toByteArray()

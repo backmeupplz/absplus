@@ -42,7 +42,7 @@ class OfflineHomeTest {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/login") { x ->
             x.requestBody.close()
-            val data = """{"user":{"username":"fixture","accessToken":"fixture"}}""".toByteArray()
+            val data = """{"user":{"id":"fixture-id","username":"fixture","accessToken":"fixture"}}""".toByteArray()
             x.sendResponseHeaders(200, data.size.toLong())
             x.responseBody.use { it.write(data) }
         }

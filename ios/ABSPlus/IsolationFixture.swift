@@ -2,6 +2,8 @@
 import SwiftUI
 import os
 import AVFoundation
+import Network
+import CryptoKit
 
 struct IsolationFixture: View {
     @State private var result = "Running isolation checks"
@@ -140,16 +142,118 @@ struct IsolationFixture: View {
             }
         }
         try check(!requests.contains { $0.url?.path == "/api/linked" }, "unlinked API sent")
-        // All credential-bearing redirect policies reject even a same-origin redirect.
+        try await accountIsolation(a)
+        try await downloadRedirects()
+        // API policy also rejects even a same-origin redirect.
         var redirected = true
         let request = URLRequest(url: URL(string: b + "/redirect")!)
         let response = HTTPURLResponse(url: URL(string: a)!, statusCode: 307, httpVersion: nil, headerFields: nil)!
         NoRedirects.shared.urlSession(app.network, task: app.network.dataTask(with: request), willPerformHTTPRedirection: response, newRequest: request) { redirected = $0 != nil }
         try check(!redirected, "API redirect allowed")
-        Downloader.shared.urlSession(app.network, task: app.network.dataTask(with: request), willPerformHTTPRedirection: response, newRequest: request) { redirected = $0 != nil }
-        try check(!redirected, "download redirect allowed")
         try check(Downloader.reauth(Data("invalid".utf8), "fixture", expected: URL(string: a)!) == nil, "unsafe resume accepted")
         app.logout()
+    }
+
+    @MainActor private func accountIsolation(_ server: String) async throws {
+        func check(_ value: Bool, _ message: String) throws { if !value { throw Msg(errorDescription: message) } }
+        let fm = FileManager.default, path = "/api/items/restricted?expanded=1"
+        try await app.login(server, "account-a", "fixture", main: true)
+        let item = try await app.get(path)
+        let track = try JSONDecoder().decode(Item.self, from: item).media.tracks![0].track()
+        let original = app.mediaDir, file = app.file("restricted", track)
+        try fm.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try RetainedProtocol.audio.write(to: file)
+        // Both historical layouts remain untouched, but neither can be adopted by B.
+        let serverHash = SHA256.hash(data: Data(server.utf8)).map { String(format: "%02x", $0) }.joined()
+        let legacy = [dlDir.appending(path: "servers/" + serverHash + "/audio/restricted/1.wav"), dlDir.appending(path: "restricted/1.wav")]
+        let legacyJSON = URL.applicationSupportDirectory.appending(path: "json/" + String(path.map { $0.isLetter || $0.isNumber ? $0 : "_" }))
+        let legacyMetadata = dlDir.appending(path: "servers/" + serverHash + "/metadata/" + SHA256.hash(data: Data(path.utf8)).map { String(format: "%02x", $0) }.joined())
+        for url in [legacyJSON, legacyMetadata] {
+            try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try item.write(to: url)
+        }
+        for url in legacy {
+            try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try RetainedProtocol.audio.write(to: url)
+        }
+        try await app.login(server, "account-b", "fixture", main: true)
+        var rendered = false
+        await app.load(path) { (_: Item) in rendered = true }
+        try check(!rendered && app.cached(path) == nil && app.toast?.contains("403") == true, "B rendered A metadata despite 403")
+        do { _ = try await app.item("restricted"); throw Msg(errorDescription: "B item lookup bypassed 403") }
+        catch let e as HttpErr where e.code == 403 {}
+        try check(app.downloads().isEmpty && !app.downloaded("restricted") && !app.done("restricted", track) && !app.url("restricted", track).isFileURL, "B resolved A local audio")
+        let now = Now(item: "restricted", ep: nil, title: "A private book", author: "", tracks: [track])
+        player.start(now, 0, play: false)
+        for _ in 0..<40 where player.p.currentItem == nil { try await Task.sleep(for: .milliseconds(25)) }
+        guard let asset = player.p.currentItem?.asset as? AVURLAsset else { throw Msg(errorDescription: "B production playback resolution not exercised") }
+        try check(!asset.url.isFileURL, "B production player loaded A local file")
+        player.clear()
+        try check(try Data(contentsOf: file) == RetainedProtocol.audio, "B destroyed A audio")
+        try await app.login(server, "account-a", "fixture", main: true)
+        try check(app.mediaDir == original && app.downloaded("restricted"), "A relogin lost retained media")
+        let audio = try AVAudioPlayer(contentsOf: app.url("restricted", track))
+        try check(audio.prepareToPlay() && audio.play(), "A relogin local playback failed"); audio.stop()
+        for url in legacy { try check(try Data(contentsOf: url) == RetainedProtocol.audio, "legacy bytes deleted") }
+        for url in [legacyJSON, legacyMetadata] { try check(try Data(contentsOf: url) == item, "legacy metadata deleted") }
+        // Refresh preserves account scope and login generation; conflicting identity cannot commit.
+        let tok = app.accts["account-a"]!
+        for id in [nil, "different-id", tok.userID] {
+            IsolationProtocol.state.withLock { $0.omitID = id == nil; $0.accountID = id }
+            app.accts["account-a"]!.a = "x.eyJleHAiOjB9.x"
+            do { _ = try await app.token(); try check(id != "different-id", "conflicting refresh accepted") }
+            catch is Expired { try check(id == "different-id", "valid refresh rejected") }
+            try check(app.mediaDir == original && app.accts["account-a"]?.mediaID == tok.mediaID && app.accts["account-a"]?.id == tok.id, "refresh changed media identity")
+        }
+        IsolationProtocol.state.withLock { $0.omitID = true; $0.accountID = nil }
+        try await app.login(server, "no-id", "fixture", main: true)
+        let fallback = app.mediaDir
+        app.d.set(try JSONEncoder().encode(["obsolete": "old-task"]), forKey: "transfers")
+        let restarted = Abs()
+        try check(restarted.mediaDir == fallback && restarted.transfers.isEmpty && app.d.data(forKey: "transfers") == nil, "restart identity or transfer reset failed")
+        app.accts["no-id"]!.a = "x.eyJleHAiOjB9.x"
+        _ = try await app.token()
+        try check(app.mediaDir == fallback && app.accts["no-id"]?.mediaID == restarted.accts["no-id"]?.mediaID, "fallback refresh changed identity")
+        try await app.login(server, "no-id", "fixture", main: true)
+        try check(app.mediaDir != fallback, "missing ID reused username identity")
+        IsolationProtocol.state.withLock { $0.omitID = false }
+        // Upgrade from a token written before mediaID existed: random, persisted, never username-bound.
+        app.accts["no-id"]!.mediaID = nil
+        let migrated = Abs(), migratedAgain = Abs()
+        try check(migrated.mediaDir == migratedAgain.mediaDir && migrated.mediaDir != fallback && migrated.accts["no-id"]?.mediaID?.hasPrefix("login:") == true, "legacy login identity was not persisted")
+        try check(migrated.cached(path) == nil && migrated.downloads().isEmpty, "upgrade adopted unscoped cache/media")
+    }
+
+    @MainActor private func downloadRedirects() async throws {
+        func check(_ value: Bool, _ message: String) throws { if !value { throw Msg(errorDescription: message) } }
+        let sink = try LoopbackDownloadServer(), source = try LoopbackDownloadServer()
+        defer { source.stop(); sink.stop() }
+        let sinkURL = try await sink.start()
+        source.redirect = sinkURL.appending(path: "sink")
+        let sourceURL = try await source.start()
+        try check(Downloader.shared.session.configuration.identifier == nil, "download transport is background")
+        for (path, code) in [("redirect", 307), ("success", 200)] {
+            let track = Track(ino: path, ext: ".wav", size: Int64(RetainedProtocol.audio.count), duration: 1, start: 0)
+            let rel = app.rel("socket-fixture", track), file = app.file("socket-fixture", track)
+            try? FileManager.default.removeItem(at: file)
+            var request = URLRequest(url: sourceURL.appending(path: path))
+            request.setValue("Bearer synthetic-download-only", forHTTPHeaderField: "Authorization")
+            // Actual production session and delegate, not a direct redirect callback invocation.
+            let task = Downloader.shared.session.downloadTask(with: request)
+            Downloader.shared.bind(task, rel); task.resume()
+            for _ in 0..<500 {
+                if !app.inflight.contains(rel) { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            try check(!app.inflight.contains(rel), "socket download timed out")
+            try check((task.response as? HTTPURLResponse)?.statusCode == code, "wrong socket response: " + path + " status=" + String((task.response as? HTTPURLResponse)?.statusCode ?? -1) + " error=" + (task.error?.localizedDescription ?? "none") + " requests=" + String(source.requests.withLock { $0.count }))
+            if code == 200 { try check(try Data(contentsOf: file) == RetainedProtocol.audio, "successful transport did not commit bytes") }
+            else { try check(!FileManager.default.fileExists(atPath: file.path), "redirect committed file") }
+        }
+        try await Task.sleep(for: .milliseconds(100))
+        try check(sink.requests.withLock { $0.isEmpty }, "redirect sink received request/auth")
+        let requests = source.requests.withLock { $0 }
+        try check(requests.count == 2 && requests.allSatisfy { $0.contains("Bearer synthetic-download-only") }, "source did not receive authenticated requests")
     }
 }
 
@@ -157,7 +261,8 @@ final class IsolationProtocol: URLProtocol, @unchecked Sendable {
     struct State {
         var requests: [URLRequest] = [], pending: [IsolationProtocol] = []
         var hold: String?
-        var failLogin = false, refresh401 = false
+        var failLogin = false, refresh401 = false, omitID = false
+        var accountID: String?
     }
     static let state = OSAllocatedUnfairLock(initialState: State())
     private let stopped = OSAllocatedUnfairLock(initialState: false)
@@ -201,12 +306,71 @@ final class IsolationProtocol: URLProtocol, @unchecked Sendable {
             return
         }
         let login = path == "/login" || path == "/auth/refresh"
-        let json: [String: Any] = login ? ["user": ["username": username, "accessToken": host + "|" + username, "refreshToken": host + "|" + username]] : ["mediaProgress": []]
-        let code = (path == "/login" && flags.0) || (path == "/auth/refresh" && flags.1) ? 401 : 200
+        let identity = Self.state.withLock { ($0.omitID, $0.accountID) }
+        var user = ["username": username, "accessToken": host + "|" + username, "refreshToken": host + "|" + username]
+        if !identity.0 { user["id"] = identity.1 ?? "id-" + username }
+        let restricted = path == "/api/items/restricted"
+        let denied = restricted && request.value(forHTTPHeaderField: "Authorization")?.hasSuffix("|account-b") == true
+        let json: [String: Any] = login ? ["user": user] : restricted ? ["id": "restricted", "media": ["metadata": ["title": "A private book"], "tracks": [["ino": "1", "duration": 1, "metadata": ["ext": ".wav", "size": RetainedProtocol.audio.count]]]]] : ["mediaProgress": []]
+        let code = (path == "/login" && flags.0) || (path == "/auth/refresh" && flags.1) ? 401 : denied ? 403 : 200
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: code, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: json))
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() { stopped.withLock { $0 = true } }
+}
+/// Real TCP/HTTP fixture; production URLSession controls redirect handling.
+private final class LoopbackDownloadServer: @unchecked Sendable {
+    let requests = OSAllocatedUnfairLock(initialState: [String]())
+    var redirect: URL?
+    private let listener: NWListener
+    private let queue = DispatchQueue(label: "absplus.isolation.http")
+    private let connections = OSAllocatedUnfairLock(initialState: [NWConnection]())
+    private let ready = OSAllocatedUnfairLock(initialState: false)
+    init() throws {
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        listener = try NWListener(using: parameters, on: .any)
+    }
+    func start() async throws -> URL {
+        listener.newConnectionHandler = { [self] connection in
+            connections.withLock { $0.append(connection) }
+            connection.start(queue: queue)
+            receive(connection, Data())
+        }
+        // port can be populated before the socket is accepting; wait for .ready, not port alone.
+        listener.stateUpdateHandler = { [self] state in
+            if case .ready = state { ready.withLock { $0 = true } }
+        }
+        listener.start(queue: queue)
+        for _ in 0..<200 {
+            if ready.withLock({ $0 }), let port = listener.port { return URL(string: "http://127.0.0.1:" + String(port.rawValue))! }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        throw Msg(errorDescription: "Loopback HTTP listener did not start")
+    }
+    func stop() {
+        listener.cancel()
+        connections.withLock { $0.forEach { $0.cancel() }; $0 = [] }
+    }
+    private func receive(_ connection: NWConnection, _ prefix: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 16384) { [self] data, _, complete, error in
+            var bytes = prefix; bytes.append(data ?? Data())
+            guard bytes.count <= 32768 else { connection.cancel(); return }
+            let request = String(decoding: bytes, as: UTF8.self)
+            guard request.contains("\r\n\r\n") else {
+                if !complete && error == nil { receive(connection, bytes) } else { connection.cancel() }
+                return
+            }
+            requests.withLock { $0.append(request) }
+            let redirected = request.hasPrefix("GET /redirect ") && redirect != nil
+            let body = redirected ? Data() : RetainedProtocol.audio
+            let status = redirected ? "307 Temporary Redirect" : "200 OK"
+            let location = redirected ? "Location: " + redirect!.absoluteString + "\r\n" : ""
+            var response = Data(("HTTP/1.1 " + status + "\r\n" + location + "Content-Type: audio/wav\r\nContent-Length: " + String(body.count) + "\r\nConnection: close\r\n\r\n").utf8)
+            response.append(body)
+            connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
+        }
+    }
 }
 #endif

@@ -184,7 +184,7 @@ class NavigationTest {
         val a = controller.get()
         (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
         Abs.p.edit().putString("server", "http://127.0.0.1:1").putString("me", "fixture").commit()
-        Abs::class.java.getDeclaredMethod("selectMedia", String::class.java).apply { isAccessible = true }.invoke(Abs, Abs.server)
+        Abs::class.java.getDeclaredMethod("selectMedia", String::class.java, String::class.java).apply { isAccessible = true }.invoke(Abs, Abs.server, "user:fixture-id")
         Abs.offline = true
         repeat(200) { i ->
             val id = "download$i"
