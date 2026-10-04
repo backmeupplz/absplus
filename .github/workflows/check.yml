@@ -22,8 +22,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - name: Build and exercise navigation, retained downloads, and offline Home
+      - name: Build and exercise navigation, accessibility, retained downloads, and offline lists
         run: >-
           xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
           -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
-          -only-testing:UITests/ListLifecycle -only-testing:UITests/RetainedDownloads -only-testing:UITests/OfflineHome test
+          -only-testing:UITests/ListLifecycle -only-testing:UITests/Accessibility -only-testing:UITests/RetainedDownloads -only-testing:UITests/OfflineHome -only-testing:UITests/OfflineLibrary test

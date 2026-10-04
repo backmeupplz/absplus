@@ -192,11 +192,14 @@ class NavigationTest {
                 .invoke(Abs, "/api/items/$id?expanded=1") as java.io.File
             cache.parentFile!!.mkdirs()
             cache.writeText(JSONObject().put("id", id)
-                .put("media", JSONObject().put("tracks", JSONArray()).put("metadata", JSONObject().put("title", "Title $i"))).toString())
+                .put("media", JSONObject().put("tracks", JSONArray().put(JSONObject().put("ino", "audio").put("duration", 60)
+                    .put("metadata", JSONObject().put("ext", ".mp3").put("size", 7))))
+                    .put("metadata", JSONObject().put("title", "Title $i"))).toString())
         }
         Abs.dlChanged()
         a.call("tab", 1)
         val page = a.content().getChildAt(0)
+        views(page).filterIsInstance<TextInputEditText>().single().setText("Title ")
         val grid = views(page).filterIsInstance<RecyclerView>().single()
         val lm = grid.layoutManager as GridLayoutManager
         layout(a.content())
@@ -205,7 +208,7 @@ class NavigationTest {
         val first = lm.findFirstVisibleItemPosition()
         val name = title(lm, first)
         val y = lm.findViewByPosition(first)!!.top
-        val originals = Abs.downloads()
+        val originals = Abs.downloads().filter { it.name.startsWith("download") }
         a.call("push", { a.call("settings") })
         a.call("push", { a.call("downloads") })
         originals.take(4).forEach(Abs::removeAll)
@@ -275,7 +278,7 @@ class NavigationTest {
             val removed = first + lm.spanCount // keep the visible anchor, remove another visible title
             lm.findViewByPosition(removed)!!.performClick()
             layout(a.content())
-            views(a.content()).single { it.contentDescription == "Remove download" }.performClick()
+            views(a.content()).single { it.contentDescription == "Remove download of Title $removed" }.performClick()
             val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog() as androidx.appcompat.app.AlertDialog
             dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()
             shadowOf(Looper.getMainLooper()).idle()
