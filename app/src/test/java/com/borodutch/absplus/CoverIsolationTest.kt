@@ -6,6 +6,7 @@ import android.widget.ImageView
 import com.sun.net.httpserver.HttpServer
 import org.json.JSONObject
 import org.junit.Assert.*
+import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -61,6 +62,8 @@ class CoverIsolationTest {
         override fun close() { release.countDown(); server.stop(0); pool.shutdownNow() }
     }
     private fun setup() { Abs.init(RuntimeEnvironment.getApplication()); Abs.logout() }
+    // Do not leave a logged-in singleton pointing at a fixture server that has stopped.
+    @After fun tearDown() { Abs.logout() }
     private fun load(id: String): Image = Image().also { Covers.load(it, id) }
     @Suppress("UNCHECKED_CAST")
     private fun clearMemory() {
