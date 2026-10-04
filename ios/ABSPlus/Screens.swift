@@ -104,7 +104,7 @@ struct LibraryView: View {
     }
 
     @ViewBuilder private var libraryContent: some View {
-        let cards = app.offline ? app.downloads().map { app.cachedCard($0.id) } : all
+        let cards = app.offline ? avail(app.downloads().map { app.cachedCard($0.id) }) : all
         let query = q.trimmingCharacters(in: .whitespaces)
         let shown = query.isEmpty ? cards : cards.filter { $0.title.localizedCaseInsensitiveContains(query) || $0.sub.localizedCaseInsensitiveContains(query) }
         ScrollView {
