@@ -121,9 +121,10 @@ fun Context.text(s: CharSequence, appearance: Int = M.attr.textAppearanceBodyMed
         if (lines > 0) { maxLines = lines; ellipsize = TextUtils.TruncateAt.END }
     }
 
-fun Context.icon(id: Int, style: Int = M.attr.materialIconButtonStyle, f: () -> Unit) =
+fun Context.icon(id: Int, description: String, style: Int = M.attr.materialIconButtonStyle, f: () -> Unit) =
     MaterialButton(this, null, style).apply {
         icon = ContextCompat.getDrawable(context, id)
+        contentDescription = description
         setOnClickListener { f() }
     }
 
