@@ -27,4 +27,5 @@ jobs:
           xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
           -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
           -parallel-testing-enabled NO
-          -only-testing:UITests/ListLifecycle -only-testing:UITests/ProgressReplay test
+          -only-testing:UITests/ListLifecycle -only-testing:UITests/OfflineHome
+          -only-testing:UITests/ProgressReplay test

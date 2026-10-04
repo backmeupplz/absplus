@@ -11,6 +11,8 @@ struct ABSPlusApp: App {
                 ProgressFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--offline-home-test") {
+                OfflineHomeFixture()
             } else { RootView() }
 #else
             RootView()
