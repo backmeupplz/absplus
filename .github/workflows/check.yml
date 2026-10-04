@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -15,7 +15,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew testDebugUnitTest assembleDebug
   ios:

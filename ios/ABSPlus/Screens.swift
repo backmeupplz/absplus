@@ -64,6 +64,7 @@ struct LibraryView: View {
     @State private var all: [Card] = []
     @State private var q = ""
     @State private var loadedLibrary = ""
+    @State private var visibleTitle: String?
     @AppStorage("lib") private var sel = ""
 
     var body: some View {
@@ -73,6 +74,10 @@ struct LibraryView: View {
         ScrollView {
             CardGrid(cards: shown, ratio: app.offline ? 1 : ratio(sel))
         }
+        // Native targets retain the visible identity and its offset when results move.
+        // Do not force .top: that would discard a partially scrolled row.
+        .scrollPosition(id: $visibleTitle)
+        .onChange(of: "\(sel):\(app.offline):\(query)") { visibleTitle = nil }
         .id("\(sel):\(app.offline):\(query)") // only a new list context resets the viewport
         .navigationTitle(app.offline ? "Downloaded" : libs.first { $0.id == sel }?.name ?? "Library")
         .navigationBarTitleDisplayMode(.inline)

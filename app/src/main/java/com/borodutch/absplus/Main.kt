@@ -211,7 +211,7 @@ class Main : AppCompatActivity() {
         } else {
             screen = page.generation
             retainPage = true
-            onDl = null
+            onDl = page.resume
             onDlTick = null
             onReturn = page.resume
             show(page.view)
@@ -332,10 +332,10 @@ class Main : AppCompatActivity() {
         fun filter(preservePosition: Boolean = true) {
             val lm = g.layoutManager as GridLayoutManager
             val first = lm.findFirstVisibleItemPosition()
-            val key = shown.getOrNull(first)?.key
+            val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
             val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
             val q = search.str().trim()
-            shown = if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.sub.contains(q, true) }
+            shown = avail(if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.sub.contains(q, true) })
             g.adapter?.notifyDataSetChanged()
             if (!preservePosition) lm.scrollToPositionWithOffset(0, 0)
             else if (key != null && offset != null) {
@@ -346,8 +346,12 @@ class Main : AppCompatActivity() {
         search.editText!!.doAfterTextChanged { filter(preservePosition = false) }
         if (Abs.offline) { // every downloaded item, whatever its library
             show(col(header("Downloaded"), search.lp(m = 0).pad(16, 4), g.lp(-1, 0, 1f)))
-            all = Abs.downloads().map { Abs.cachedCard(it.name) }
-            return filter()
+            onReturn = {
+                all = Abs.downloads().map { Abs.cachedCard(it.name) }
+                filter()
+            }
+            onDl = onReturn
+            return onReturn!!.invoke()
         }
         show(col(header("Library"), HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0),
             search.lp(m = 0).pad(16, 4), g.lp(-1, 0, 1f)))
@@ -424,22 +428,29 @@ class Main : AppCompatActivity() {
     private fun favorites() {
         begin()
         retainPage = true
-        var favs = Abs.favs()
+        val owner = screen
+        var favs = avail(Abs.favs())
         val empty = text("Tap ♡ on a book or podcast to keep it here.", muted = true).pad(16, 4)
         val g = grid(1f) { favs }
         fun refresh() {
-            favs = Abs.favs()
+            val lm = g.layoutManager as GridLayoutManager
+            val first = lm.findFirstVisibleItemPosition()
+            val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
+            val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
+            favs = avail(Abs.favs())
             empty.isVisible = favs.isEmpty()
             g.adapter?.notifyDataSetChanged()
+            val at = favs.indexOfFirst { it.key == key }
+            if (at >= 0 && offset != null) lm.scrollToPositionWithOffset(at, offset)
         }
         onReturn = { refresh() }
+        onDl = onReturn
         show(col(header("Favorites"), empty, g.lp(-1, 0, 1f)))
         refresh()
-        load("/api/me") { me ->
+        load("/api/me", retained = true) { me ->
             Abs.setMe(me)
             refresh()
-            val gen = screen
-            favs.filter { it.title.isEmpty() }.forEach { c -> bg({ Abs.fillFav(c.id) }, {}) { if (gen == screen) refresh() } }
+            favs.filter { it.title.isEmpty() }.forEach { c -> bg({ Abs.fillFav(c.id) }, {}) { if (ownsPage(owner, true)) refresh() } }
         }
     }
 
@@ -571,7 +582,7 @@ class Main : AppCompatActivity() {
 
     // --- tiles & rows
 
-    private class Tile(val cover: Cover, val badge: View, val prog: LinearProgressIndicator, val title: TextView, val sub: TextView)
+    private class Tile(val cover: Cover, val badge: View, val prog: LinearProgressIndicator, val title: TextView, val sub: TextView, var key: String = "")
 
     /** offline: only what's playable without the server */
     private fun avail(cards: List<Card>) = if (Abs.offline) cards.filter { Abs.downloaded(it.id) } else cards
@@ -614,6 +625,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun bindTile(v: View, c: Card) = (v.tag as Tile).run {
+        key = c.key
         Covers.load(cover, c.id)
         title.text = c.title
         sub.text = c.sub
@@ -1000,12 +1012,16 @@ class Main : AppCompatActivity() {
 
     // --- helpers
 
+    private fun ownsPage(gen: Int, retained: Boolean) = gen == screen || retained && stack.any {
+        it.generation == gen && it.offline == Abs.offline && it.library == Abs.p.getString("lib", null)
+    }
+
     /** Renders cached JSON instantly, then refreshes from the server. */
     private fun load(path: String, retained: Boolean = false, render: (JSONObject) -> Unit) {
         val gen = screen
         val old = Abs.cached(path)?.also { render(JSONObject(it)) }
         bg({ Abs.get(path) }, { if ((old == null && !Abs.offline) || it is Expired) err(it) }) {
-            if ((gen == screen || retained && stack.any { page -> page.generation == gen && page.offline == Abs.offline && page.library == Abs.p.getString("lib", null) }) && it != old) render(JSONObject(it))
+            if (ownsPage(gen, retained) && it != old) render(JSONObject(it))
         }
     }
 

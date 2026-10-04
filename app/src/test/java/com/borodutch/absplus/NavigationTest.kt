@@ -175,4 +175,116 @@ class NavigationTest {
         Abs.offline = false
         controller.destroy()
     }
+
+    private fun title(lm: GridLayoutManager, at: Int) = views(lm.findViewByPosition(at)!!)
+        .filterIsInstance<android.widget.TextView>().first { it.text.startsWith("Title") }.text.toString()
+
+    @Test fun offlineDeletesRefreshOnReturnAndDownloadChangeWithoutLosingAnchor() {
+        val controller = Robolectric.buildActivity(Main::class.java).create()
+        val a = controller.get()
+        (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
+        Abs.offline = true
+        repeat(200) { i ->
+            val id = "download$i"
+            java.io.File(Abs.dir, id).mkdirs()
+            java.io.File(Abs.dir, "$id/audio").writeText("fixture")
+            val cache = Abs::class.java.getDeclaredMethod("cacheFile", String::class.java).apply { isAccessible = true }
+                .invoke(Abs, "/api/items/$id?expanded=1") as java.io.File
+            cache.parentFile!!.mkdirs()
+            cache.writeText(JSONObject().put("id", id)
+                .put("media", JSONObject().put("tracks", JSONArray()).put("metadata", JSONObject().put("title", "Title $i"))).toString())
+        }
+        Abs.dlChanged()
+        a.call("tab", 1)
+        val page = a.content().getChildAt(0)
+        val grid = views(page).filterIsInstance<RecyclerView>().single()
+        val lm = grid.layoutManager as GridLayoutManager
+        layout(a.content())
+        lm.scrollToPositionWithOffset(100, -29)
+        layout(a.content())
+        val first = lm.findFirstVisibleItemPosition()
+        val name = title(lm, first)
+        val y = lm.findViewByPosition(first)!!.top
+        val originals = Abs.downloads()
+        a.call("push", { a.call("settings") })
+        a.call("push", { a.call("downloads") })
+        originals.take(4).forEach(Abs::removeAll)
+        a.onBackPressedDispatcher.onBackPressed()
+        a.onBackPressedDispatcher.onBackPressed()
+        layout(a.content())
+        assertSame(page, a.content().getChildAt(0))
+        assertEquals(196, grid.adapter!!.itemCount)
+        assertEquals(name, title(lm, lm.findFirstVisibleItemPosition()))
+        assertEquals(y, lm.findViewByPosition(lm.findFirstVisibleItemPosition())!!.top)
+        originals.drop(4).take(4).forEach(Abs::removeAll)
+        val onDl = Main::class.java.getDeclaredField("onDl").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        (onDl.get(a) as () -> Unit).invoke()
+        layout(a.content())
+        assertEquals(192, grid.adapter!!.itemCount)
+        assertEquals(name, title(lm, lm.findFirstVisibleItemPosition()))
+        assertEquals(y, lm.findViewByPosition(lm.findFirstVisibleItemPosition())!!.top)
+        Abs.offline = false
+        controller.destroy()
+    }
+
+    @Test fun delayedFavoritesAndMetadataUpdateTheirRetainedOwner() {
+        val release = CountDownLatch(1)
+        val requested = CountDownLatch(1)
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/") { x ->
+            val body = if (x.requestURI.path == "/api/me") {
+                requested.countDown(); release.await(5, TimeUnit.SECONDS)
+                JSONObject().put("mediaProgress", JSONArray()).put("bookmarks", JSONArray((0..195).map {
+                    JSONObject().put("libraryItemId", "fav$it").put("title", "♥ Favorite")
+                } + JSONObject().put("libraryItemId", "new").put("title", "♥ Favorite")))
+            } else JSONObject().put("id", "new").put("media", JSONObject().put("metadata", JSONObject().put("title", "Title new")))
+            val bytes = body.toString().toByteArray()
+            x.sendResponseHeaders(200, bytes.size.toLong())
+            x.responseBody.use { it.write(bytes) }
+        }
+        server.start()
+        val controller = Robolectric.buildActivity(Main::class.java).create()
+        val a = controller.get()
+        (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
+        try {
+            Abs.offline = false
+            val favs = JSONObject()
+            repeat(200) { favs.put("fav$it", Card("fav$it", "Title $it", "").json()) }
+            Abs.p.edit().putString("server", "http://127.0.0.1:" + server.address.port)
+                .putString("me", "fixture").putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").toString())
+                .putString("fav", favs.toString()).putString("favq", "{}").commit()
+            a.call("tab", 3)
+            val page = a.content().getChildAt(0)
+            val grid = views(page).filterIsInstance<RecyclerView>().single()
+            val lm = grid.layoutManager as GridLayoutManager
+            layout(a.content())
+            lm.scrollToPositionWithOffset(100, -23)
+            layout(a.content())
+            val name = title(lm, lm.findFirstVisibleItemPosition())
+            val y = lm.findViewByPosition(lm.findFirstVisibleItemPosition())!!.top
+            assertTrue(requested.await(5, TimeUnit.SECONDS))
+            a.call("push", { a.call("shelf", "Details", emptyList<Card>(), 1f) })
+            release.countDown()
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (Abs.favs().none { it.title == "Title new" } && System.nanoTime() < deadline) {
+                Thread.sleep(20); shadowOf(Looper.getMainLooper()).idle()
+            }
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(197, grid.adapter!!.itemCount)
+            assertTrue(Abs.favs().any { it.title == "Title new" })
+            a.onBackPressedDispatcher.onBackPressed()
+            layout(a.content())
+            assertSame(page, a.content().getChildAt(0))
+            val anchor = Abs.favs().indexOfFirst { it.title == name }
+            assertTrue(anchor >= 0)
+            assertEquals(name, title(lm, anchor))
+            assertEquals(y, lm.findViewByPosition(anchor)!!.top)
+        } finally {
+            release.countDown(); server.stop(0)
+            Abs.p.edit().remove("me").commit()
+            controller.destroy()
+        }
+    }
+
 }

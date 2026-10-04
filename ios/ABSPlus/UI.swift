@@ -112,6 +112,7 @@ struct CardGrid: View {
                 NavigationLink(value: Route.item(c.id)) { Tile(card: c, ratio: ratio) }.buttonStyle(.plain)
             }
         }
+        .scrollTargetLayout()
         .padding(16)
     }
 }
