@@ -150,7 +150,7 @@ let resumeDir: URL = {
     @ObservationIgnored private var mediaServer: String?
     @ObservationIgnored private var mediaAccount: String?
     private(set) var mediaEpoch = UserDefaults.standard.string(forKey: "mediaEpoch") ?? UUID().uuidString
-    private var mediaScope: String {
+    var mediaScope: String {
         guard let server = mediaServer, let account = mediaAccount else { return "locked" }
         // Unambiguous pair encoding; the new root quarantines legacy server-only/unscoped
         // bytes in place, without deleting or adopting them.

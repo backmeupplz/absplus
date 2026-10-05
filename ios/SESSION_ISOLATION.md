@@ -16,6 +16,10 @@
   Completed audio and allowlisted retained metadata are preserved in server-and-account
   scopes. Immutable server user IDs recover the same account; missing IDs use persisted
   per-login random ownership. Legacy server-only/unscoped media and JSON remain quarantined.
+  Covers use the same server/account scope for disk, decoded memory, 404 negatives and
+  in-flight deduplication; legacy `Caches/covers/<id>` is never read or migrated.
+  Account cleanup is best-effort hygiene, not the ownership boundary. Epoch/cancellation
+  checks still reject late cover responses before disk writes or decoded-image publication.
 - No credential-bearing redirects are followed. Cover reads use the guarded API;
   foreground ephemeral downloads reject redirects (background URLSession cannot enforce
   this delegate). Legacy OS-owned downloads are cancelled, never adopted. No continued
@@ -38,7 +42,15 @@ binding, and real AVFoundation range loading of generated silent WAV. The produc
 Downloader uses actual loopback TCP/HTTP fixtures: HTTP 200 commits valid WAV bytes;
 HTTP 307 commits nothing and sends no request to the redirect sink. Same-server accounts
 exercise a 403 metadata denial, production local-file resolution, preserved owner bytes,
-same-account recovery, missing-ID restart and refresh isolation. Unsafe resume archives
+same-account recovery, missing-ID restart and refresh isolation. Actual Covers.get checks
+cache A, log in B, then inject surviving A scoped and unscoped cover files: B HTTP 403
+reads and reconstructed/cold-cache reads return nil. Cases include distinct usernames,
+the same username with different immutable IDs, missing IDs and different hosts. Memory
+and 404 negatives are exercised across simultaneous reconstructed ownership contexts.
+Sibling session JSON was inspected: `account-json/<mediaScope>` already uses the same
+authenticated server/account ownership, with legacy `json/` quarantined. The fixture
+injects A session JSON after cleanup and checks B/restart cannot read it; no analogous
+unscoped production JSON namespace remains. Unsafe resume archives
 are also asserted. No real server or credentials are used. RetainedDownloads and ListLifecycle
 remain in the suite. Debug launch fixtures alone use a synthetic UserDefaults credential
 store so unsigned simulator persistence does not depend on Keychain entitlements; release
@@ -49,6 +61,17 @@ store and authenticates via the synthetic OfflineHomeProtocol before writing sco
 must capture this generation plus recipient account identity, clear progress queues in
 resetSession, and never substitute a later host/account after await. The separate active
 #34 worktree was inspected read-only; no code was cherry-picked.
+
+## Persistent cover ownership review fix (2026-10-04)
+
+All six native suites passed on disposable ABS33-CoverScope: 9 tests, zero failures or
+skips, finalized xcresult `Passed` at `/tmp/abs33-cover-full-suite.xcresult`; log
+`/tmp/abs33-cover-full-suite.log`. Xcode exited 0 without diagnostic intervention on
+this final run. Unsigned Release simulator build exited 0 (`/tmp/abs33-cover-release.log`).
+The first focused attempt exposed a fixture filename assumption (hyphen percent-encoding),
+corrected before the full run; its stalled post-test diagnostic child alone was stopped.
+Existing AVAudioSession main-thread runtime warnings remain. Android was untouched and
+was not rerun. No publication, signing or real account/server access.
 
 ## Local build evidence
 

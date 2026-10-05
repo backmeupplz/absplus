@@ -148,6 +148,7 @@ struct IsolationFixture: View {
         }
         try check(!requests.contains { $0.url?.path == "/api/linked" }, "unlinked API sent")
         try await accountIsolation(a)
+        try await coverIsolation(a, b)
         try await downloadRedirects()
         // API policy also rejects even a same-origin redirect.
         var redirected = true
@@ -229,6 +230,57 @@ struct IsolationFixture: View {
         try check(migrated.cached(path) == nil && migrated.downloads().isEmpty, "upgrade adopted unscoped cache/media")
     }
 
+    @MainActor private func coverIsolation(_ server: String, _ otherServer: String) async throws {
+        func check(_ value: Bool, _ message: String) throws { if !value { throw Msg(errorDescription: message) } }
+        let fm = FileManager.default, id = "privatecover", jsonPath = "/api/me"
+        let legacy = URL.cachesDirectory.appending(path: "covers/" + id)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).pngData { context in
+            UIColor.red.setFill(); context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        IsolationProtocol.state.withLock { $0.coverData = image }
+        defer { IsolationProtocol.state.withLock { $0.coverData = nil; $0.coverCode = 200; $0.omitID = false; $0.accountID = nil } }
+        // Separate names, same name/different immutable IDs, absent IDs, and different hosts.
+        for mode in ["names", "ids", "missing", "hosts"] {
+            IsolationProtocol.state.withLock { $0.omitID = mode == "missing"; $0.accountID = mode == "ids" ? "owner-a" : nil; $0.coverCode = 200 }
+            try await app.login(server, "account-a", "fixture", main: true)
+            let owner = Abs(); owner.network = app.network
+            let original = URL.cachesDirectory.appending(path: "account-covers/" + app.mediaScope + "/" + id)
+            let cover = await Covers.get(id)
+            try check(cover != nil && Covers.mem(id) != nil, "A cover did not cache: " + mode)
+            try check(try Data(contentsOf: original) == image, "A cover disk write missing: " + mode)
+            let json = try await app.get(jsonPath), oldJSON = app.cacheDir.appending(path: "_api_me")
+            IsolationProtocol.state.withLock { $0.accountID = mode == "ids" ? "owner-b" : nil; $0.coverCode = 403 }
+            try await app.login(mode == "hosts" ? otherServer : server, mode == "names" ? "account-b" : "account-a", "fixture", main: true)
+            try check(app.mediaScope != owner.mediaScope && app.cacheDir != owner.cacheDir, "ownership collision: " + mode)
+            // Simulate failed cleanup AFTER B commits; neither old scoped nor legacy bytes may leak.
+            for file in [legacy, original] {
+                try fm.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try image.write(to: file)
+            }
+            try fm.createDirectory(at: oldJSON.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try json.write(to: oldJSON)
+            // Populate A's memory under its own reconstructed context without clearing B's caches.
+            let retained = await Covers.get(id, session: owner)
+            try check(retained != nil && Covers.mem(id) == nil, "memory cover crossed ownership: " + mode)
+            let denied = await Covers.get(id)
+            try check(denied == nil && app.cached(jsonPath) == nil, "B read A cover/JSON despite 403: " + mode)
+            Covers.clear() // simulate a cold cover cache while preserving both injected leftovers
+            let restarted = Abs(); restarted.network = app.network
+            try check(restarted.mediaScope == app.mediaScope && restarted.cached(jsonPath) == nil, "restart JSON ownership: " + mode)
+            let cold = await Covers.get(id, session: restarted)
+            try check(cold == nil && Covers.mem(id, session: restarted) == nil, "restart exposed legacy cover: " + mode)
+            try check(try Data(contentsOf: legacy) == image, "legacy cover was not quarantined")
+            try check(try Data(contentsOf: original) == image, "B removed A scoped cover")
+            // A's negative entry must not suppress B's successful same-item fetch, even without clear().
+            IsolationProtocol.state.withLock { $0.coverCode = 404 }
+            let absent = await Covers.get("negative" + mode, session: owner)
+            try check(absent == nil, "404 fixture returned image")
+            IsolationProtocol.state.withLock { $0.coverCode = 200 }
+            let present = await Covers.get("negative" + mode, session: restarted)
+            try check(present != nil, "negative cover crossed ownership: " + mode)
+        }
+    }
+
     @MainActor private func downloadRedirects() async throws {
         func check(_ value: Bool, _ message: String) throws { if !value { throw Msg(errorDescription: message) } }
         let sink = try LoopbackDownloadServer(), source = try LoopbackDownloadServer()
@@ -268,6 +320,8 @@ final class IsolationProtocol: URLProtocol, @unchecked Sendable {
         var hold: String?
         var failLogin = false, refresh401 = false, omitID = false
         var accountID: String?
+        var coverData: Data?
+        var coverCode = 200
     }
     static let state = OSAllocatedUnfairLock(initialState: State())
     private let stopped = OSAllocatedUnfairLock(initialState: false)
@@ -307,6 +361,13 @@ final class IsolationProtocol: URLProtocol, @unchecked Sendable {
             let start = Int(bounds[0]) ?? 0, end = min(audio.count - 1, Int(bounds.last!) ?? 1)
             client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 206, httpVersion: nil, headerFields: ["Content-Type": "audio/wav", "Content-Range": "bytes \(start)-\(end)/\(audio.count)", "Content-Length": "\(end - start + 1)"])!, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: audio.subdata(in: start..<(end + 1)))
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
+        if path.hasSuffix("/cover"), let image = Self.state.withLock({ $0.coverData }) {
+            let code = Self.state.withLock { $0.coverCode }
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: code, httpVersion: nil, headerFields: ["Content-Type": "image/png"])!, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: code == 200 ? image : Data())
             client?.urlProtocolDidFinishLoading(self)
             return
         }
