@@ -156,7 +156,8 @@ struct DlButton: View {
     var body: some View {
         let _ = app.dlv
         let done = n.tracks.allSatisfy { app.done(n.item, $0) }
-        let busy = !done && app.queued(n)
+        let failed = app.downloadError(n) != nil
+        let busy = !done && app.queued(n) && !failed
         Button {
             if done || busy { ask = true } else {
                 app.toast = "Downloading…"
@@ -166,7 +167,7 @@ struct DlButton: View {
             if busy { DlRing(n: n) }
             else { Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle") }
         }
-        .accessibilityLabel(done ? "Remove download" : busy ? "Cancel download" : "Download")
+        .accessibilityLabel(done ? "Remove download" : busy ? "Cancel download" : failed ? "Retry download" : "Download")
         .confirmationDialog(busy ? "Cancel downloading “\(n.title)”?" : "Remove the download of “\(n.title)”?", isPresented: $ask, titleVisibility: .visible) {
             Button(busy ? "Cancel download" : "Remove download", role: .destructive) { app.remove(n) }
         }
@@ -197,6 +198,8 @@ struct DlRing: View {
 
 /// "45% · 47 MB of 105 MB", or "Waiting" until the first bytes arrive
 @MainActor func dlStatus(_ n: Now) -> String {
+    if let error = app.downloadError(n) { return error }
+    if app.downloadWaiting(n) { return "Waiting to retry…" }
     let (have, total) = app.dlBytes(n)
     return have > 0 && total > 0 ? "\(Int(Double(have) / Double(total) * 100))% · \(bytes(have)) of \(bytes(total))" : "Waiting"
 }

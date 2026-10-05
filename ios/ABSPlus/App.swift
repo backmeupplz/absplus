@@ -7,7 +7,9 @@ struct ABSPlusApp: App {
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
+            if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
+                DownloadRetryFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
                 AccessibilityFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
@@ -64,7 +66,7 @@ struct RootView: View {
                 }
                 .sheet(isPresented: $full) { FullPlayer() }
                 .task {
-                    Downloader.shared.restore()
+                    await Downloader.shared.restore()
                     await player.restore()
                     try? await Task.sleep(for: .seconds(2)) // interrupted transfers report back with their resume data first
                     await app.resumeQueue()
