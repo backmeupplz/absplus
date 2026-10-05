@@ -31,5 +31,26 @@ same-account reauthentication, committed playback and linked episode replay.
   credential-dependent, unmapped real-server suite; physical-device behavior is
   not claimed.
 
+## Final upstream skip integration
+
+While the first full run was executing, upstream advanced to `1013039` (#28
+whole-book skips). It was merged too, retaining its production skip changes and
+both DEBUG fixture branches. The BookSkips selector was added to the offline lane;
+CI now retains the exact union of all **11 suites**. No selectors were dropped.
+
+The final merged source was rebuilt and fully retested:
+
+- Android: **97 tests, zero failures/errors/skips**, across 13 suites;
+  `testDebugUnitTest assembleDebug assembleRelease` passed.
+  Log: `/tmp/abs25-integrate-final-android.log`.
+- iOS: **35 passed, one expected iPhone pointer skip, zero failures**, all 11
+  mapped suites; Release build also passed. Terminal test and release exit codes
+  were both zero. Results: `/tmp/abs25-integrate-final-ios-full.xcresult` and
+  `/tmp/abs25-integrate-final-ios-release.xcresult`, with matching logs. The Xcode
+  diagnostic-collection timeout recurred after successful tests, without changing
+  the successful terminal outcome.
+- Read-only Astra/high integration review found no obvious merge defect;
+  selector-union and whitespace checks passed.
+
 All build/test processes were settled before the integration handoff. This is
 local verification, not exact-head hosted CI or store deployment evidence.
