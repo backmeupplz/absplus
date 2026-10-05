@@ -7,7 +7,9 @@ struct ABSPlusApp: App {
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--progress-test") {
+            if ProcessInfo.processInfo.arguments.contains("--download-removal-test") {
+                DownloadRemovalFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--progress-test") {
                 ProgressFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
                 DownloadRetryFixture()

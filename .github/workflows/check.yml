@@ -28,7 +28,7 @@ jobs:
           -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
           -parallel-testing-enabled NO
           -resultBundlePath ios-tests.xcresult
-          -only-testing:UITests/ListLifecycle -only-testing:UITests/Accessibility -only-testing:UITests/RetainedDownloads -only-testing:UITests/OfflineHome -only-testing:UITests/OfflineLibrary -only-testing:UITests/OfflineSeries -only-testing:UITests/DownloadRetries -only-testing:UITests/ProgressReplay test
+          -only-testing:UITests/ListLifecycle -only-testing:UITests/Accessibility -only-testing:UITests/RetainedDownloads -only-testing:UITests/OfflineHome -only-testing:UITests/OfflineLibrary -only-testing:UITests/OfflineSeries -only-testing:UITests/DownloadRetries -only-testing:UITests/ProgressReplay -only-testing:UITests/DownloadRemoval test
       - name: Preserve native failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v6
