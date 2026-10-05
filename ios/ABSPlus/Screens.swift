@@ -54,7 +54,7 @@ struct HomeView: View {
             }
             .padding(.vertical, 16)
         }
-        .overlay { LoadingFeedback(state: loading, empty: cont.isEmpty && hist.isEmpty, title: "Nothing played yet", retry: reload) }
+        .loadingFeedback(state: loading, empty: cont.isEmpty && hist.isEmpty, title: "Nothing played yet", retry: reload)
         .onDisappear { loading.cancel(); playback.cancel() }
         .navigationTitle("Home")
         .settingsButton()
@@ -126,9 +126,7 @@ struct LibraryView: View {
         }
         .searchable(text: $q, prompt: "Titles & authors")
         .settingsButton()
-        .overlay {
-            LoadingFeedback(state: librariesLoading.error != nil || libs.isEmpty && !librariesLoading.finished ? librariesLoading : loading, empty: shown.isEmpty, title: app.offline ? "No downloads" : query.isEmpty ? "No titles" : "No matches", retry: retry)
-        }
+        .loadingFeedback(state: librariesLoading.error != nil || libs.isEmpty && !librariesLoading.finished ? librariesLoading : loading, empty: shown.isEmpty, title: app.offline ? "No downloads" : query.isEmpty ? "No titles" : "No matches", retry: retry)
 
         .refreshable { await retry() }
 
@@ -188,7 +186,7 @@ struct SeriesView: View {
                 }
             }
         }
-        .overlay { LoadingFeedback(state: loading, empty: series.values.flatMap { $0 }.allSatisfy { app.offline ? avail($0.books.map(\.card)).isEmpty : false }, title: app.offline ? "No downloaded series" : "No series", retry: reload) }
+        .loadingFeedback(state: loading, empty: series.values.flatMap { $0 }.allSatisfy { app.offline ? avail($0.books.map(\.card)).isEmpty : false }, title: app.offline ? "No downloaded series" : "No series", retry: reload)
         .onDisappear { loading.cancel() }
         .navigationTitle("Series")
         .settingsButton()
@@ -220,9 +218,7 @@ struct FavoritesView: View {
 
     var body: some View {
         ScrollView { CardGrid(cards: avail(app.fav)) }
-            .overlay {
-                LoadingFeedback(state: loading, empty: avail(app.fav).isEmpty, title: app.offline ? "No downloaded favorites" : "No favorites", detail: "Tap ♡ on a book or podcast to keep it here.", retry: reload)
-            }
+            .loadingFeedback(state: loading, empty: avail(app.fav).isEmpty, title: app.offline ? "No downloaded favorites" : "No favorites", detail: "Tap ♡ on a book or podcast to keep it here.", retry: reload)
             .navigationTitle("Favorites")
             .settingsButton()
             .refreshable { await reload() }
@@ -456,7 +452,7 @@ struct ItemView: View {
         }
         .listStyle(.plain)
         .navigationBarTitleDisplayMode(.inline)
-        .overlay { LoadingFeedback(state: loading, empty: it == nil, title: "Item unavailable", retry: reload) }
+        .loadingFeedback(state: loading, empty: it == nil, title: "Item unavailable", retry: reload)
         .refreshable { await reload() }
         .task(id: id) { await reload() }
         .onDisappear { loading.cancel(); playback.cancel() }

@@ -30,6 +30,20 @@ import SwiftUI
     func reset() { cancel(); finished = false; error = nil }
 }
 
+extension View {
+    /// Failed refreshes must not cover the retained titles or intercept their taps.
+    func loadingFeedback(state: Loading, empty: Bool, title: String, detail: String = "", retry: @escaping () async -> Void) -> some View {
+        let retainedError = !empty && state.error != nil
+        return self
+            .overlay {
+                if !retainedError { LoadingFeedback(state: state, empty: empty, title: title, detail: detail, retry: retry) }
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if retainedError { LoadingFeedback(state: state, empty: false, title: title, detail: detail, retry: retry) }
+            }
+    }
+}
+
 struct LoadingFeedback: View {
     let state: Loading
     let empty: Bool
@@ -59,7 +73,7 @@ struct LoadingFeedback: View {
             } else if empty {
                 ContentUnavailableView(title, systemImage: app.offline ? "wifi.slash" : "tray", description: Text(detail))
             }
-            Spacer()
+            if empty || state.error == nil { Spacer() }
         }.padding()
     }
 }
