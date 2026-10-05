@@ -171,21 +171,35 @@ struct DownloadRetryFixture: View {
         d.urlSession(session, task: replacement, didCompleteWithError: URLError(.networkConnectionLost))
         assert(app.dlq.isEmpty && app.dlRetry.isEmpty && app.transfers.isEmpty)
 
-        // Controlled local endpoint: real URLSession download returns 503 once, then 200.
+        // nsurlsessiond can replay a request during foreground promotion before delivering its
+        // response (CI saw error 6, then a 1-second replay that consumed the one-shot 503).
+        // Exercise our retry clock with real HTTP/delegates but without the daemon scheduler.
+        let backgroundSession = d.session
+        d.session = URLSession(configuration: .ephemeral, delegate: d, delegateQueue: .main)
         let server = try! RetryHTTPServer()
         await server.ready()
         await login("http://127.0.0.1:\(server.port)")
         app.me = "fixture"; app.accts = ["fixture": Tok(a: "fixture", r: "")]
         app.remove(n)
         await app.download(n)
+        let retryPath = app.rel(n.item, n.tracks[1])
+        let originalTransfer = app.transfers[retryPath]!
         let end = Date().addingTimeInterval(15)
         while app.queued(n), Date() < end { try? await Task.sleep(for: .milliseconds(100)) }
         assert(!app.queued(n), "503 should retry automatically without requeue: counts=\(server.counts), retries=\(app.dlRetry), inflight=\(app.inflight)")
         assert(app.done(n.item, n.tracks[0]) && app.done(n.item, n.tracks[1]))
         assert(server.counts["two"] == 2 && server.counts["one"] == 1)
+        assert(server.retryState?.attempts == 1 && server.retryState?.next != nil,
+               "The 503 must reach our delegate, not be consumed by a transport replay")
+        assert(server.retryTransfer != nil && server.retryTransfer != originalTransfer,
+               "The retry must create a new app-owned transfer")
         assert(server.secondAttempt.timeIntervalSince(server.firstAttempt) >= 1.8)
         server.stop()
         app.remove(n)
+        let fixtureTasks = await d.session.allTasks
+        assert(fixtureTasks.isEmpty)
+        d.session.finishTasksAndInvalidate()
+        d.session = backgroundSession
 
         // Real refresh responses must preserve Retry-After through http -> token -> fetch.
         for code in [429, 503] {
