@@ -20,7 +20,15 @@ final class LoadingLifecycle: XCTestCase {
         app.buttons["loading.retry"].tap()
     }
     private func hold(_ app: XCUIApplication) { app.buttons["Hold fixture requests"].tap() }
-    private func tab(_ app: XCUIApplication, _ name: String) { app.tabBars.buttons[name].tap() }
+    private func tab(_ app: XCUIApplication, _ name: String) {
+        let button = app.tabBars.buttons[name]
+        XCTAssertTrue(button.isHittable, app.debugDescription)
+        // Hosted iOS 26 can animate the 50ms synthesized tap without committing
+        // selection. Send one deliberate touch, then prove navigation before
+        // attributing a missing loading state to the destination screen.
+        button.press(forDuration: 0.1)
+        XCTAssertTrue(button.wait(for: \.isSelected, toEqual: true, timeout: 4), app.debugDescription)
+    }
 
     func testDelayedSuccessAllTabsAndDetailsBack() {
         let app = launch()
