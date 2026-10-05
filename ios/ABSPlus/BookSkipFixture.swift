@@ -26,7 +26,7 @@ struct BookSkipFixture: View {
         .task {
             guard !prepared else { return }
             prepared = true
-            do { try seed() } catch { snapshot = "ERROR: \(error)"; return }
+            do { try await seed() } catch { snapshot = "ERROR: \(error)"; return }
             while !Task.isCancelled {
                 snapshot = state()
                 try? await Task.sleep(for: .milliseconds(50))
@@ -34,23 +34,24 @@ struct BookSkipFixture: View {
         }
     }
 
-    private func seed() throws {
-        // Synthetic identity satisfies playback scope; no token means no network requests.
-        UserDefaults.standard.set("https://book-skip-fixture.invalid", forKey: "server")
-        app.me = "skip-fixture"
-        app.accts = [:]
-        app.shares = [:]
+    @MainActor private func seed() async throws {
+        // Authenticate through production scope binding using only a synthetic transport.
+        app.logout()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [BookSkipLoginProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        try await app.login("https://book-skip-fixture.invalid", "skip-fixture", "fixture", main: true)
         app.offline = true
         let id = "book-skip-fixture"
-        let dir = dlDir.appending(path: id)
+        let dir = app.file(id, Track(ino: "0", ext: ".wav", size: 0, duration: 100, start: 0)).deletingLastPathComponent()
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         // Seed artwork on disk so FullPlayer/start never ask a server for a cover.
-        let covers = URL.cachesDirectory.appending(path: "covers")
+        let covers = URL.cachesDirectory.appending(path: "account-covers/" + app.mediaScope)
         try FileManager.default.createDirectory(at: covers, withIntermediateDirectories: true)
         let image = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { ctx in
             UIColor.blue.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
         }
-        try image.pngData()!.write(to: covers.appending(path: id))
+        try image.pngData()!.write(to: covers.appending(path: id.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!))
         var tracks: [Track] = []
         for (i, seconds) in [100, 50].enumerated() {
             let url = dir.appending(path: "\(i).wav")
@@ -81,5 +82,20 @@ struct BookSkipFixture: View {
                       player.p.timeControlStatus == .paused && !player.playing ? "yes" : "no",
                       item?.status == .readyToPlay ? "yes" : "no", url?.isFileURL == true ? "yes" : "no", remoteStatus)
     }
+}
+private final class BookSkipLoginProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "book-skip-fixture.invalid" }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        guard request.url?.path == "/login" else {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+            return
+        }
+        let body = Data(#"{"user":{"id":"skip-fixture-user","username":"skip-fixture","accessToken":"fixture","refreshToken":"refresh-fixture"}}"#.utf8)
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
 }
 #endif

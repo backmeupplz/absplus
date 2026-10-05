@@ -17,6 +17,8 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -36,7 +38,18 @@ class OfflineHomeTest {
         .put("metadata", JSONObject().put("ext", ".mp3").put("size", size))
     private fun episode(id: String) = JSONObject().put("id", id).put("title", "Episode $id").put("audioFile", audio(id))
     private fun seed(): Pair<List<Card>, JSONObject> {
-        for (id in listOf("podcast", "book")) File(Abs.dir, id).deleteRecursively()
+        Abs.logout()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/login") { x ->
+            x.requestBody.close()
+            val data = """{"user":{"id":"fixture-id","username":"fixture","accessToken":"fixture"}}""".toByteArray()
+            x.sendResponseHeaders(200, data.size.toLong())
+            x.responseBody.use { it.write(data) }
+        }
+        server.start()
+        try { Abs.login("http://127.0.0.1:" + server.address.port, "fixture", "fixture", true) }
+        finally { server.stop(0) }
+        for (id in listOf("podcast", "book")) File(Abs.mediaDir, "audio/$id").deleteRecursively()
         val eps = JSONArray().put(episode("saved")).put(episode("recent"))
             .put(JSONObject().put("id", "missingAudio")).put(episode("zero").put("audioFile", audio("zero", 0)))
         val podcast = JSONObject().put("id", "podcast").put("mediaType", "podcast")
@@ -47,7 +60,7 @@ class OfflineHomeTest {
                 .put("tracks", JSONArray().put(audio("one")).put(audio("two"))))
         cache("/api/items/book?expanded=1", book)
         for ((id, ino) in listOf("podcast" to "saved", "book" to "one", "book" to "two")) {
-            File(Abs.dir, "$id/$ino.mp3").apply { parentFile!!.mkdirs(); writeText("fixture") }
+            File(Abs.mediaDir, "audio/$id/$ino.mp3").apply { parentFile!!.mkdirs(); writeText("fixture") }
         }
         Abs.dlChanged()
         return listOf(Card("podcast", "Episode saved", "Podcast", "saved"), Card("podcast", "Episode recent", "Podcast", "recent"), Card.item(book)) to
@@ -64,23 +77,23 @@ class OfflineHomeTest {
             assertTrue(Abs.downloaded(cards[2]))
             for (ep in listOf("missing", "missingAudio", "zero")) assertFalse(Abs.downloaded(Card("podcast", "", "", ep)))
             assertFalse(Abs.downloaded(Card("uncached", "", "", "saved")))
-            File(Abs.dir, "podcast/recent.mp3.part").writeText("fixture")
+            File(Abs.mediaDir, "audio/podcast/recent.mp3.part").writeText("fixture")
             Abs.dlChanged()
             assertFalse(Abs.downloaded(cards[1]))
-            File(Abs.dir, "podcast/recent.mp3").writeText("short")
+            File(Abs.mediaDir, "audio/podcast/recent.mp3").writeText("short")
             Abs.dlChanged()
             assertFalse(Abs.downloaded(cards[1]))
-            File(Abs.dir, "podcast/recent.mp3").writeText("fixture")
+            File(Abs.mediaDir, "audio/podcast/recent.mp3").writeText("fixture")
             Abs.dlChanged()
             assertTrue(Abs.downloaded(cards[1]))
-            Abs.remove(listOf(File(Abs.dir, "podcast/recent.mp3")))
+            Abs.remove(listOf(File(Abs.mediaDir, "audio/podcast/recent.mp3")))
             Abs.dlChanged()
             assertFalse(Abs.downloaded(cards[1]))
             assertTrue(Abs.downloaded("podcast"))
-            Abs.remove(listOf(File(Abs.dir, "book/two.mp3")))
+            Abs.remove(listOf(File(Abs.mediaDir, "audio/book/two.mp3")))
             Abs.dlChanged()
             assertFalse(Abs.downloaded(cards[2]))
-        } finally { controller.destroy() }
+        } finally { Abs.logout(); controller.destroy() }
     }
 
     @Test fun realHomeFiltersBothSectionsAndRefreshesRetainedPage() {
@@ -91,9 +104,7 @@ class OfflineHomeTest {
             val (cards, progress) = seed()
             cache("/api/me/items-in-progress?limit=20", progress)
             cache("/api/me", JSONObject().put("mediaProgress", JSONArray()).put("bookmarks", JSONArray()))
-            Abs.p.edit().putString("server", "http://127.0.0.1:1").putString("me", "fixture")
-                .putString("acct:fixture", "{\"a\":\"fixture\",\"r\":\"\"}")
-                .putString("hist", JSONArray(cards.map { it.json().put("at", 1) }).toString()).commit()
+            Abs.p.edit().putString("hist", JSONArray(cards.map { it.json().put("at", 1) }).toString()).commit()
             Abs.offline = true
             a.call("tab", 0)
             val content = Main::class.java.getDeclaredField("content").apply { isAccessible = true }.get(a) as FrameLayout
@@ -104,7 +115,7 @@ class OfflineHomeTest {
             assertEquals(1, cont.adapter!!.itemCount) // only the complete book, not recent's saved sibling
             assertEquals(0, count("Episode recent"))
             assertEquals(1, count("Episode saved"))
-            File(Abs.dir, "podcast/recent.mp3").writeText("fixture")
+            File(Abs.mediaDir, "audio/podcast/recent.mp3").writeText("fixture")
             Abs.dlChanged()
             val onDl = Main::class.java.getDeclaredField("onDl").apply { isAccessible = true }
             @Suppress("UNCHECKED_CAST")
@@ -117,7 +128,7 @@ class OfflineHomeTest {
             val y = page.scrollY
             assertTrue(y > 0)
             a.call("push", { a.call("item", "podcast") })
-            Abs.remove(listOf(File(Abs.dir, "podcast/recent.mp3")))
+            Abs.remove(listOf(File(Abs.mediaDir, "audio/podcast/recent.mp3")))
             Abs.dlChanged()
             a.onBackPressedDispatcher.onBackPressed()
             layout(content)

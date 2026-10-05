@@ -4,26 +4,33 @@ import os
 
 /// Only a reserved .invalid host is intercepted. No credentials or real mutations.
 struct LoadingFixture: View {
-    private static var configured = false
+    @State private var seeded = false
+    @State private var failure: String?
     @State private var positionCount = 0
     @State private var favoriteCount = -1
     @State private var metadataCount = 0
     @State private var metadataCache = "unchecked"
-    init() {
-        guard !Self.configured else { return }
-        Self.configured = true
+    private func seed() async throws {
         URLProtocol.registerClass(LoadingProtocol.self)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [LoadingProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        app.logout()
+        LoadingProtocol.seeding.withLock { $0 = true }
+        defer { LoadingProtocol.seeding.withLock { $0 = false } }
+        try await app.login("http://abs-loading-fixture.invalid", "loading-fixture", "fixture", main: true)
+        LoadingProtocol.counts.withLock { $0 = [:] }
+        // Each UI launch owns a fresh fixture payload, including retained metadata.
+        // Production same-account recovery is covered separately by RetainedDownloads.
+        try? FileManager.default.removeItem(at: app.mediaDir)
         let defaults = UserDefaults.standard
-        defaults.set("http://abs-loading-fixture.invalid", forKey: "server")
         defaults.set("fixture", forKey: "lib")
         defaults.removeObject(forKey: "now")
-        app.me = "loading-fixture"
-        app.accts = ["loading-fixture": Tok(a: "fixture", r: "")]
         app.fav = []; app.favq = [:]; app.hist = []; app.dlq = []; app.shares = [:]
         try? FileManager.default.removeItem(at: app.cacheDir)
         try? FileManager.default.createDirectory(at: app.cacheDir, withIntermediateDirectories: true)
         for id in ["first", "other", "podcast"] {
-            try? FileManager.default.removeItem(at: dlDir.appending(path: "\(id)/fixture-audio.wav"))
+            try? FileManager.default.removeItem(at: app.file(id, Track(ino: "fixture-audio", ext: ".wav", size: 1_920_044, duration: 120, start: 0)))
         }
         if ProcessInfo.processInfo.arguments.contains("--populated-favorites") {
             app.fav = [Card(id: "favorite", title: "Known favorite", sub: "Fixture author")]
@@ -41,9 +48,10 @@ struct LoadingFixture: View {
             wav.append(Data("data".utf8)); word(UInt32(samples * 2))
             wav.append(Data(repeating: 0, count: samples * 2))
             for id in ["first", "other", "podcast"] {
-                let folder = dlDir.appending(path: id)
+                let file = app.file(id, Track(ino: "fixture-audio", ext: ".wav", size: 1_920_044, duration: 120, start: 0))
+                let folder = file.deletingLastPathComponent()
                 try! FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-                try! wav.write(to: folder.appending(path: "fixture-audio.wav"))
+                try! wav.write(to: file)
             }
             app.hist = [Hist(card: Card(id: "other", title: "Recent title", sub: "Fixture author"), at: ms())]
         }
@@ -60,6 +68,13 @@ struct LoadingFixture: View {
         }
     }
     var body: some View {
+        Group {
+            if seeded { fixture } else { Text(failure ?? "Preparing loading fixture").task {
+                do { try await seed(); seeded = true } catch { failure = error.localizedDescription }
+            } }
+        }
+    }
+    private var fixture: some View {
         Group {
         if ProcessInfo.processInfo.arguments.contains("--login") { LoginView() }
         else { RootView() }
@@ -99,6 +114,7 @@ struct LoadingFixture: View {
 }
 
 final class LoadingProtocol: URLProtocol, @unchecked Sendable {
+    static let seeding = OSAllocatedUnfairLock(initialState: false)
     static let positionsReleased = OSAllocatedUnfairLock(initialState: false)
     static let released = OSAllocatedUnfairLock(initialState: false)
     static let counts = OSAllocatedUnfairLock(initialState: [String: Int]())
@@ -121,7 +137,7 @@ final class LoadingProtocol: URLProtocol, @unchecked Sendable {
         let args = ProcessInfo.processInfo.arguments
         let position = path.hasPrefix("/api/me/progress/") && request.httpMethod == "GET"
         let playback = args.contains("--playback")
-        let isContent = path.hasSuffix("/items") || path.hasSuffix("/series") || path == "/api/me" || path.contains("/api/items/") && !path.hasSuffix("/cover") || path.contains("items-in-progress") || path == "/login"
+        let isContent = !Self.seeding.withLock { $0 } && (path.hasSuffix("/items") || path.hasSuffix("/series") || path == "/api/me" || path.contains("/api/items/") && !path.hasSuffix("/cover") || path.contains("items-in-progress") || path == "/login")
         let empty = args.contains("--empty")
         let fail = args.contains("--failure") && count == 1 && isContent
         let offline = args.contains("--offline") && isContent
@@ -141,7 +157,7 @@ final class LoadingProtocol: URLProtocol, @unchecked Sendable {
         } else if path.contains("items-in-progress") {
             body = ["libraryItems": empty ? [] : playback ? [Self.item("first", "Loaded title"), Self.item("other", "Other title"), Self.item("third", "Third title"), Self.item("fourth", "Fourth title"), Self.item("fifth", "Fifth title")] : [Self.item("first", "Loaded title")]]
         } else if path == "/login" {
-            body = ["user": ["username": "loading-fixture", "accessToken": "fixture"]]
+            body = ["user": ["id": "loading-fixture-id", "username": "loading-fixture", "accessToken": "fixture"]]
         } else {
             let id = path.components(separatedBy: "/").last ?? "first"
             body = Self.item(id, playback ? id == "other" ? "Other title" : id == "podcast" ? "Podcast title" : "Loaded title" : "Loaded details")

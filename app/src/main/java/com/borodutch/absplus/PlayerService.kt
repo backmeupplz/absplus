@@ -8,9 +8,10 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
+import androidx.media3.common.MediaItem
+import com.google.common.util.concurrent.Futures
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.datasource.DataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
@@ -38,6 +39,25 @@ internal class BookPlayer(player: Player) : ForwardingPlayer(player) {
 }
 
 class PlayerService : MediaSessionService() {
+    companion object {
+        @Volatile private var active: PlayerService? = null
+        fun invalidateSession() {
+            val service = active ?: return
+            if (Looper.myLooper() == Looper.getMainLooper()) service.checkQueue()
+            else service.h.post { service.checkQueue() }
+        }
+    }
+
+    private var queueEpoch = -1L
+    private fun checkQueue() {
+        val player = session?.player ?: return
+        if (queueEpoch != Abs.scope(playback = true).generation || Abs.me == null) {
+            // Keep the old epoch while stop callbacks fire: never push the old queue as the new user.
+            player.stop()
+            player.clearMediaItems()
+            queueEpoch = Abs.scope(playback = true).generation
+        }
+    }
     private var session: MediaSession? = null
     private val accountChanged = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == "me" || key == "server") h.post {
@@ -62,13 +82,10 @@ class PlayerService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         Abs.init(this)
+        queueEpoch = Abs.scope(playback = true).generation
+        active = this
         // token is resolved per request on the loader thread, so it gets refreshed when it expires mid-book
-        val http = ResolvingDataSource.Factory(DefaultHttpDataSource.Factory()) {
-            val captured = Abs.nowScope ?: throw Expired()
-            val n = Abs.now ?: throw Expired()
-            if (it.key?.startsWith(n.key + "#" + captured.generation + "#") != true) throw Expired()
-            it.withAdditionalHeaders(mapOf("Authorization" to "Bearer " + Abs.token(captured = captured)))
-        }
+        val http = DataSource.Factory { SessionDataSource() }
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http)))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)
@@ -79,6 +96,12 @@ class PlayerService : MediaSessionService() {
             .build()
         player.addListener(progressListener(player))
         session = MediaSession.Builder(this, BookPlayer(player))
+            .setCallback(object : MediaSession.Callback {
+                override fun onAddMediaItems(session: MediaSession, controller: MediaSession.ControllerInfo, items: List<MediaItem>) =
+                    Futures.immediateFuture(if (Abs.me == null || Abs.loginPending) emptyList() else items.filter {
+                        it.localConfiguration?.customCacheKey == Abs.scope(playback = true).generation.toString()
+                    })
+            })
             .setSessionActivity(PendingIntent.getActivity(this, 0, Intent(this, Main::class.java), PendingIntent.FLAG_IMMUTABLE))
             .build()
         Abs.p.registerOnSharedPreferenceChangeListener(accountChanged)
@@ -98,6 +121,7 @@ class PlayerService : MediaSessionService() {
     }
 
     private fun sync(p: Player, finished: Boolean = false, intentionalPlayback: Boolean = false) {
+        // The bound scope remains authorized while reauthentication is pending.
         val captured = Abs.nowScope ?: return
         Abs.ifCurrent(captured) {
             val n = Abs.now ?: return@ifCurrent
@@ -110,6 +134,7 @@ class PlayerService : MediaSessionService() {
     override fun onGetSession(info: MediaSession.ControllerInfo) = session
 
     override fun onDestroy() {
+        if (active === this) active = null
         Abs.p.unregisterOnSharedPreferenceChangeListener(accountChanged)
         h.removeCallbacksAndMessages(null)
         session?.run { player.release(); release() }

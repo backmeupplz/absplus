@@ -15,6 +15,17 @@ final class ProgressReplay: XCTestCase {
         }
     }
 
+    func testPlaybackAuthenticationFailureAndQueueOwnership() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--progress-test", "--progress-playback-auth"]
+        app.launch()
+        let result = app.staticTexts["progress-result"]
+        XCTAssertTrue(result.waitForExistence(timeout: 15))
+        expectation(for: NSPredicate(format: "label BEGINSWITH 'PASS' OR label BEGINSWITH 'FAIL'"), evaluatedWith: result)
+        waitForExpectations(timeout: 30)
+        XCTAssertEqual(result.label, "PASS playback authentication")
+    }
+
     func testDurableProgressIntegration() {
         let app = XCUIApplication()
         app.launchArguments = ["--progress-test"]

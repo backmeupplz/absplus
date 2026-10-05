@@ -60,17 +60,19 @@ import UIKit
         let positions: [Pos]
         let generation: UUID
         let request: UUID
+        let account: UUID
     }
     var choices: ResumeChoices?
     static let speeds: [Float] = [1, 1.25, 1.5, 1.75, 2, 0.8]
 
     @ObservationIgnored private var index: [AVPlayerItem: Int] = [:]
     @ObservationIgnored private var idx = 0
+    @ObservationIgnored private var mediaLoads: [MediaLoader] = []
     @ObservationIgnored private var scope: UUID?
     @ObservationIgnored private var lastRetry = Date.distantPast
     @ObservationIgnored private var obs: [NSKeyValueObservation] = []
 
-    init(source: Abs) {
+    init(source: Abs = app) {
         self.source = source
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         p.defaultRate = speed
@@ -153,7 +155,7 @@ import UIKit
 
     /// Streams fail when the access token expires mid-book or the network drops: rebuild the queue with a fresh token.
     private func failed(_ e: Error?) {
-        guard let n = now, let generation = scope, valid(generation) else { return }
+        guard let n = now, p.currentItem != nil, let generation = scope, valid(generation) else { return }
         if Date().timeIntervalSince(lastRetry) < 30 {
             buffering = false
             playbackError = "Playback failed: \(e?.localizedDescription ?? "unknown error")"
@@ -232,7 +234,8 @@ import UIKit
         requestID = UUID(); queueID = UUID(); preparing = nil; choices = nil; buffering = false; playbackError = nil
         p.removeAllItems()
         index = [:]
-        now = nil
+        now = nil; playing = false; pos = 0
+        mediaLoads.forEach { $0.cancel() }; mediaLoads = []
         scope = nil
         choices = nil
         info()
@@ -244,8 +247,8 @@ import UIKit
         generation == source.playbackGeneration && source.me != nil && !Task.isCancelled
     }
 
-    func playCard(_ c: Card, owner: UUID) async {
-        let generation = source.playbackGeneration
+    func playCard(_ c: Card, owner: UUID = UUID()) async {
+        let generation = source.playbackGeneration, account = source.accountGeneration
         guard valid(generation) else { return }
         let request = UUID()
         requestID = request
@@ -255,7 +258,7 @@ import UIKit
         defer { if requestID == request { preparing = nil } }
         do {
             let it = try await source.item(c.id)
-            guard requestID == request, valid(generation) else { return }
+            guard requestID == request, valid(generation), account == source.accountGeneration else { return }
             let n: Now
             if let ep = c.ep {
                 guard let e = it.media.episodes?.first(where: { $0.id == ep }), let af = e.audioFile else { throw Msg(errorDescription: "Episode not found") }
@@ -264,10 +267,10 @@ import UIKit
                 n = Now(item: c.id, ep: nil, title: c.title, author: c.sub, tracks: (it.media.tracks ?? []).map { $0.track() })
             }
             await prepare(n, request, generation: generation)
-        } catch { if requestID == request, valid(generation) { source.say(error) } }
+        } catch { if requestID == request, valid(generation), account == source.accountGeneration { source.say(error) } }
     }
 
-    func play(_ n: Now, owner: UUID) async {
+    func play(_ n: Now, owner: UUID = UUID()) async {
         let generation = source.playbackGeneration
         guard valid(generation) else { return }
         let request = UUID()
@@ -289,15 +292,16 @@ import UIKit
 
     private func prepare(_ n: Now, _ request: UUID, generation: UUID) async {
         if n.tracks.isEmpty { source.toast = "No audio"; return }
+        let account = source.accountGeneration
         let ps = await source.positions(n)
-        guard requestID == request, valid(generation) else { return }
-        guard !ps.isEmpty else { return }
+        guard requestID == request, valid(generation), account == source.accountGeneration, !ps.isEmpty else { return }
         if ps.count == 1 { start(n, ps[0].time, generation: generation) }
-        else { choices = ResumeChoices(title: n, positions: ps, generation: generation, request: request) }
+        else { choices = ResumeChoices(title: n, positions: ps, generation: generation, request: request, account: account) }
     }
 
     func resume(_ choice: ResumeChoices, at index: Int) {
-        guard valid(choice.generation), requestID == choice.request, choice.positions.indices.contains(index) else { return }
+        guard valid(choice.generation), requestID == choice.request, choice.account == source.accountGeneration, choice.positions.indices.contains(index) else { return }
+        choices = nil
         start(choice.title, choice.positions[index].time, generation: choice.generation)
     }
 
@@ -305,10 +309,12 @@ import UIKit
     func restore() async {
         let generation = source.playbackGeneration
         guard now == nil, valid(generation), let n = source.loadNow() else { return }
-        let request = requestID
-        let t = await source.positions(n).first?.time ?? 0
+        let request = requestID, account = source.accountGeneration
+        guard let t = await source.positions(n).first?.time, account == source.accountGeneration else { return }
         if now == nil && requestID == request { start(n, t, play: false, generation: generation) }
     }
+
+    func start(_ n: Now, _ t: Double, play: Bool = true) { start(n, t, play: play, generation: source.playbackGeneration) }
 
     func start(_ n: Now, _ t: Double, play: Bool = true, generation: UUID) {
         guard valid(generation), !n.tracks.isEmpty else { return }
@@ -347,12 +353,34 @@ import UIKit
         let request = UUID()
         queueID = request
         buffering = play
-        let auth = (try? await source.token()).map { ["Authorization": "Bearer " + $0] } ?? [:]
+        var auth = try? await source.token()
+        // A same-account reauth can cancel an old refresh without revoking this player.
+        if auth == nil, valid(generation), queueID == request { auth = try? await source.token() }
         guard valid(generation), now == n, scope == generation, queueID == request else { return }
+        mediaLoads.forEach { $0.cancel() }; mediaLoads = []
         p.removeAllItems()
         index = [:]
         for k in i..<n.tracks.count {
-            let asset = AVURLAsset(url: source.url(n.item, n.tracks[k]), options: ["AVURLAssetHTTPHeaderFieldsKey": auth])
+            let url = source.url(n.item, n.tracks[k])
+            let asset: AVURLAsset
+            if url.isFileURL { asset = AVURLAsset(url: url) }
+            else {
+                guard let auth else {
+                    // No item can report this failure. The queue ownership checks
+                    // above also fence feedback from a superseded authentication wait.
+                    p.removeAllItems()
+                    index = [:]
+                    buffering = false
+                    playing = false
+                    playbackError = "Playback could not authenticate. Sign in or retry playback."
+                    source.toast = playbackError
+                    info()
+                    return
+                }
+                let loader = MediaLoader(url: url, token: auth, epoch: source.mediaEpoch, source: source, playback: generation)
+                mediaLoads.append(loader)
+                asset = loader.asset
+            }
             let it = AVPlayerItem(asset: asset)
             it.audioTimePitchAlgorithm = .timeDomain
             index[it] = k

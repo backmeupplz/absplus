@@ -14,6 +14,7 @@ struct ProgressFixture: View {
                     let args = ProcessInfo.processInfo.arguments
                     if args.contains("--progress-seed") { try await ProgressChecks.relaunch(seed: true); result = "PASS seeded" }
                     else if args.contains("--progress-drain") { try await ProgressChecks.relaunch(seed: false); result = "PASS relaunched" }
+                    else if args.contains("--progress-playback-auth") { try await ProgressChecks.playbackAuthenticationRegressions(); result = "PASS playback authentication" }
                     else { try await ProgressChecks.run(); result = "PASS progress replay" }
                 }
                 catch { result = "FAIL \(error.localizedDescription)" }
@@ -77,7 +78,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             if s.reject { return (401, [:]) }
             if path == "/login" {
                 let name = json["username"] as? String ?? "own"
-                return (200, ["user": ["username": name, "accessToken": name, "refreshToken": name]])
+                return (200, ["user": ["username": name, "id": name, "accessToken": name, "refreshToken": name]])
             }
             let name = request.value(forHTTPHeaderField: "Authorization")?.replacingOccurrences(of: "Bearer ", with: "").replacingOccurrences(of: "-refreshed", with: "") ?? ""
             let key = name + ":" + path.replacingOccurrences(of: "/api/me/progress/", with: "")
@@ -155,6 +156,32 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         }
         throw Msg(errorDescription: "Timed out waiting for \(label) at \(file):\(line)")
     }
+    static func configured(defaults: UserDefaults, progressFile: URL, accounts: [String: Tok]) -> Abs {
+        let a = Abs(defaults: defaults, progressFile: progressFile, accounts: accounts)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [ProgressServer.self]
+        a.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        return a
+    }
+
+    static func authenticated(_ d: UserDefaults, _ file: URL, _ requested: [String: Tok]) async throws -> Abs {
+        let endpoint = d.string(forKey: "server") ?? "http://abs-progress-fixture.invalid"
+        let owner = d.string(forKey: "me") ?? "own"
+        if requested.values.allSatisfy({ $0.host != nil }) {
+            return configured(defaults: d, progressFile: file, accounts: requested)
+        }
+        if let data = d.data(forKey: "fixtureAccounts"), let saved = try? JSONDecoder().decode([String: Tok].self, from: data) {
+            return configured(defaults: d, progressFile: file, accounts: saved)
+        }
+        let state = ProgressServer.state.withLock { s in let old = s; s = .init(); return old }
+        defer { ProgressServer.state.withLock { $0 = state } }
+        let a = configured(defaults: d, progressFile: file, accounts: [:])
+        _ = try await a.login(endpoint, owner, "fixture", main: true)
+        for name in requested.keys.sorted() where name != owner { _ = try await a.login(endpoint, name, "fixture", main: false) }
+        d.set(try JSONEncoder().encode(a.accts), forKey: "fixtureAccounts")
+        return a
+    }
+
     static func stop(_ a: Abs) async {
         a.progressTask?.cancel()
         await a.progressTask?.value
@@ -174,7 +201,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             d.set("http://abs-progress-fixture.invalid", forKey: "server")
             d.set("own", forKey: "me")
         }
-        let a = Abs(defaults: d, progressFile: file, accounts: ["own": Tok(a: "own", r: "own")])
+        let a = try await authenticated(d, file, ["own": Tok(a: "own", r: "own")])
         if seed {
             let n = Now(item: "restart", ep: "episode", title: "Fixture", author: "", tracks: [Track(ino: "0", ext: ".wav", size: 0, duration: 100, start: 0)])
             a.push(n, 100, finished: true)
@@ -190,6 +217,78 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         }
     }
 
+    /// Authentication can fail before AVFoundation has an item to report an error.
+    static func playbackAuthenticationRegressions() async throws {
+        URLProtocol.registerClass(ProgressServer.self)
+        ProgressServer.state.withLock { $0 = .init() }
+        let suite = "playback-auth-" + UUID().uuidString
+        let d = UserDefaults(suiteName: suite)!
+        let file = URL.temporaryDirectory.appending(path: suite + ".json")
+        defer { d.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: file) }
+        let origin = "http://abs-progress-fixture.invalid"
+        d.set(origin, forKey: "server"); d.set("own", forKey: "me")
+        let a = try await authenticated(d, file, ["own": Tok(a: "own", r: "own")])
+        let p = Player(source: a)
+        p.p.defaultRate = 1
+        defer { p.clear(); a.progressTask?.cancel() }
+        let track = Track(ino: "silent", ext: ".wav", size: 0, duration: 40, start: 0)
+        let remote = Now(item: suite + "-remote", ep: nil, title: "Remote fixture", author: "", tracks: [track])
+        var local = Now(item: suite + "-local", ep: nil, title: "Local fixture", author: "", tracks: [track])
+        let wav = a.file(local.item, track)
+        try FileManager.default.createDirectory(at: wav.deletingLastPathComponent(), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: wav.deletingLastPathComponent()) }
+        let format = AVAudioFormat(standardFormatWithSampleRate: 8000, channels: 1)!
+        do {
+            let audio = try AVAudioFile(forWriting: wav, settings: format.settings)
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 320000)!
+            buffer.frameLength = 320000
+            try audio.write(from: buffer)
+        }
+        local = Now(item: local.item, ep: nil, title: local.title, author: "",
+                    tracks: [Track(ino: track.ino, ext: track.ext, size: a.size(wav), duration: 40, start: 0)])
+        // An expired synthetic JWT forces the production refresh path.
+        let expired = "fixture.eyJleHAiOjB9.signature"
+        a.accts["own"]!.a = expired
+        ProgressServer.state.withLock { $0.failRefresh = true }
+        p.start(remote, 0)
+        try await wait("stream authentication terminal feedback") { p.playbackError != nil }
+        try check(!p.buffering && !p.playing && p.p.currentItem == nil && p.now == remote && a.toast == p.playbackError,
+                  "failed refresh left remote playback buffering or without retry feedback")
+        let refreshes = ProgressServer.state.withLock { $0.refreshes }
+        p.play() // same path as the production Retry playback control
+        try await wait("explicit playback retry fails terminally") { p.playbackError != nil }
+        try check(!p.buffering && ProgressServer.state.withLock { $0.refreshes } > refreshes,
+                  "authentication error did not permit an explicit retry")
+
+        ProgressServer.state.withLock { $0.offline = true }
+        p.start(local, 0)
+        try await wait("offline local playback despite refresh failure") { p.pos > 0.3 && p.playing && !p.buffering }
+        try check(p.playbackError == nil && (p.p.currentItem?.asset as? AVURLAsset)?.url.isFileURL == true,
+                  "authentication failure prevented downloaded playback")
+        p.clear()
+        await stop(a)
+
+        // Hold the old queue's refresh, then commit a newer queue with fresh auth.
+        // Its late failure must neither publish a toast nor clear new playback.
+        ProgressServer.state.withLock { $0.offline = false; $0.holdRefresh = true }
+        p.start(remote, 0)
+        try await wait("stale queue refresh held") { ProgressServer.state.withLock { $0.held != nil } }
+        let held = ProgressServer.state.withLock { state in let value = state.held; state.held = nil; return value }!
+        let settling = Task { try? await a.token(force: true) }
+        await Task.yield()
+        a.accts["own"]!.a = "own"
+        p.start(local, 0)
+        try await wait("new queue playing before stale failure") { p.pos > 0.3 && p.playing && !p.buffering }
+        a.toast = "new queue feedback"
+        held.respond()
+        _ = await settling.value
+        try await Task.sleep(for: .milliseconds(100))
+        try check(p.now == local && p.playing && !p.buffering && p.playbackError == nil && a.toast == "new queue feedback",
+                  "stale queue authentication failure changed newer playback or feedback")
+        p.clear()
+        await stop(a)
+    }
+
     static func reviewRegressions(_ book: Now) async throws {
         let suite = "progress-review-" + UUID().uuidString
         let d = UserDefaults(suiteName: suite)!
@@ -199,7 +298,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         let file = URL.temporaryDirectory.appending(path: suite + ".json")
         defer { try? FileManager.default.removeItem(at: file) }
         let accounts = ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")]
-        var a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        var a = try await authenticated(d, file, accounts)
         defer { a.progressTask?.cancel() }
         ProgressServer.state.withLock { $0.offline = true }
         a.push(book, 20, finished: false)
@@ -210,7 +309,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         catch let e as Msg { try check(e.errorDescription == "Wrong username or password", "unexpected login result") }
         a.pruneProgress()
         try check(a.server == origin && a.accountGeneration == generation && a.progressDisk.pending.count == 1, "failed login changed scope or erased journal")
-        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        a = try await authenticated(d, file, accounts)
         try check(a.progressDisk.local[book.key]?.currentTime == 20 && a.progressDisk.pending.count == 1, "failed login erased journal on relaunch")
 
         // Pending/backoff is not evidence of recency: fresh reads must beat T1.
@@ -229,7 +328,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         let newer = Prog(libraryItemId: "book", episodeId: nil, progress: 0.9, currentTime: 90, isFinished: false, lastUpdate: remoteAt + 2000)
         a.setMe(Me(mediaProgress: [newer], bookmarks: []))
         try check(a.progressDisk.local[book.key]?.currentTime == 90 && a.progressDisk.pending.isEmpty, "/me ignored newer remote during backoff")
-        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        a = try await authenticated(d, file, accounts)
         try check(a.progressDisk.local[book.key]?.currentTime == 90, "remote merge was not durable")
 
         // Hold an old-scope replay read across a same-name successful server switch.
@@ -268,7 +367,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         let file = URL.temporaryDirectory.appending(path: suite + ".json")
         defer { try? FileManager.default.removeItem(at: file) }
         let accounts = ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")]
-        var a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        var a = try await authenticated(d, file, accounts)
         defer { a.progressTask?.cancel() }
         let titles = [Now(item: "passive-book", ep: nil, title: "Book", author: "", tracks: book.tracks),
                       Now(item: "passive-pod", ep: "episode", title: "Episode", author: "", tracks: book.tracks)]
@@ -291,7 +390,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             a.push(title, 0, finished: false)
         }
         await stop(a)
-        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        a = try await authenticated(d, file, accounts)
         due(a)
         ProgressServer.state.withLock { $0.offline = false }
         await a.replayProgress()
@@ -301,7 +400,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             try check(row["currentTime"] as? Double == 100 && row["progress"] as? Double == 1 && row["isFinished"] as? Bool == true,
                       "passive zero cleared remote completion: " + account + ":" + title.key)
         } }
-        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        a = try await authenticated(d, file, accounts)
         // Completion already acknowledged and restored from disk needs the same guard.
         ProgressServer.state.withLock { $0.offline = true }
         for title in titles {
@@ -309,7 +408,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             a.push(title, 0, finished: false)
         }
         await stop(a)
-        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        a = try await authenticated(d, file, accounts)
         for title in titles {
             try check(a.progressDisk.local[title.key]?.currentTime == 100 && a.pct(title.key) == 1, "passive zero replaced restored completed position")
         }
@@ -333,7 +432,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         let file = URL.temporaryDirectory.appending(path: suite + ".json")
         defer { try? FileManager.default.removeItem(at: file) }
         let accounts = ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")]
-        var a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        var a = try await authenticated(d, file, accounts)
         defer { a.progressTask?.cancel() }
         let titles = [Now(item: "reread-book", ep: nil, title: "Book", author: "", tracks: book.tracks),
                       Now(item: "reread-pod", ep: "episode", title: "Episode", author: "", tracks: book.tracks)]
@@ -358,7 +457,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             a.push(title, 24, finished: false)
         }
         await stop(a)
-        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        a = try await authenticated(d, file, accounts)
         due(a)
         ProgressServer.state.withLock { $0.offline = false }
         await a.replayProgress()
@@ -369,7 +468,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                 try check(row["currentTime"] as? Double == 24 && row["progress"] as? Double == 0.24 && row["isFinished"] as? Bool == false, "reread lost remote position/progress: " + account + ":" + title.key)
             }
         }
-        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        a = try await authenticated(d, file, accounts)
         for title in titles {
             try check(a.progressDisk.local[title.key]?.currentTime == 24 && a.pct(title.key) == 0.24, "reread readback lost durable position")
         }
@@ -384,7 +483,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             defer { d.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: file) }
             let origin = "http://abs-progress-fixture.invalid"
             d.set(origin, forKey: "server"); d.set("own", forKey: "me")
-            let a = Abs(defaults: d, progressFile: file, accounts: ["own": Tok(a: "own", r: "own")])
+            let a = try await authenticated(d, file, ["own": Tok(a: "own", r: "own")])
             ProgressServer.state.withLock { s in
                 s.offline = false
                 s.rows["own:/api/me"] = ["mediaProgress": [["libraryItemId": book.item, "currentTime": 80.0, "lastUpdate": ms()]], "bookmarks": []]
@@ -402,8 +501,9 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             _ = try? await a.login(origin, "different", "fixture", main: true)
             try check(a.cached("/api/me") == cached && a.loadNow() == book && !a.favq.isEmpty, "failed login cleared account mirrors")
             ProgressServer.state.withLock { $0.reject = false }
+            try check(a.cached("/api/me") == cached && a.loadNow() == book && !a.hist.isEmpty, "reauth fixture lost account mirrors")
             _ = try await a.login(origin, "own", "fixture", main: true)
-            try check(a.cached("/api/me") == cached && a.loadNow() == book && !a.hist.isEmpty, "reauth cleared account mirrors")
+            try check(a.cached("/api/me") == nil && a.loadNow() == book && a.hist.isEmpty, "reauth retained stale JSON/history or lost playback")
             ProgressServer.state.withLock { $0.holdGet = "/api/me" }
             let staleLoad = Task { await a.load("/api/me") { (m: Me) in a.setMe(m) } }
             try await wait { ProgressServer.state.withLock { $0.held != nil } }
@@ -419,7 +519,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             try check(renders == 1 && a.progressDisk.local.isEmpty && a.progress.isEmpty, "old cached /me contaminated " + change)
             try check(FileManager.default.fileExists(atPath: media.path), "scope change deleted media")
             try check(a.loadNow() == nil && d.object(forKey: "pos:" + book.key) == nil && a.fav.isEmpty && a.favq.isEmpty && a.hist.isEmpty, "old account mirrors survived " + change)
-            let reloaded = Abs(defaults: d, progressFile: file, accounts: a.accts)
+            let reloaded = configured(defaults: d, progressFile: file, accounts: a.accts)
             ProgressServer.state.withLock { $0.offline = true }
             let ps = await reloaded.positions(book)
             try check(ps.first?.time == 0 && reloaded.progressDisk.local.isEmpty, "shared item resumed A after " + change)
@@ -435,7 +535,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             defer { d.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: file) }
             d.set("http://abs-progress-fixture.invalid", forKey: "server"); d.set("own", forKey: "me")
             let accounts = ["own": Tok(a: "own", r: "own")]
-            var a = Abs(defaults: d, progressFile: file, accounts: accounts)
+            var a = try await authenticated(d, file, accounts)
             let n = Now(item: suite, ep: nil, title: "Ack", author: "", tracks: book.tracks)
             ProgressServer.state.withLock { $0.offline = false; $0.holdPatch = true }
             a.push(n, 10, finished: false)
@@ -447,7 +547,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             if observation {
                 await stop(a) // uncertain acknowledgement / process death
                 ProgressServer.state.withLock { $0.rows["own:" + n.key] = ["libraryItemId": n.item, "currentTime": 10.0, "isFinished": false, "lastUpdate": ms() + 1000] }
-                a = Abs(defaults: d, progressFile: file, accounts: accounts)
+                a = try await authenticated(d, file, accounts)
                 let ps = await a.positions(n)
                 try check(ps.first?.time == 60, "uncertain send overwrote coalesced event")
             } else {
@@ -456,7 +556,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                 await stop(a)
             }
             try check(a.progressDisk.pending.first?.sent == nil && a.progressDisk.pending.first?.acknowledged != nil, "attempt did not resolve to exact ack")
-            a = Abs(defaults: d, progressFile: file, accounts: accounts)
+            a = try await authenticated(d, file, accounts)
             let ack = a.progressDisk.pending[0].acknowledged!
             try check(a.progressDisk.local[n.key]?.currentTime == 60, "old ack replaced newer local event")
             ProgressServer.state.withLock { $0.rows["own:" + n.key] = ["libraryItemId": n.item, "currentTime": 10.0, "isFinished": false, "lastUpdate": ack.at + 2000] }
@@ -478,7 +578,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         let origin = "http://abs-progress-fixture.invalid"
         d.set(origin, forKey: "server"); d.set("own", forKey: "me")
         let accounts = ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")]
-        let a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        let a = try await authenticated(d, file, accounts)
         let p = Player(source: a), owner = UUID(), newerOwner = UUID()
         defer { p.clear(); a.progressTask?.cancel() }
         let n = Now(item: suite, ep: "episode", title: "Owner fixture", author: "", tracks: book.tracks)
@@ -524,17 +624,23 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         p.cancelPreparation(owner: owner)
         p.resume(superseded, at: 1)
         try check(p.now == nil && p.choices?.request == current.request, "old owner cancelled/replayed newer choice")
-        // Same-account reauthentication must not revoke the newer owner's preparation.
+        // Reauthentication preserves committed playback, never a pending resume choice.
         _ = try await a.login(origin, "own", "fixture", main: true)
-        ProgressServer.state.withLock { $0.offline = true }
         p.resume(current, at: 1)
+        try check(p.now == nil && a.loadNow() == nil && a.hist.isEmpty, "reauthenticated stale resume choice committed")
+        _ = try await a.login(origin, "linked", "fixture", main: false)
+        a.shares[n.item] = ["linked"]
+        await p.play(n, owner: newerOwner)
+        guard let authenticatedChoice = p.choices else { throw Msg(errorDescription: "reauthenticated owner missing choice") }
+        p.resume(authenticatedChoice, at: 1)
+        ProgressServer.state.withLock { $0.offline = true }
         p.cancelPreparation(owner: newerOwner)
         try check(p.now == n && a.loadNow() == n && a.hist.count == 1 && p.preparing == nil, "owner cancellation revoked committed playback")
         // The committed episode's offline progress survives owner teardown and replays.
         p.clear()
         a.push(n, 74, finished: false)
         await stop(a)
-        let restored = Abs(defaults: d, progressFile: file, accounts: accounts)
+        let restored = configured(defaults: d, progressFile: file, accounts: a.accts)
         try check(restored.progressDisk.pending.count == 2 && restored.progressDisk.local[n.key]?.currentTime == 74, "owner teardown lost scoped episode progress")
         due(restored)
         ProgressServer.state.withLock { $0.offline = false }
@@ -552,7 +658,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                 defer { d.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: file) }
                 let origin = "http://abs-progress-fixture.invalid"
                 d.set(origin, forKey: "server"); d.set("own", forKey: "me")
-                let a = Abs(defaults: d, progressFile: file, accounts: ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")])
+                let a = try await authenticated(d, file, ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")])
                 let p = Player(source: a)
                 let owner = UUID()
                 let n = Now(item: suite, ep: nil, title: "Old title", author: "", tracks: book.tracks)
@@ -574,7 +680,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                     try check(choice?.positions.count == 2, "resume choice fixture failed")
                 } else if path == "queue" {
                     // Expired synthetic token forces the actual queue through an await.
-                    a.accts["own"] = Tok(a: "x.eyJleHAiOjB9.x", r: "own")
+                    a.accts["own"]!.a = "x.eyJleHAiOjB9.x"
                     ProgressServer.state.withLock { $0.holdRefresh = true }
                     p.start(n, 0, generation: a.playbackGeneration)
                 } else {
@@ -618,7 +724,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         let file = URL.temporaryDirectory.appending(path: suite + "/progress.json")
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
         let accounts = ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")]
-        var a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        var a = try await authenticated(d, file, accounts)
         defer { a.progressTask?.cancel() }
         a.shares["pod"] = ["linked"]
         let book = Now(item: "book", ep: nil, title: "Fixture", author: "", tracks: [Track(ino: "0", ext: ".wav", size: 0, duration: 100, start: 0)])
@@ -639,7 +745,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         try check(ProgressServer.state.withLock { $0.requests } == before, "backoff ignored")
         try check(PendingProgress.delay(1) == 2 && PendingProgress.delay(3) == 8 && PendingProgress.delay(10) == 300, "backoff bound")
         await stop(a)
-        a = Abs(defaults: d, progressFile: file, accounts: accounts)
+        a = try await authenticated(d, file, accounts)
         try check(a.progressDisk.pending.count == 5 && a.pct(ep1.key) == 1, "restart lost outbox/finish: pending=\(a.progressDisk.pending.count), pct=\(String(describing: a.pct(ep1.key))), shares=\(a.shares)")
         let disk = try String(contentsOf: file, encoding: .utf8)
         try check(!disk.contains("accessToken") && !disk.contains("refreshToken") && !disk.contains("Bearer"), "credentials in outbox")
@@ -693,7 +799,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             s.rows["own:lost"] = ["libraryItemId": "lost", "currentTime": 12.0, "isFinished": false, "lastUpdate": ms() + 1000]
         }
         _ = dropped // cancelled request deliberately never calls its URLProtocol client
-        a = Abs(defaults: d, progressFile: file, accounts: a.accts)
+        a = configured(defaults: d, progressFile: file, accounts: a.accts)
         let ownRow = try JSONDecoder().decode(Prog.self, from: JSONSerialization.data(withJSONObject: ProgressServer.state.withLock { $0.rows["own:lost"]! }))
         a.setMe(Me(mediaProgress: [ownRow], bookmarks: []))
         let ownPosition = await a.positions(lost)
@@ -762,7 +868,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         // A real downloaded silent WAV drives AVQueuePlayer pause/end callbacks.
         // This also catches callbacks that accidentally still target the global app.
         let audioID = "progress-audio-" + UUID().uuidString
-        let folder = dlDir.appending(path: audioID)
+        let folder = a.mediaDir.appending(path: "audio/" + audioID)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let wav = folder.appending(path: "silent.wav")
@@ -806,7 +912,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         try await wait("natural playback end persists") { a.progressDisk.local[title.key]?.isFinished == true }
         playback.clear()
         await stop(a)
-        a = Abs(defaults: d, progressFile: file, accounts: a.accts)
+        a = configured(defaults: d, progressFile: file, accounts: a.accts)
         try check(a.pct(title.key) == 1, "offline player finish lost after restart")
         due(a)
         ProgressServer.state.withLock { $0.offline = false }
@@ -828,7 +934,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         try check(rereadTime < 30, "reread must pause before the media completion threshold")
         reread.clear()
         await stop(a)
-        a = Abs(defaults: d, progressFile: file, accounts: a.accts)
+        a = configured(defaults: d, progressFile: file, accounts: a.accts)
         let resumed = await a.positions(title)
         try check(resumed.first?.time == rereadTime && a.pct(title.key) != 1, "offline reread lost resume after relaunch")
         due(a)
@@ -840,6 +946,13 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         // capture under a different user/server, or after logout + same-user login.
         for change in ["user", "server", "logout"] {
             print("Progress fixture phase: old player after " + change)
+            // Each independent account fixture needs its own explicitly seeded local bytes.
+            let local = a.file(title.item, track)
+            if local != wav {
+                try FileManager.default.createDirectory(at: local.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Data(contentsOf: wav).write(to: local)
+            }
+            defer { if local != wav { try? FileManager.default.removeItem(at: local.deletingLastPathComponent()) } }
             let oldPlayer = Player(source: a)
             oldPlayer.p.defaultRate = 1
             oldPlayer.start(title, 0, generation: a.playbackGeneration)
@@ -863,9 +976,8 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         await stop(a)
         let saved = try JSONDecoder().decode(ProgressDisk.self, from: Data(contentsOf: file))
         try check(saved.pending.isEmpty && saved.local.isEmpty, "logout retained private progress")
-        a.me = "other"
-        a.accts["other"] = Tok(a: "other", r: "other")
         ProgressServer.state.withLock { $0.offline = false }
+        _ = try await a.login("http://abs-progress-fixture.invalid", "other", "fixture", main: true)
         let count = ProgressServer.state.withLock { $0.patches }
         await a.replayProgress()
         try check(ProgressServer.state.withLock { $0.patches } == count, "old queue crossed account scope")

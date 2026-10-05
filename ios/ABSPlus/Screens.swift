@@ -63,6 +63,7 @@ struct HomeView: View {
     }
 
     private func reload() async {
+        let epoch = app.mediaEpoch
         await loading.run {
             let error = await app.load("/api/me/items-in-progress?limit=20") { (r: InProgress) in
                 items = r.libraryItems.map { li in
@@ -70,6 +71,7 @@ struct HomeView: View {
                     return li.recentEpisode.map { Card(id: c.id, title: $0.title ?? "", sub: c.title, ep: $0.id) } ?? c
                 }
             }
+            guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
             let meError = await app.load("/api/me") { (m: Me) in app.setMe(m) }
             return error ?? meError
         }
@@ -149,6 +151,7 @@ struct LibraryView: View {
     }
 
     private func reload() async {
+        let epoch = app.mediaEpoch
         let library = sel
         guard !library.isEmpty else { loading.finished = librariesLoading.finished; return }
         await loading.run {
@@ -156,6 +159,7 @@ struct LibraryView: View {
                 guard !Task.isCancelled, sel == library else { return }
                 all = r.results.map(\.card)
             }
+            guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
             let meError = await app.load("/api/me") { (m: Me) in app.setMe(m) }
             return error ?? meError
         }
@@ -195,13 +199,14 @@ struct SeriesView: View {
     }
 
     private func reload() async {
+        let epoch = app.mediaEpoch
         await loading.run {
             var error = await app.load("/api/libraries") { (r: Libraries) in
                 libs = r.libraries.filter { $0.mediaType == "book" }
                 series = series.filter { key, _ in libs.contains { $0.id == key } }
             }
             for l in libs {
-                guard !Task.isCancelled else { return nil }
+                guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
                 let failure = await app.load("/api/libraries/\(l.id)/series?limit=1000&sort=name") { (r: Results<Series>) in series[l.id] = r.results }
                 error = error ?? failure
             }
@@ -227,14 +232,15 @@ struct FavoritesView: View {
     }
 
     private func reload() async {
+        let epoch = app.mediaEpoch
         await loading.run {
             var error = await app.load("/api/me") { (m: Me) in app.setMe(m) }
             // Populated cards need no serial metadata refresh. Retry only an actual
             // failure, including when load rendered its cached title before failing.
             for c in app.fav where c.title.isEmpty || failedMetadata.contains(c.id) {
-                guard !Task.isCancelled else { return nil }
+                guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
                 let failure = await app.fillFav(c.id)
-                guard !Task.isCancelled else { return nil }
+                guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
                 if failure == nil { failedMetadata.remove(c.id) } else { failedMetadata.insert(c.id) }
                 error = error ?? failure
             }
@@ -332,19 +338,20 @@ struct LinkAccount: View {
             .navigationTitle("Link another account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { request?.cancel(); dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button { link() } label: {
                     if busy { ProgressView("Linking…").accessibilityLabel("Linking account") } else { Text("Link") }
                 }.disabled(user.isEmpty || busy) }
             }
         }
         .presentationDetents([.medium])
-        .onDisappear { request?.cancel(); busy = false }
+        .onDisappear { request?.cancel(); request = nil; busy = false }
     }
 
     private func link() {
         guard !busy else { return }
         busy = true
+        let epoch = app.mediaEpoch
         err = nil
         request = Task {
             defer { busy = false }
@@ -355,7 +362,7 @@ struct LinkAccount: View {
                     dismiss()
                     then()
                 }
-            } catch { if !Task.isCancelled { err = error.localizedDescription } }
+            } catch { if epoch == app.mediaEpoch, !Task.isCancelled, !(error is CancellationError) { err = error.localizedDescription } }
         }
     }
 }

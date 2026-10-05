@@ -6,37 +6,52 @@ import SwiftUI
     private static let cache = NSCache<NSString, UIImage>()
     private static var missing = Set<String>() // no cover on the server (this run only)
     private static var loading: [String: Task<UIImage?, Never>] = [:]
-    private static let dir = URL.cachesDirectory.appending(path: "covers")
+    // Never read or migrate legacy covers/<id>: those bytes have no proven owner.
+    private static func directory(_ session: Abs) -> URL {
+        URL.cachesDirectory.appending(path: "account-covers/" + session.mediaScope)
+    }
+    private static func key(_ id: String, _ session: Abs) -> String { session.mediaScope + "/" + id }
 
-    static func mem(_ id: String) -> UIImage? { cache.object(forKey: id as NSString) }
+    static func mem(_ id: String, session: Abs = app) -> UIImage? {
+        guard session.me != nil else { return nil }
+        return cache.object(forKey: key(id, session) as NSString)
+    }
 
-    static func get(_ id: String) async -> UIImage? {
-        if id.isEmpty || missing.contains(id) { return nil }
-        if let i = mem(id) { return i }
-        if let t = loading[id] { return await t.value }
+    static func clear() {
+        loading.values.forEach { $0.cancel() }; loading = [:]
+        cache.removeAllObjects(); missing = []
+        // Cleanup is not the isolation boundary: every read/write uses account ownership.
+        try? FileManager.default.removeItem(at: directory(app))
+    }
+
+    static func get(_ id: String, session app: Abs = app) async -> UIImage? {
+        let epoch = app.mediaEpoch
+        let key = key(id, app), dir = directory(app)
+        guard !Task.isCancelled, app.me != nil else { return nil }
+        if id.isEmpty || missing.contains(key) { return nil }
+        if let i = mem(id, session: app) { return i }
+        if let t = loading[key] { let img = await t.value; return epoch == app.mediaEpoch && !Task.isCancelled ? img : nil }
         let t = Task { () -> UIImage? in
-            defer { loading[id] = nil }
-            let f = dir.appending(path: id)
+            defer { if epoch == app.mediaEpoch { loading[key] = nil } }
+            let f = dir.appending(path: id.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "invalid")
             var data = try? Data(contentsOf: f)
-            if data == nil, let u = URL(string: "\(app.server)/api/items/\(id)/cover?width=400&format=webp") {
-                var r = URLRequest(url: u)
-                if let t = try? await app.token() { r.setValue("Bearer " + t, forHTTPHeaderField: "Authorization") }
-                if let (d, resp) = try? await URLSession.shared.data(for: r) {
-                    let code = (resp as? HTTPURLResponse)?.statusCode
-                    if code == 404 { missing.insert(id) }
-                    if code == 200 {
-                        data = d
-                        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                        try? d.write(to: f)
-                    }
-                }
+            if data == nil {
+                do {
+                    data = try await app.api("GET", "/api/items/\(id)/cover?width=400&format=webp")
+                    try app.checkSession(epoch)
+                    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                    try? data?.write(to: f)
+                } catch let e as HttpErr where e.code == 404 {
+                    if epoch == app.mediaEpoch { missing.insert(key) }
+                } catch { return nil }
             }
-            guard let data, let img = await UIImage(data: data)?.byPreparingForDisplay() else { return nil }
-            cache.setObject(img, forKey: id as NSString)
+            guard let data, let img = await UIImage(data: data)?.byPreparingForDisplay(), epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
+            cache.setObject(img, forKey: key as NSString)
             return img
         }
-        loading[id] = t
-        return await t.value
+        loading[key] = t
+        let img = await t.value
+        return epoch == app.mediaEpoch && !Task.isCancelled ? img : nil
     }
 }
 

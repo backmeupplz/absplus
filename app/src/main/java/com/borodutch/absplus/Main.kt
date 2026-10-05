@@ -141,7 +141,7 @@ class Main : AppCompatActivity() {
         ).pad(16, 0).apply { setBackgroundColor(color(M.attr.colorErrorContainer)); visibility = View.GONE }
         setContentView(col(content.lp(-1, 0, 1f), banner, dlBar, mini, nav))
         onBackPressedDispatcher.addCallback(this, back)
-        if (Abs.me == null) login() else {
+        if (Abs.me == null || Abs.loginPending) login() else {
             tab(0)
             Dl.start(this) // pick up downloads left unfinished last time
         }
@@ -180,7 +180,7 @@ class Main : AppCompatActivity() {
 
     override fun onConfigurationChanged(c: android.content.res.Configuration) {
         super.onConfigurationChanged(c)
-        if (Abs.me != null) {
+        if (Abs.me != null && !Abs.loginPending) {
             fun resize(v: View) {
                 if (v is RecyclerView) (v.layoutManager as? GridLayoutManager)?.spanCount = max(4, resources.displayMetrics.widthPixels / dp(96))
                 else if (v is ViewGroup) for (i in 0 until v.childCount) resize(v.getChildAt(i))
@@ -340,7 +340,16 @@ class Main : AppCompatActivity() {
 
     // --- login
 
+    private var loginAttempt: Abs.LoginAttempt? = null
+
+    override fun onDestroy() {
+        loginAttempt?.cancel()
+        super.onDestroy()
+    }
+
     private fun login() {
+        Abs.requireLogin()
+        loginAttempt?.cancel()
         screen = ++generation
         playRequest++
         pendingPlay = null
@@ -361,10 +370,16 @@ class Main : AppCompatActivity() {
             go.isEnabled = false
             go.text = "Signing in…"
             val gen = screen
-            val server = url.str(); val username = user.str(); val password = pass.str()
-            bg({ Abs.login(server, username, password, true) }, {
-                if (gen == screen) { go.isEnabled = true; go.text = "Sign in"; err(it) }
-            }) { if (gen == screen) { if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 } }
+            val attempt = Abs.beginLogin().also { loginAttempt = it }
+            val base = url.str(); val username = user.str(); val password = pass.str()
+            thread {
+                val result = runCatching { Abs.login(base, username, password, true, attempt) }
+                runOnUiThread {
+                    if (!isDestroyed && gen == screen && loginAttempt === attempt && !attempt.cancelled) {
+                        result.fold({ if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 }, { go.isEnabled = true; go.text = "Sign in"; err(it) })
+                    }
+                }
+            }
         }
         val logo = ImageView(this).apply { setImageResource(R.drawable.logo) }.lp(dp(96), dp(96), m = 8)
         val c = col(
@@ -898,15 +913,17 @@ class Main : AppCompatActivity() {
             val on = Abs.toggleFav(c)
             val state = status("favorites sync")
             val owner = screen
+            val syncScope = Abs.scope()
             var syncing = false
             fun sync() {
-                if (syncing) return
+                if (syncing || syncScope != Abs.scope()) return
                 syncing = true
                 fav.isEnabled = false
                 state.loading(true)
                 bg({ Abs.pushFavs(); check(!JSONObject(Abs.p.getString("favq", "{}")).has(c.id)) }, { e ->
                     syncing = false
-                    if (owner == screen) { fav.isEnabled = true; state.failed(true, e, ::sync) }
+                    if (e is StaleSession || syncScope != Abs.scope()) state.success()
+                    else if (owner == screen) { fav.isEnabled = true; state.failed(true, e, ::sync) }
                 }) { syncing = false; if (owner == screen) { fav.isEnabled = true; state.success() } }
             }
             sync()
@@ -1053,7 +1070,7 @@ class Main : AppCompatActivity() {
         val j = Dl.next ?: Dl.jobs.firstOrNull()
         dlBar.isVisible = j != null && Abs.me != null && nav.isVisible
         if (j != null) {
-            if (dlCover.tag != j.n.item) Covers.load(dlCover, j.n.item)
+            if (!Covers.isBound(dlCover, j.n.item)) Covers.load(dlCover, j.n.item)
             dlTitle.text = j.n.title
             dlSub.text = dlStatus(j) + (Dl.jobs.size - 1).let { if (it > 0) " · $it more" else "" }
             progress(dlProg, j)
@@ -1065,6 +1082,7 @@ class Main : AppCompatActivity() {
     // --- progress sharing
 
     private fun share(id: String, name: String) {
+        val epoch = Abs.mediaEpoch
         val accts = Abs.accounts()
         val cur = Abs.shares(id)
         val checked = BooleanArray(accts.size) { accts[it] in cur }
@@ -1074,6 +1092,7 @@ class Main : AppCompatActivity() {
         if (accts.isEmpty()) d.setMessage("Link another account on this server to keep your progress on this title in sync with it.")
         else d.setMultiChoiceItems(accts.toTypedArray(), checked) { _, i, c -> checked[i] = c }
             .setPositiveButton("Save") { _, _ ->
+                if (epoch != Abs.mediaEpoch) return@setPositiveButton
                 val sel = accts.filterIndexed { i, _ -> checked[i] }.toSet()
                 val added = sel - cur
                 if (added.isEmpty()) Abs.setShares(id, sel)
@@ -1088,10 +1107,12 @@ class Main : AppCompatActivity() {
     private fun addAccount(then: () -> Unit) {
         val user = field("Username")
         val pass = field("Password", "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        var attempt: Abs.LoginAttempt? = null
         val message = text("They sign in here once to allow it.", muted = true)
         val d = MaterialAlertDialogBuilder(this).setTitle("Link another account")
             .setView(col(message, user, pass, pad = 20))
             .setNegativeButton("Cancel", null).setPositiveButton("Link", null).create()
+        d.setOnDismissListener { attempt?.cancel() }
         val gen = screen
         var running = false
         d.show()
@@ -1102,8 +1123,11 @@ class Main : AppCompatActivity() {
                 running = true; go.isEnabled = false; go.text = "Linking…"
                 d.setCancelable(false)
                 d.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).isEnabled = false
+                val current = Abs.beginLogin().also { attempt = it }
+                val base = Abs.server
                 val username = user.str(); val password = pass.str()
-                bg({ Abs.login(Abs.server, username, password, false) }, {
+                bg({ Abs.login(base, username, password, false, current) }, {
+                    if (it is StaleSession) { d.dismiss(); return@bg }
                     running = false; go.isEnabled = true; go.text = "Link"
                     d.setCancelable(true)
                     d.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).isEnabled = true
@@ -1139,12 +1163,13 @@ class Main : AppCompatActivity() {
     private fun play(n: Now, captured: Abs.Scope = Abs.scope(playback = true)) = preparePlay(n.key, captured) { n }
 
     private fun preparePlay(key: String, captured: Abs.Scope, get: (Abs.Scope) -> Now) {
-        if (captured != Abs.scope(playback = true)) return
+        if (captured != Abs.scope(playback = true) || Abs.loginPending || !nav.isVisible) return
         if (pendingPlay == key && pendingPlayScope == captured) return
         pendingPlay = key
         pendingPlayScope = captured
         val request = ++playRequest
         val gen = screen
+        val requestScope = Abs.scope()
         playStatus?.success()
         val state = status("audio")
         playStatus = state
@@ -1155,7 +1180,7 @@ class Main : AppCompatActivity() {
             check(n.tracks.isNotEmpty()) { "No audio" }
             n to Abs.positions(n, captured)
         }, { e ->
-            if (request != playRequest || gen != screen || captured != Abs.scope(playback = true) || e is StaleScope) {
+            if (request != playRequest || gen != screen || captured != Abs.scope(playback = true) || e is StaleScope || e is StaleSession) {
                 state.success()
                 if (request == playRequest) pendingPlay = null
                 return@bg
@@ -1176,7 +1201,7 @@ class Main : AppCompatActivity() {
             if (ps.size == 1) start(n, ps[0].time, captured = captured)
             else MaterialAlertDialogBuilder(this).setTitle("Resume “${n.title}” from")
                 .setItems(ps.map { "${it.who} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i ->
-                    if (request == playRequest && gen == screen) start(n, ps[i].time, captured = captured)
+                    if (request == playRequest && gen == screen) Abs.ifCurrent(requestScope) { start(n, ps[i].time, captured = captured) }
                 }.setNegativeButton("Cancel", null).show()
         }
     }
@@ -1184,14 +1209,19 @@ class Main : AppCompatActivity() {
     /** After an app restart: put the last title back in the player, paused, at its latest position. */
     private fun restore() {
         val captured = Abs.scope(playback = true)
-        val c = ctl ?: return
-        if (c.mediaItemCount > 0 || Abs.me == null) return
-        val n = Abs.now ?: Abs.loadNow() ?: return
-        val request = playRequest
-        bg({ Abs.positions(n, captured).first().time }, {}) { t -> if (request == playRequest && pendingPlay == null && ctl === c && c.mediaItemCount == 0) start(n, t, play = false, captured = captured) }
+        Abs.ifCurrent(captured) {
+            val c = ctl ?: return@ifCurrent
+            if (c.mediaItemCount > 0 || Abs.me == null || Abs.loginPending || !nav.isVisible) return@ifCurrent
+            val n = Abs.now ?: Abs.loadNow() ?: return@ifCurrent
+            val request = playRequest
+            scopedBg(captured, { Abs.positions(n, captured).first().time }) { t ->
+                if (request == playRequest && pendingPlay == null && ctl === c && c.mediaItemCount == 0) start(n, t, play = false, captured = captured)
+            }
+        }
     }
 
     private fun start(n: Now, t: Double, play: Boolean = true, captured: Abs.Scope) = Abs.ifCurrent(captured) {
+        if (Abs.me == null || Abs.loginPending || !nav.isVisible) return@ifCurrent
         val c = ctl ?: return@ifCurrent toast("Player not ready")
         Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0 && Abs.nowScope == captured) Abs.pos(c, old).let { p -> Abs.push(old, p, false) } }
         Abs.bindPlayback(n, captured)
@@ -1199,7 +1229,7 @@ class Main : AppCompatActivity() {
         if (play) Abs.addHistory(n)
         val art = "${captured.server}/api/items/${n.item}/cover?width=400&format=webp"
         val items = n.tracks.mapIndexed { i, tr ->
-            MediaItem.Builder().setMediaId(Abs.mediaId(n, captured, i)).setCustomCacheKey(Abs.mediaId(n, captured, i)).setUri(Abs.uri(n.item, tr))
+            MediaItem.Builder().setMediaId(Abs.mediaId(n, captured, i)).setCustomCacheKey(captured.generation.toString()).setUri(Abs.uri(n.item, tr))
                 .setMediaMetadata(MediaMetadata.Builder().setTitle(n.title).setArtist(n.author).setArtworkUri(android.net.Uri.parse(art)).build()).build()
         }
         val (i, ms) = n.at(if (t > n.duration - 5) 0.0 else t)
@@ -1238,7 +1268,7 @@ class Main : AppCompatActivity() {
         if (c == null || n == null || c.mediaItemCount == 0) return
         val pos = Abs.pos(c, n)
         val playing = !Util.shouldShowPlayButton(c)
-        if (miniCover.tag != n.item) Covers.load(miniCover, n.item)
+        if (!Covers.isBound(miniCover, n.item)) Covers.load(miniCover, n.item)
         miniTitle.text = n.title
         miniSub.text = when {
             c.playerError != null -> "Playback failed · tap play to retry"
@@ -1369,21 +1399,46 @@ class Main : AppCompatActivity() {
         request()
     }
 
-    private fun <T> bg(work: () -> T, fail: (Throwable) -> Unit = ::err, done: (T) -> Unit) = thread {
-        val r = runCatching(work)
-        runOnUiThread { if (!isDestroyed) r.fold(done, fail) }
+    private fun <T> scopedBg(captured: Abs.Scope, work: () -> T, fail: (Throwable) -> Unit = ::err, done: (T) -> Unit): Thread {
+        val epoch = Abs.mediaEpoch
+        return thread {
+            val r = runCatching { Abs.sessionWork(epoch) { Abs.inScope(captured) {}; work() } }
+            runOnUiThread {
+                if (!isDestroyed && epoch == Abs.mediaEpoch) Abs.ifCurrent(captured) { r.fold(done, fail) }
+            }
+        }
+    }
+
+    private fun <T> bg(work: () -> T, fail: (Throwable) -> Unit = ::err, done: (T) -> Unit): Thread {
+        val epoch = Abs.mediaEpoch
+        val owner = Abs.server to Abs.me
+        return thread {
+            val r = runCatching { Abs.sessionWork(epoch, work) }
+            runOnUiThread {
+                if (!isDestroyed && (epoch != Abs.mediaEpoch || owner != (Abs.server to Abs.me))) {
+                    // Only terminal cleanup is delivered for the old owner, never its result.
+                    fail(StaleSession())
+                } else if (!isDestroyed) {
+                    runCatching { Abs.inSession(epoch) { Abs.sessionWork(epoch) { r.fold(done, fail) } } }
+                        .exceptionOrNull()?.let { if (it !is StaleSession) err(it) }
+                }
+            }
+        }
     }
 
     private fun err(e: Throwable) {
-        if (e is StaleScope) return // a newer login replaced the request, not an expired session
+        if (e is StaleSession || e is StaleScope) return
         toast(e.message ?: e.toString())
         if (e is Expired) login()
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
 
-    private fun confirm(msg: String, yes: () -> Unit) = MaterialAlertDialogBuilder(this).setMessage(msg)
-        .setNegativeButton("Cancel", null).setPositiveButton("OK") { _, _ -> yes() }.show()
+    private fun confirm(msg: String, yes: () -> Unit): androidx.appcompat.app.AlertDialog {
+        val epoch = Abs.mediaEpoch
+        return MaterialAlertDialogBuilder(this).setMessage(msg)
+            .setNegativeButton("Cancel", null).setPositiveButton("OK") { _, _ -> if (epoch == Abs.mediaEpoch) yes() }.show()
+    }
 
     private fun field(hint: String, v: String = "", type: Int = 0) = TextInputLayout(this).apply {
         this.hint = hint

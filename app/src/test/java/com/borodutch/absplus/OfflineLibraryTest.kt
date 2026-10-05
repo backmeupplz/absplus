@@ -17,6 +17,9 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
+import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -29,7 +32,7 @@ class OfflineLibraryTest {
         v.layout(0, 0, 1080, 1800)
     }
     private fun seed(id: String, podcast: Boolean = false, empty: Boolean = false, size: Int = 7) {
-        File(Abs.dir, id).apply { deleteRecursively(); mkdirs() }
+        File(Abs.mediaDir, "audio/$id").apply { deleteRecursively(); mkdirs() }
         val audio = listOf("one", "two").map { JSONObject().put("ino", it).put("duration", 60)
             .put("metadata", JSONObject().put("ext", ".mp3").put("size", size)) }
         val media = JSONObject().put("metadata", JSONObject().put("title", "Fixture $id"))
@@ -40,13 +43,25 @@ class OfflineLibraryTest {
         cache.parentFile!!.mkdirs()
         cache.writeText(JSONObject().put("id", id).put("mediaType", if (podcast) "podcast" else "book").put("media", media).toString())
     }
-    private fun save(id: String, track: String, bytes: String = "fixture") = File(Abs.dir, "$id/$track.mp3").writeText(bytes)
+    private fun save(id: String, track: String, bytes: String = "fixture") = File(Abs.mediaDir, "audio/$id/$track.mp3").writeText(bytes)
 
     @Test fun realLibraryFiltersCompleteTitlesButStorageKeepsPartialFiles() {
+        // Reset before Main can schedule reads against another test's stopped server.
+        Abs.init(RuntimeEnvironment.getApplication()); Abs.logout()
         val controller = Robolectric.buildActivity(Main::class.java).create()
         val a = controller.get()
         (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
         try {
+            val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+            server.createContext("/login") { x ->
+                x.requestBody.close()
+                val bytes = """{"user":{"id":"library-fixture-id","username":"fixture","accessToken":"fixture"}}""".toByteArray()
+                x.sendResponseHeaders(200, bytes.size.toLong())
+                x.responseBody.use { it.write(bytes) }
+            }
+            server.start()
+            try { Abs.login("http://127.0.0.1:" + server.address.port, "fixture", "fixture", true) }
+            finally { server.stop(0) }
             val ids = listOf("partial", "complete", "zero", "podcast", "podcast-zero", "empty", "missing-zero")
             ids.forEach { seed(it, it.startsWith("podcast"), it == "empty", if (it == "missing-zero") 0 else 7) }
             save("partial", "one"); save("complete", "one"); save("complete", "two"); save("podcast", "one")
@@ -77,24 +92,24 @@ class OfflineLibraryTest {
             a.call("push", { a.call("downloads") })
             layout(content)
             assertTrue(views(content).filterIsInstance<TextView>().any { it.text == "Fixture partial" })
-            File(Abs.dir, "partial/two.mp3").delete()
+            File(Abs.mediaDir, "audio/partial/two.mp3").delete()
             Abs.dlChanged()
             a.onBackPressedDispatcher.onBackPressed()
             layout(content)
             assertSame(page, content.getChildAt(0))
             assertEquals("Fixture partial", search.text.toString())
             assertEquals(0, grid.adapter!!.itemCount)
-            assertTrue(File(Abs.dir, "partial/one.mp3").isFile)
-            Abs.removeAll(File(Abs.dir, "partial"))
+            assertTrue(File(Abs.mediaDir, "audio/partial/one.mp3").isFile)
+            Abs.removeAll(File(Abs.mediaDir, "audio/partial"))
             assertFalse(Abs.downloads().any { it.name == "partial" })
-            File(Abs.dir, "podcast/one.mp3").delete()
+            File(Abs.mediaDir, "audio/podcast/one.mp3").delete()
             Abs.dlChanged()
             assertFalse(Abs.downloaded("podcast"))
         } finally {
             listOf("partial", "complete", "zero", "podcast", "podcast-zero", "empty", "missing-zero")
-                .forEach { File(Abs.dir, it).deleteRecursively() }
+                .forEach { File(Abs.mediaDir, "audio/$it").deleteRecursively() }
             Abs.dlChanged()
-            Abs.offline = false
+            Abs.logout()
             controller.destroy()
         }
     }

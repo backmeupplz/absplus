@@ -3,14 +3,15 @@ import SwiftUI
 
 /// Disposable simulator only: real Library/Storage views with synthetic local files.
 struct OfflineLibraryFixture: View {
-    private static var seeded = false
-    init() {
-        guard !Self.seeded else { return }; Self.seeded = true
+    @State private var seeded = false
+    @State private var failure: String?
+    private func seed() async throws {
         URLProtocol.registerClass(OfflineHomeProtocol.self)
-        app.d.set("http://abs-home-fixture.invalid", forKey: "server")
-        app.d.set("", forKey: "lib")
-        app.accts["library-fixture"] = Tok(a: "fixture", r: "")
-        app.me = "library-fixture"
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [OfflineHomeProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        app.logout()
+        try await app.login("http://abs-home-fixture.invalid", "home-fixture", "fixture", main: true)
         app.offline = true
         app.dlq = []
         for id in ["partial", "complete", "zero", "podcast", "podcast-zero", "empty", "missing-zero"] {
@@ -31,8 +32,8 @@ struct OfflineLibraryFixture: View {
         for id in ["partial", "zero", "podcast-zero", "empty", "missing-zero"] { assert(!app.downloaded(id)) }
     }
     static func seed(_ id: String, podcast: Bool = false, empty: Bool = false, size: Int = 7) {
-        try? FileManager.default.removeItem(at: dlDir.appending(path: id))
-        try! FileManager.default.createDirectory(at: dlDir.appending(path: id), withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: app.mediaDir.appending(path: "audio/" + id))
+        try! FileManager.default.createDirectory(at: app.mediaDir.appending(path: "audio/" + id), withIntermediateDirectories: true)
         let audio: [[String: Any]] = ["one", "two"].map { ["ino": $0, "duration": 60, "metadata": ["ext": ".mp3", "size": size]] }
         var media: [String: Any] = ["metadata": ["title": "Fixture " + id]]
         if podcast { media["episodes"] = zip(["one", "two"], audio).map { ["id": $0.0, "title": $0.0, "audioFile": $0.1] as [String: Any] } }
@@ -40,18 +41,25 @@ struct OfflineLibraryFixture: View {
         OfflineHomeFixture.cache("/api/items/\(id)?expanded=1", ["id": id, "mediaType": podcast ? "podcast" : "book", "media": media])
     }
     static func save(_ id: String, _ ino: String, bytes: String = "fixture") {
-        try! Data(bytes.utf8).write(to: dlDir.appending(path: "\(id)/\(ino).mp3"))
+        try! Data(bytes.utf8).write(to: app.mediaDir.appending(path: "audio/\(id)/\(ino).mp3"))
     }
     var body: some View {
+        Group {
+            if seeded { fixture } else { Text(failure ?? "Preparing offline Library").task {
+                do { try await seed(); seeded = true } catch { failure = error.localizedDescription }
+            } }
+        }
+    }
+    private var fixture: some View {
         Stack { LibraryView() }
             .safeAreaInset(edge: .top) {
                 HStack {
                     Button("Complete partial") { Self.save("partial", "two"); app.dlChanged() }
                     Button("Undo partial") {
-                        try? FileManager.default.removeItem(at: dlDir.appending(path: "partial/two.mp3")); app.dlChanged()
+                        try? FileManager.default.removeItem(at: app.mediaDir.appending(path: "audio/partial/two.mp3")); app.dlChanged()
                     }
                     Button("Remove episode") {
-                        try? FileManager.default.removeItem(at: dlDir.appending(path: "podcast/one.mp3")); app.dlChanged()
+                        try? FileManager.default.removeItem(at: app.mediaDir.appending(path: "audio/podcast/one.mp3")); app.dlChanged()
                     }
                 }.buttonStyle(.bordered).font(.caption)
             }

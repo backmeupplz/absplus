@@ -27,6 +27,9 @@ jobs:
           - group: loading
             tests: >-
               -only-testing:UITests/LoadingLifecycle -only-testing:UITests/PlaybackPreparation
+          - group: isolation-retained
+            tests: >-
+              -only-testing:UITests/RetainedDownloads -only-testing:UITests/SessionIsolation
           - group: offline-progress
             tests: >-
               -only-testing:UITests/ListLifecycle -only-testing:UITests/Accessibility

@@ -29,6 +29,13 @@ import kotlin.math.min
  */
 object Dl {
     class Job(val n: Now) {
+        // Capture all ownership fields together, including callers outside the queue.
+        private val owner = synchronized(Abs.mediaLock) { Triple(Abs.mediaEpoch, Abs.server, Abs.mediaDir) }
+        val epoch = owner.first
+        val server = owner.second
+        val dir = owner.third
+        fun file(t: Track) = Abs.mediaFile(dir, n.item, t)
+        fun done(t: Track) = file(t).isFile && file(t).length() == t.size
         val total = n.tracks.sumOf { it.size }
         @Volatile var got = 0L
         @Volatile var error: String? = null
@@ -46,16 +53,19 @@ object Dl {
     val idle get() = worker == null
     val next get() = jobs.firstOrNull { it.error == null }
 
-    fun load() {
+    // Queue operations that touch account state always take mediaLock before Dl.
+    fun load() = synchronized(Abs.mediaLock) { synchronized(this) {
         if (jobs.isNotEmpty()) return
         val a = JSONArray(Abs.p.getString("dlq", "[]"))
         for (i in 0 until a.length()) jobs += Job(Now.of(a.getJSONObject(i))).also { measure(it) }
-    }
+    } }
 
     private fun save() = Abs.p.edit().putString("dlq", JSONArray().apply { jobs.forEach { put(it.n.json()) } }.toString()).apply()
 
     fun add(c: Context, n: Now) {
-        synchronized(this) { if (job(n.key) == null) { jobs += Job(n).also { measure(it) }; save() } }
+        synchronized(Abs.mediaLock) {
+            synchronized(this) { if (job(n.key) == null) { jobs += Job(n).also { measure(it) }; save() } }
+        }
         start(c)
     }
 
@@ -74,12 +84,14 @@ object Dl {
     }
 
     /** forgets a title's download and deletes whatever of it is on disk */
-    fun cancel(n: Now) = synchronized(this) {
+    fun cancel(n: Now) = synchronized(Abs.mediaLock) { synchronized(this) {
         jobs.removeAll { it.n.key == n.key }
         save()
         Abs.remove(n.tracks.map { Abs.file(n.item, it) })
-    }
+    } }
 
+    // Dl-only sections (clear, worker launch/selection/reset) never enter Abs or callbacks.
+    // Account-dependent load/add/cancel/finish/file commit take mediaLock first.
     /** on logout: stop downloading, keep the files */
     fun clear() = synchronized(this) { jobs.clear() }
 
@@ -87,7 +99,7 @@ object Dl {
 
     /** bytes of the title on disk, counting files other than [skip] */
     private fun measure(j: Job, skip: Track? = null) = j.n.tracks.filter { it !== skip }.sumOf { t ->
-        if (Abs.done(j.n.item, t)) t.size else part(Abs.file(j.n.item, t)).length()
+        if (j.done(t)) t.size else part(j.file(t)).length()
     }.also { if (skip == null) j.got = it }
 
     /** the queue runner; DlService starts it, one at a time */
@@ -100,7 +112,7 @@ object Dl {
             while (true) {
                 val j = synchronized(this) { next.also { if (it == null) worker = null } } ?: break
                 try {
-                    for (t in j.n.tracks) if (!Abs.done(j.n.item, t)) {
+                    for (t in j.n.tracks) if (!j.done(t)) {
                         wake.acquire(30 * 60_000L)
                         fetch(j, t, s)
                     }
@@ -125,10 +137,10 @@ object Dl {
     }
 
     private fun finish(j: Job, msg: String?) {
-        synchronized(this) {
-            jobs.remove(j)
+        synchronized(Abs.mediaLock) { synchronized(this) {
+            if (j.epoch != Abs.mediaEpoch || !jobs.remove(j)) return
             save()
-        }
+        } }
         Abs.dlChanged()
         onChange?.invoke(msg)
     }
@@ -142,29 +154,33 @@ object Dl {
     }
 
     private fun fetch(j: Job, t: Track, s: DlService) {
-        val f = Abs.file(j.n.item, t)
+        if (j.epoch != Abs.mediaEpoch || !jobs.contains(j)) throw Stop()
+        val f = j.file(t)
         val p = part(f)
         f.parentFile!!.mkdirs()
         if (t.size > 0 && p.length() > t.size) p.delete() // not ours
         val base = measure(j, t)
+        val auth = Abs.token(epoch = j.epoch)
+        if (j.epoch != Abs.mediaEpoch || !jobs.contains(j)) throw Stop()
         // a range starting at the end makes the server answer 500, so a complete part goes straight to the rename
-        if (t.size <= 0 || p.length() < t.size) resume(URL("${Abs.server}/api/items/${j.n.item}/file/${t.ino}/download"), Abs.token(), p) { have ->
-            if (!jobs.contains(j)) throw Stop()
+        if (t.size <= 0 || p.length() < t.size) resume(URL("${j.server}/api/items/${j.n.item}/file/${t.ino}/download"), auth, p) { have ->
+            if (j.epoch != Abs.mediaEpoch || !jobs.contains(j)) throw Stop()
             j.waiting = false
             j.got = base + have
             s.progress(j)
         }
-        synchronized(this) {
-            if (!jobs.contains(j)) throw Stop()
+        synchronized(Abs.mediaLock) { synchronized(this) {
+            if (j.epoch != Abs.mediaEpoch || !jobs.contains(j)) throw Stop()
             if (t.size > 0 && p.length() != t.size) throw IOException("${f.name}: ${p.length()} of ${t.size} bytes")
             if (!p.renameTo(f)) throw IOException("Can't save ${f.name}")
-        }
+        } }
     }
 
     /** Continues [part] with the rest of [url] (Range from its size), starting over if the server ignores the range. */
     fun resume(url: URL, token: String, part: File, onBytes: (Long) -> Unit) {
         val c = url.openConnection() as HttpURLConnection
         try {
+            c.instanceFollowRedirects = false
             c.connectTimeout = 15_000
             c.readTimeout = 30_000
             onBytes(part.length()) // cancellation before opening a socket
@@ -172,7 +188,7 @@ object Dl {
             val have = part.length()
             if (have > 0) c.setRequestProperty("Range", "bytes=$have-")
             val code = c.responseCode
-            if (code >= 400) throw HttpErr(code)
+            if (code >= 300) throw HttpErr(code)
             val append = have > 0 && code == 206
             var n = if (append) have else 0L
             onBytes(n)

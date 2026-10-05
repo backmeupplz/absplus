@@ -54,3 +54,70 @@ The final merged source was rebuilt and fully retested:
 
 All build/test processes were settled before the integration handoff. This is
 local verification, not exact-head hosted CI or store deployment evidence.
+
+## Transactional isolation integration
+
+Integration of main `ac349e0` (#33, including the retained-download dependency)
+is performed on top of `812ebed`. Native merge resolution preserves independent
+page/preparation ownership and immutable host/account/session guards. Legacy
+unscoped files remain quarantined; fixture seeding follows the authenticated
+server/account media scope instead of bypassing production ownership checks.
+
+CI retains the exact union of all **13 mapped suites** in three independent,
+30-minute lanes: loading/playback, isolation/retained downloads, and
+offline/progress/navigation. Fail-fast is disabled and full Android unit tests
+remain enabled. `Tour` remains the existing credential-dependent unmapped suite.
+
+Native validation uses `/tmp/abs25-isolation-android*` and
+`/tmp/abs25-isolation-ios*`; iOS targets only simulator
+`261196CA-6429-4460-80AD-E916F447F564`. Final terminal results follow below.
+
+- Android final integration: **116 tests across 18 suites**, zero failures/errors/skips;
+  full `testDebugUnitTest assembleDebug assembleRelease --offline --no-daemon
+  --max-workers=2` exited 0 with JDK 21 / SDK 36. All test functions from both
+  parents remain. Same-owner reauthentication now explicitly checks old preparation
+  cleanup and fresh retry. Evidence: `/tmp/abs25-isolation-android-final.log`,
+  `/tmp/abs25-isolation-android-summary.log`, `/tmp/abs25-isolation-android-xml/`
+  and `/tmp/abs25-isolation-android-apks.sha256`.
+
+- iOS: all **13 suites** ran in `/tmp/abs25-isolation-ios-full.xcresult`: 32
+  passed, five fixture-integration failures, one expected iPhone pointer skip.
+  Authenticated/scoped fixture paths, response sequencing and the loading API
+  error-return contract were repaired without removing isolation or lifecycle
+  assertions. `/tmp/abs25-isolation-ios-recovery.xcresult` then passed all 24
+  supported cases (one expected pointer skip) across LoadingLifecycle, OfflineSeries,
+  PlaybackPreparation, ProgressReplay, RetainedDownloads and SessionIsolation;
+  exit 0. Combined suite coverage is **37 passed, one expected skip**, not a
+  single green union invocation. Matching `.log` files preserve each outcome.
+  Unsigned Release exited 0 (`/tmp/abs25-isolation-ios-release.xcresult` and `.log`).
+- Independent integration review found no dropped selectors or ownership/lock
+  regression, but identified a remote-playback auth-failure exit that could leave
+  buffering without retry feedback. Its narrow correction and final evidence are
+  recorded below.
+
+### Final review correction
+
+`Player.queue` now clears partial queue/buffering and exposes retryable terminal
+feedback when streaming authentication fails. Existing queue/session ownership
+checks fence the feedback; downloaded local audio remains playable. A new native
+ProgressReplay case checks failed refresh, explicit Retry, real offline WAV playback
+and a held old authentication failure that must not disturb newer playback/toast.
+
+The final source passed all four affected suites (PlaybackPreparation, ProgressReplay,
+RetainedDownloads, SessionIsolation): **14 passed, zero failures, one expected iPhone
+pointer skip**, exit 0. Finalized bundle/log:
+`/tmp/abs25-isolation-reviewfix-suites.xcresult` and matching `.log`. Unsigned Release
+also exited 0 (`/tmp/abs25-isolation-reviewfix-release.xcresult` and `.log`). The added
+case also passed alone in `/tmp/abs25-isolation-reviewfix-auth-fixed.xcresult`.
+The focused fixture first needed a WAV byte-size correction; only its completed-test
+diagnostic collector was stopped. The final four-suite run finalized normally.
+Android was unchanged after its verified 116-test/build run. Across the full run,
+recovery and final affected-suite rerun, all **38 supported iOS cases** have passing
+evidence plus the one explicit pointer skip; no single final 13-suite green run is claimed.
+
+Final upstream check (2026-10-04 21:40 PDT): `origin/main` remains `ac349e0`;
+sibling PR #5 remains open, so no unlanded sibling delta was cherry-picked. The
+already-landed retained-download dependency remains included through #33. CI exact
+selector-union and staged/unstaged whitespace checks pass. All owned build/test
+processes and helpers are settled; the assigned simulator is shut down. No push,
+board update, hosted exact-head CI, signing, store publication or device claim.
