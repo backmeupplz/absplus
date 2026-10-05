@@ -219,7 +219,7 @@ class DownloadRemovalTest {
     private fun resetProcessState() {
         Dl.clear()
         Dl.onChange = null
-        Abs.now = null
+        Abs.clearPlayback()
         Abs.offline = false
         Abs.progress = emptyMap()
         Abs.dlChanged()
