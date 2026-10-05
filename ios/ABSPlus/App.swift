@@ -9,10 +9,14 @@ struct ABSPlusApp: App {
 #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--loading-test") {
                 LoadingFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
+                DownloadRetryFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
                 AccessibilityFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--offline-series-test") {
+                OfflineSeriesFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--offline-library-test") {
                 OfflineLibraryFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--offline-home-test") {
@@ -64,7 +68,7 @@ struct RootView: View {
                 }
                 .sheet(isPresented: $full) { FullPlayer() }
                 .task {
-                    Downloader.shared.restore()
+                    await Downloader.shared.restore()
                     await player.restore()
                     try? await Task.sleep(for: .seconds(2)) // interrupted transfers report back with their resume data first
                     guard !Task.isCancelled else { return }

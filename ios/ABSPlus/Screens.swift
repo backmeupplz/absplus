@@ -387,6 +387,9 @@ struct DownloadsView: View {
                                     Text(dlStatus(n)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                                     ProgressView(value: all > 0 ? min(1, Double(have) / Double(all)) : 0)
                                 }
+                                if app.downloadError(n) != nil {
+                                    Button("Retry") { Task { await app.download(n) } }.buttonStyle(.borderless)
+                                }
                                 Button { stopping = n } label: { Image(systemName: "xmark.circle.fill").font(.title2).foregroundStyle(.secondary) }
                                     .buttonStyle(.borderless)
                                     .accessibilityLabel("Cancel download")

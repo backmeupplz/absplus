@@ -169,7 +169,8 @@ struct DlButton: View {
     var body: some View {
         let _ = app.dlv
         let done = n.tracks.allSatisfy { app.done(n.item, $0) }
-        let busy = !done && app.queued(n)
+        let failed = app.downloadError(n) != nil
+        let busy = !done && app.queued(n) && !failed
         Button {
             if done || busy { ask = true } else {
                 app.toast = "Downloading…"
@@ -179,7 +180,7 @@ struct DlButton: View {
             if busy { DlRing(n: n) }
             else { Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle") }
         }
-        .accessibilityLabel(done ? "Remove download" : busy ? "Cancel download" : "Download")
+        .accessibilityLabel(done ? "Remove download" : busy ? "Cancel download" : failed ? "Retry download" : "Download")
         .confirmationDialog(busy ? "Cancel downloading “\(n.title)”?" : "Remove the download of “\(n.title)”?", isPresented: $ask, titleVisibility: .visible) {
             Button(busy ? "Cancel download" : "Remove download", role: .destructive) { app.remove(n) }
         }
@@ -210,6 +211,8 @@ struct DlRing: View {
 
 /// "45% · 47 MB of 105 MB", or "Waiting" until the first bytes arrive
 @MainActor func dlStatus(_ n: Now) -> String {
+    if let error = app.downloadError(n) { return error }
+    if app.downloadWaiting(n) { return "Waiting to retry…" }
     let (have, total) = app.dlBytes(n)
     return have > 0 && total > 0 ? "\(Int(Double(have) / Double(total) * 100))% · \(bytes(have)) of \(bytes(total))" : "Waiting"
 }
@@ -270,7 +273,7 @@ struct Stack<Root: View>: View {
             root.navigationDestination(for: Route.self) { r in
                 switch r {
                 case .item(let id): ItemView(id: id)
-                case .shelf(let name, let cards, let ratio): ScrollView { CardGrid(cards: cards, ratio: ratio) }.navigationTitle(name)
+                case .shelf(let name, let cards, let ratio): ShelfView(name: name, cards: cards, ratio: ratio)
                 case .settings: SettingsView()
                 case .downloads: DownloadsView()
                 }
@@ -278,6 +281,22 @@ struct Stack<Root: View>: View {
         }
         .safeAreaInset(edge: .bottom) { DlBar() }
         .environment(nav)
+    }
+}
+
+/// Keep the full series roster for the lifetime of this route. Download and
+/// connectivity changes refresh membership, not the navigation/scroll context.
+struct ShelfView: View {
+    let name: String
+    let cards: [Card]
+    let ratio: CGFloat
+    @State private var visibleTitle: String?
+
+    var body: some View {
+        ScrollView { CardGrid(cards: avail(cards), ratio: ratio) }
+            // Use native stable targets without pinning to .top: keep the intra-row offset.
+            .scrollPosition(id: $visibleTitle)
+            .navigationTitle(name)
     }
 }
 
