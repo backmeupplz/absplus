@@ -81,12 +81,13 @@ struct RetainedFixture: View {
         Downloader.shared.urlSession(URLSession.shared, task: old, didCompleteWithError: URLError(.timedOut))
         try check(!app.done(n.item, track), "cancelled transfer overwrote replacement")
         try check(app.inflight.contains(replacementRel) && app.got[replacementRel] == 123 && app.transfers[replacementRel] == description && app.queued(n), "old completion changed replacement state")
-        // UI observation may empty dlq between didFinish and didComplete.
+        // Reconciliation retains ownership until completion; external queue pruning is still safe.
         Downloader.shared.urlSession(URLSession.shared, downloadTask: replacement, didFinishDownloadingTo: temp)
         app.dlChanged()
-        try check(!app.queued(n), "completed title not removed")
+        try check(app.queued(n), "live transfer must retain queue ownership until completion")
+        app.dlq = [] // terminal cleanup must not rely on finding the title
         Downloader.shared.urlSession(URLSession.shared, task: replacement, didCompleteWithError: nil)
-        try check(!app.inflight.contains(replacementRel) && app.got[replacementRel] == nil && app.transfers[replacementRel] == nil, "terminal callback leaked state after queue removal")
+        try check(!app.queued(n) && !app.inflight.contains(replacementRel) && app.got[replacementRel] == nil && app.transfers[replacementRel] == nil, "terminal callback leaked state after queue removal")
         app.remove(n)
         let requestsBefore = RetainedProtocol.itemRequests.withLock { $0 }
         // No item request is permitted from here onward, even though login just succeeded.

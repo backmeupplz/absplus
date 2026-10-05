@@ -190,11 +190,15 @@ struct IsolationFixture: View {
         catch let e as HttpErr where e.code == 403 {}
         try check(app.downloads().isEmpty && !app.downloaded("restricted") && !app.done("restricted", track) && !app.url("restricted", track).isFileURL, "B resolved A local audio")
         let now = Now(item: "restricted", ep: nil, title: "A private book", author: "", tracks: [track])
+        // Keep the synthetic denied media response pending while inspecting the inserted item.
+        // Otherwise AVQueuePlayer can discard a failed item before this assertion observes it.
+        IsolationProtocol.state.withLock { $0.hold = "/api/items/restricted/file/1" }
         player.start(now, 0, play: false)
-        for _ in 0..<40 where player.p.currentItem == nil { try await Task.sleep(for: .milliseconds(25)) }
+        for _ in 0..<200 where player.p.currentItem == nil { try await Task.sleep(for: .milliseconds(25)) }
         guard let asset = player.p.currentItem?.asset as? AVURLAsset else { throw Msg(errorDescription: "B production playback resolution not exercised") }
         try check(!asset.url.isFileURL, "B production player loaded A local file")
         player.clear()
+        IsolationProtocol.release()
         try check(try Data(contentsOf: file) == RetainedProtocol.audio, "B destroyed A audio")
         try await app.login(server, "account-a", "fixture", main: true)
         try check(app.mediaDir == original && app.downloaded("restricted"), "A relogin lost retained media")

@@ -7,7 +7,9 @@ struct ABSPlusApp: App {
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
+            if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
+                DownloadRetryFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
                 AccessibilityFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
@@ -42,6 +44,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 struct RootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var full = false
     @State private var tab = 0
 
@@ -80,6 +83,9 @@ struct RootView: View {
                     await app.resumeQueue()
                 }
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await app.resumeQueue() } }
         }
         .onChange(of: app.mediaEpoch) { full = false; tab = 0 }
         .overlay(alignment: .top) {

@@ -6,7 +6,7 @@ Audio and an explicit item-metadata allowlist live under SHA-256 server URL and 
 
 URL scope preserves scheme, host, port and base path, trimming surrounding whitespace and trailing slashes. Alias URLs intentionally do not share downloads. Unknown legacy unscoped and server-only files are left untouched but quarantined: old versions could mix multiple servers or accounts in the same directory, so matching an item ID or size is not evidence of ownership. They require downloading again; no unsafe automatic migration.
 
-Only typed/allowlisted item title/author/description, type, episode identity and audio layout are retained, never arbitrary expanded-response fields, signed URLs, credentials, favorites, shares or progress. Android jobs capture scope/server/epoch. iOS foreground task descriptions carry a persisted login generation, unique transfer identity and scoped path; stale completion/restore callbacks are ignored/cancelled. Logout also removes iOS resume archives (which contain request authorization).
+Only typed/allowlisted item title/author/description, type, episode identity and audio layout are retained, never arbitrary expanded-response fields, signed URLs, credentials, favorites, shares or progress. Android jobs capture scope/server/epoch. iOS foreground task descriptions carry a persisted login generation, unique transfer identity and scoped path; stale callbacks are ignored/cancelled. Transfer ownership is process-local; foreground tasks never survive termination or adopt legacy background work. Logout also removes iOS resume archives (which contain request authorization).
 
 ## Integration with #33
 
