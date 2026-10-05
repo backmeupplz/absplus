@@ -29,4 +29,5 @@ jobs:
           -parallel-testing-enabled NO
           -only-testing:UITests/ListLifecycle -only-testing:UITests/Accessibility
           -only-testing:UITests/OfflineHome -only-testing:UITests/OfflineLibrary
-          -only-testing:UITests/OfflineSeries -only-testing:UITests/ProgressReplay test
+          -only-testing:UITests/OfflineSeries -only-testing:UITests/ProgressReplay
+          -only-testing:UITests/DownloadRetries test
