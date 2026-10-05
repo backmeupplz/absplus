@@ -260,8 +260,24 @@ class AccountPlayerIsolationTest {
                 // Real player callbacks still checkpoint during authentication (not a direct Abs.push).
                 player.play()
                 drainUntil { player.isPlaying }
-                player.pause()
-                drainUntil { !player.isPlaying }
+                // ExoPlayer masks isPlaying synchronously, before its playback thread applies
+                // pause. Hold that thread to exercise this ordering instead of racing it.
+                val playbackHeld = CountDownLatch(1)
+                val releasePlayback = CountDownLatch(1)
+                val barrier = player.createMessage { _, _ ->
+                    playbackHeld.countDown()
+                    check(releasePlayback.await(5, TimeUnit.SECONDS))
+                }.send()
+                try {
+                    assertTrue(playbackHeld.await(5, TimeUnit.SECONDS))
+                    player.pause()
+                    assertFalse(player.isPlaying)
+                } finally { releasePlayback.countDown() }
+                assertTrue(barrier.blockUntilDelivered(5_000))
+                // This message follows pause on the playback looper. Drain the resulting
+                // application callbacks before sampling the checkpoint to preserve.
+                assertTrue(player.createMessage { _, _ -> }.send().blockUntilDelivered(5_000))
+                shadowOf(Looper.getMainLooper()).idle()
                 val checkpoint = Abs.pos(player, now)
                 assertEquals(checkpoint, Abs.progressSync.local()[now.key]!!.getDouble("currentTime"), 0.001)
                 activity.get().call("start", Now("other", null, "Other", "", now.tracks), 0.0, true, scope)
