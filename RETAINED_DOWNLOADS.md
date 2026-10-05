@@ -12,8 +12,14 @@ Only typed/allowlisted item title/author/description, type, episode identity and
 
 The narrow candidate-login base URL and successful-login media selection here are necessary to avoid exposing a previous server's retained data after failed login. #33 owns transactional credential/account/server state and all non-download async operations. Integrate its committed session identity at selectMedia / mediaEpoch, preserving the generation guards around metadata writes and download callbacks. Do not restore global media paths or retain the general JSON cache on logout. Same-server retained files are intentionally server-owned, not account-owned; account permission enforcement is #33's boundary.
 
+## Integration with #34 and #31
+
+Main through `389b53b` is merged (offline progress replay and Android library-selection recovery). Request/account generations still invalidate delayed network responses, cache commits and pending actions; playback generation remains stable for same-account reauthentication. Every successful main login separately rotates mediaEpoch and clears old download queue/transfer ownership without deleting scoped audio or the same-account progress outbox. Identity changes/logout clear private mirrors and progress, while retained metadata stays allowlisted and server-scoped. Retry deadlines, queue incarnations and transfer IDs remain independent of progress replay timestamp acknowledgements.
+
+The eight iOS CI suites include retained downloads, download retries and progress replay, with serial simulator testing and failure-result artifacts. Progress playback fixtures log in through the production path and write synthetic WAVs through the scoped file resolver; each server-switch case restores the authenticated scope owning those bytes.
+
 ## Checks
 
-- Android: ./gradlew testDebugUnitTest assembleDebug (includes RetainedTest and existing NavigationTest).
+- Android: `./gradlew testDebugUnitTest assembleDebug assembleRelease` (67 tests, including retained media, request/playback scope separation, progress replay, library recovery and navigation).
 - iOS: xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' -only-testing:UITests/ListLifecycle -only-testing:UITests/RetainedDownloads test.
 - Retained fixtures use synthetic HTTP/URLProtocol data, no personal library. iOS generates a valid PCM WAV and opens/plays it through AVAudioPlayer after re-login with all requests unavailable. The production AVQueuePlayer asset resolver is also checked, with an explicit zero additional item-metadata request assertion. Tests cover safe projection, same-ID alternate server, failed login, stale login/transfer completion, same-login cancellation/requeue (including suspended token refresh and scheduled retries), retry-budget reset versus automatic retry exhaustion, same-host relogin, Android queue reload after different-host login, cleanup after the title queue is pruned, and books/podcasts without per-item refresh.

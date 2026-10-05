@@ -111,7 +111,7 @@ struct RetainedFixture: View {
         // Exercise production AVQueuePlayer construction as well as the native decoder.
         let book = try await app.item("book")
         let now = Now(item: book.id, ep: nil, title: book.card.title, author: book.card.sub, tracks: book.media.tracks!.map { $0.track() })
-        player.start(now, 0, play: false)
+        player.start(now, 0, play: false, generation: app.playbackGeneration)
         for _ in 0..<40 where player.p.currentItem == nil { try await Task.sleep(for: .milliseconds(50)) }
         guard let asset = player.p.currentItem?.asset as? AVURLAsset else { throw Msg(errorDescription: "production playback queue empty") }
         try check(asset.url == app.url(now.item, now.tracks[0]), "production player did not resolve retained audio")
