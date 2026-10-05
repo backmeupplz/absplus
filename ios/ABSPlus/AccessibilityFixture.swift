@@ -11,8 +11,15 @@ struct AccessibilityFixture: View {
         guard !Self.prepared else { return }
         Self.prepared = true
         URLProtocol.registerClass(ListFixtureProtocol.self)
-        UserDefaults.standard.set("http://abs-list-fixture.invalid", forKey: "server")
-        app.accts = ["fixture": Tok(a: "fixture", r: ""), "Reader": Tok(a: "fixture", r: "")]
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [ListFixtureProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        let host = "http://abs-list-fixture.invalid"
+        UserDefaults.standard.set(host, forKey: "server")
+        app.accts = [
+            "fixture": Tok(a: "fixture", r: "", host: host, userID: "fixture-id", mediaID: "user:fixture-id"),
+            "Reader": Tok(a: "fixture", r: "", host: host, userID: "reader-id", mediaID: "user:reader-id"),
+        ]
         app.me = "fixture"
         app.fav = []
         app.favq = [:]

@@ -30,30 +30,44 @@ object Covers {
     private val pool = Executors.newFixedThreadPool(4)
     private val missing = java.util.Collections.synchronizedSet(HashSet<String>()) // no cover on the server (this run only)
 
+    private data class Binding(val epoch: Long, val id: String)
+    fun isBound(iv: ImageView, id: String) = iv.tag == Binding(Abs.mediaEpoch, id)
+
     fun load(iv: ImageView, id: String) {
-        iv.tag = id
-        mem.get(id)?.let { iv.setImageBitmap(it); return }
+        val epoch = Abs.mediaEpoch
+        // Capture the authenticated owner atomically; usernames can be reused or canonicalized.
+        val (base, owner) = Abs.inSession(epoch) { Abs.server to Abs.mediaDir.path }
+        val key = "$owner|$id"
+        val binding = Binding(epoch, id)
+        iv.tag = binding
+        mem.get(key)?.let { iv.setImageBitmap(it); return }
         iv.setImageDrawable(null)
-        if (id in missing) return
-        val dir = File(iv.context.cacheDir, "covers")
+        if (key in missing) return
+        val dir = File(iv.context.cacheDir, "account-covers/" + java.security.MessageDigest.getInstance("SHA-256").digest(owner.toByteArray()).joinToString("") { "%02x".format(it) })
         pool.execute {
             val b = runCatching {
                 val f = File(dir, id)
                 if (f.length() == 0L) { // also drops empty "no cover" markers written by older versions
                     f.delete()
                     dir.mkdirs()
-                    val tmp = File(dir, "$id.tmp")
-                    val c = URL("${Abs.server}/api/items/$id/cover?width=400&format=webp").openConnection() as HttpURLConnection
-                    if (c.responseCode == 200) {
-                        c.inputStream.use { i -> tmp.outputStream().use { i.copyTo(it) } }
-                        tmp.renameTo(f)
-                    } else if (c.responseCode == 404) missing += id
-                    c.disconnect()
+                    val tmp = File.createTempFile("cover-", ".tmp", dir)
+                    val c = URL("${base}/api/items/$id/cover?width=400&format=webp").openConnection() as HttpURLConnection
+                    try {
+                        Abs.checkSession(epoch)
+                        c.instanceFollowRedirects = false
+                        c.connectTimeout = 10_000
+                        c.readTimeout = 30_000
+                        if (c.responseCode == 200) {
+                            c.inputStream.use { i -> tmp.outputStream().use { i.copyTo(it) } }
+                            Abs.inSession(epoch) { tmp.renameTo(f) }
+                        } else if (c.responseCode == 404) Abs.inSession(epoch) { missing += key }
+                    } finally { c.disconnect(); tmp.delete() }
                 }
-                BitmapFactory.decodeFile(f.path)
+                val bitmap = BitmapFactory.decodeFile(f.path)
+                Abs.inSession(epoch) { if (bitmap != null) mem.put(key, bitmap) }
+                bitmap
             }.getOrNull()
-            if (b != null) mem.put(id, b)
-            iv.post { if (iv.tag == id && b != null) iv.setImageBitmap(b) }
+            iv.post { if (epoch == Abs.mediaEpoch && iv.tag == binding && b != null) iv.setImageBitmap(b) }
         }
     }
 }

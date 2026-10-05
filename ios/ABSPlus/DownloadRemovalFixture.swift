@@ -35,8 +35,9 @@ struct DownloadRemovalFixture: View {
             assert(app.downloaded(card(b)) && !app.downloaded(card(a)) && !app.downloaded(card(c)))
             assert(app.url(b.item, b.tracks[0]) == file(b), "Offline playback must still resolve to saved B")
             assert(app.queued(d) && app.dlq.count == 1 && app.dlRetry[rel(d)]?.attempts == 2)
-            assert(try! Data(contentsOf: app.resumeFile(rel(d))) == Data("resume-d".utf8))
-            await downloader.restore() // fake transfer is gone; durable retry/partial must survive reconciliation
+            // Foreground transfers and unsafe resume archives are never adopted across launches.
+            assert(app.transfers.isEmpty && app.inflight.isEmpty)
+            assert(!fm.fileExists(atPath: app.resumeFile(rel(d)).path))
             await app.resumeQueue() // future deadline prevents requests, even offline
             assert(app.queued(d) && app.inflight.isEmpty && content(d) == "par")
             app.removeAll(a.item)
@@ -53,8 +54,10 @@ struct DownloadRemovalFixture: View {
         }
 
         app.logout()
-        app.d.set("http://removal-fixture.invalid", forKey: "server")
-        app.me = "fixture"; app.accts = ["fixture": Tok(a: "fixture", r: "")]
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [RemovalLoginProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        try! await app.login("http://removal-fixture.invalid", "fixture", "fixture", main: true)
         app.offline = true
         app.removeAll(a.item); app.removeAll(other.item)
         let episodes: [[String: Any]] = [a, b, c, d].map { n in
@@ -104,10 +107,29 @@ struct DownloadRemovalFixture: View {
         absent(c)
         assert(content(b) == "saved-b" && content(d) == "par" && app.inflight.contains(rel(d)))
         let restored = Abs()
-        assert(restored.dlq.map(\.key) == [d.key] && restored.transfers[rel(d)] == sibling.taskDescription)
+        assert(restored.dlq.map(\.key) == [d.key] && restored.transfers.isEmpty)
+        assert(restored.dlRetry[rel(d)]?.attempts == 2 && restored.dlRetry[rel(d)]?.next == deadline)
+        assert(!fm.fileExists(atPath: app.resumeFile(rel(d)).path))
+        assert(app.transfers[rel(d)] == sibling.taskDescription && app.inflight.contains(rel(d)))
         assert(restored.downloaded(card(b)) && restored.url(b.item, b.tracks[0]).isFileURL)
         result = "Removal seed passed"
     }
+}
+
+private final class RemovalLoginProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "removal-fixture.invalid" }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        guard request.url?.path == "/login" else {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+            return
+        }
+        let body = Data(#"{"user":{"id":"removal-fixture-user","username":"fixture","accessToken":"fixture","refreshToken":"refresh-fixture"}}"#.utf8)
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
 }
 
 private final class RemovalTask: URLSessionDownloadTask, @unchecked Sendable {

@@ -18,9 +18,12 @@ import org.robolectric.shadows.ShadowDialog
 import java.util.concurrent.TimeUnit
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
+import org.robolectric.RuntimeEnvironment
 
 /** Real service ExoPlayer + MediaSession + MediaController, including the actual full-player buttons.
- * Synthetic local PCM files supply real seekable timelines. No network, account or fake Player.
+ * Synthetic local PCM files supply real seekable timelines. Disposable loopback login, no real account or fake Player.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -42,6 +45,10 @@ class BookSkipTest {
         (0 until v.childCount).flatMap { views(v.getChildAt(it)) } else emptyList()
 
     private fun withSession(test: (Main, Player, MediaController) -> Unit) {
+        Abs.init(RuntimeEnvironment.getApplication())
+        Abs.logout()
+        login()
+        Abs.offline = true
         val activity = Robolectric.buildActivity(Main::class.java).create()
         val service = Robolectric.buildService(PlayerService::class.java).create()
         val field = PlayerService::class.java.getDeclaredField("session").apply { isAccessible = true }
@@ -62,7 +69,7 @@ class BookSkipTest {
                 val file = java.io.File(activity.get().cacheDir, "skip-fixture-$i.wav")
                 file.writeBytes(wav.array())
                 val id = Abs.mediaId(book, captured, i)
-                MediaItem.Builder().setMediaId(id).setCustomCacheKey(id).setUri(file.toURI().toString()).build()
+                MediaItem.Builder().setMediaId(id).setCustomCacheKey(captured.generation.toString()).setUri(file.toURI().toString()).build()
             }, 0, 0)
             session.player.setPlaybackSpeed(1.5f)
             session.player.prepare()
@@ -75,6 +82,19 @@ class BookSkipTest {
             service.destroy()
             activity.destroy()
         }
+    }
+
+    private fun login() {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/login") { x ->
+            x.requestBody.close()
+            val body = """{"user":{"id":"skip-fixture-user","username":"fixture","accessToken":"fixture"}}""".toByteArray()
+            x.sendResponseHeaders(200, body.size.toLong())
+            x.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try { Abs.login("http://127.0.0.1:${server.address.port}", "fixture", "fixture", true) }
+        finally { server.stop(0) }
     }
 
     private fun position(p: Player, t: Double) {
@@ -137,9 +157,12 @@ class BookSkipTest {
         val staleItems = (0 until p.mediaItemCount).map(p::getMediaItemAt)
         val oldScope = Abs.nowScope!!
         Abs.logout()
+        login()
         val currentScope = Abs.scope(playback = true)
         assertNotEquals(oldScope.generation, currentScope.generation)
         Abs.bindPlayback(book, currentScope)
+        // Logout correctly clears the live queue. Reintroduce stale items to test skip authorization.
+        p.setMediaItems(staleItems, 1, 10_000)
         // A newly bound identical title must not authorize the old service playlist.
         p.seekBack()
         p.seekForward()
@@ -154,6 +177,15 @@ class BookSkipTest {
         assertEquals(1, p.currentMediaItemIndex)
         assertEquals(10_000L, p.currentPosition)
         assertEquals(1.5f, p.playbackParameters.speed, 0f)
+    }
+
+    @Test fun authorizedExistingQueueStillSkipsWhileReauthenticationIsPending() = withSession { _, p, remote ->
+        val captured = Abs.nowScope
+        Abs.requireLogin()
+        assertTrue(Abs.loginPending)
+        assertEquals(captured, Abs.nowScope)
+        position(p, 110.0); remote.seekBack(); expect(p, 80.0)
+        position(p, 95.0); remote.seekForward(); expect(p, 125.0)
     }
 
     @Test fun staleBookOrEmptyPlaylistCannotSeekAnotherTitle() = withSession { _, p, _ ->

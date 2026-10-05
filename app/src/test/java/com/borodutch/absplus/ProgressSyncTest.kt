@@ -57,7 +57,7 @@ class ProgressSyncTest {
             var body = "{}"
             if (x.requestURI.path == "/login") {
                 val login = JSONObject(x.requestBody.bufferedReader().readText()).getString("username")
-                body = JSONObject().put("user", JSONObject().put("username", login).put("accessToken", login).put("refreshToken", "fixture-refresh")).toString()
+                body = JSONObject().put("user", JSONObject().put("username", login).put("id", login).put("accessToken", login).put("refreshToken", "fixture-refresh")).toString()
             } else if (x.requestURI.path == "/auth/refresh") {
                 refreshEntered?.countDown(); releaseRefresh?.await(5, TimeUnit.SECONDS)
                 code = refreshStatus
@@ -86,12 +86,13 @@ class ProgressSyncTest {
             x.responseBody.use { it.write(bytes) }
         }
         server.start()
-        Abs.p.edit().putString("server", "http://127.0.0.1:" + server.address.port).putString("me", "owner")
-            .putString("acct:owner", JSONObject().put("a", "owner").put("r", "fixture-refresh").toString())
-            .putString("acct:linked", JSONObject().put("a", "linked").put("r", "fixture-refresh").toString()).commit()
+        val endpoint = "http://127.0.0.1:" + server.address.port
+        Abs.login(endpoint, "owner", "fixture", true)
+        Abs.login(endpoint, "linked", "fixture", false)
         Abs.startProgress(false) { time }
         Abs.setShares(book.item, setOf("linked"))
         Abs.setShares(episode.item, setOf("linked"))
+        requests.clear()
     }
 
     @After fun cleanup() {
@@ -521,15 +522,19 @@ class ProgressSyncTest {
             } else JvmConnection(url)
         }
         val endpoint = Abs.server
-        val credentials = Abs.p.getString("acct:owner", null)
+        var credentials = Abs.p.getString("acct:owner", null)
         var failure: Throwable? = null
         val old = thread { failure = runCatching { Abs.token("owner", force = true) }.exceptionOrNull() }
         try {
             assertTrue(arrived.await(5, TimeUnit.SECONDS))
             Abs.logout()
             Abs.login(endpoint, "owner", "fixture", true)
-            // The fixture deliberately issues identical credentials to expose identity-only fences.
-            assertEquals(credentials, Abs.p.getString("acct:owner", null))
+            // Wire credentials repeat, but #33 deliberately allocates a fresh login identity.
+            val next = Abs.p.getString("acct:owner", null)
+            assertEquals(JSONObject(credentials!!).getString("a"), JSONObject(next!!).getString("a"))
+            assertEquals(JSONObject(credentials!!).getString("r"), JSONObject(next).getString("r"))
+            assertNotEquals(JSONObject(credentials!!).getString("id"), JSONObject(next).getString("id"))
+            credentials = next
         } finally {
             release.countDown(); old.join(5000)
         }

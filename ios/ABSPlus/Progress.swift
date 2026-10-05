@@ -4,6 +4,7 @@ import Foundation
 struct ProgressDisk: Codable {
     var server = ""
     var owner = ""
+    var identity: String? = nil
     var local: [String: Prog] = [:]
     var pending: [PendingProgress] = []
 }
@@ -11,6 +12,7 @@ struct ProgressDisk: Codable {
 struct PendingProgress: Codable, Equatable {
     var id = UUID()
     var account: String
+    var recipientIdentity: String? = nil
     var item: String
     var episode: String?
     var time: Double
@@ -66,15 +68,15 @@ extension Abs {
     }
 
     func authorized(_ p: PendingProgress) -> Bool {
-        progressDisk.server == server && progressDisk.owner == me && accts[p.account] != nil &&
+        progressDisk.server == server && progressDisk.owner == me && progressDisk.identity == me.flatMap { accts[$0]?.mediaID } && accts[p.account]?.host == server && p.recipientIdentity != nil && p.recipientIdentity == accts[p.account]?.mediaID &&
         (p.account == me || (shares[p.item] ?? []).contains(p.account))
     }
 
     func pruneProgress() {
         guard progressReady else { return }
         var changed = false
-        if progressDisk.server != server || progressDisk.owner != (me ?? "") {
-            progressDisk = ProgressDisk(server: server, owner: me ?? "")
+        if progressDisk.server != server || progressDisk.owner != (me ?? "") || progressDisk.identity != me.flatMap({ accts[$0]?.mediaID }) {
+            progressDisk = ProgressDisk(server: server, owner: me ?? "", identity: me.flatMap { accts[$0]?.mediaID })
             progress = [:]
             changed = true
         }
@@ -87,7 +89,7 @@ extension Abs {
     }
 
     func clearProgress() {
-        progressTask?.cancel()
+        progressTask?.cancel(); progressTask = nil; progressWorker = UUID()
         progressDisk = ProgressDisk()
         progress = [:]
         persistProgress()
@@ -127,7 +129,7 @@ extension Abs {
         let time = completed ? (progressDisk.local[n.key]?.currentTime ?? n.duration) : max(0, pos)
         for account in Set([me] + (shares[n.item] ?? [])).sorted() where accts[account] != nil {
             let old = progressDisk.pending.first { $0.account == account && $0.key == n.key }
-            let p = PendingProgress(account: account, item: n.item, episode: n.ep, time: time,
+            let p = PendingProgress(account: account, recipientIdentity: accts[account]?.mediaID, item: n.item, episode: n.ep, time: time,
                                     duration: n.duration, finished: done, at: at,
                                     attempts: old?.attempts ?? 0, retryAt: old?.retryAt ?? 0,
                                     sent: old?.sent, acknowledged: old?.acknowledged)
@@ -141,9 +143,11 @@ extension Abs {
     /// Relaunch/foreground/connectivity wake this worker without playing a title.
     func startProgressReplay() {
         guard progressTask == nil, !progressDisk.pending.isEmpty else { return }
+        let worker = UUID()
+        progressWorker = worker
         progressTask = Task { [weak self] in
             guard let self else { return }
-            defer { self.progressTask = nil }
+            defer { if self.progressWorker == worker { self.progressTask = nil } }
             while !Task.isCancelled && !self.progressDisk.pending.isEmpty {
                 await self.replayProgress()
                 guard !Task.isCancelled, let due = self.progressDisk.pending.map(\.retryAt).min() else { return }
@@ -212,18 +216,25 @@ extension Abs {
     }
 
     private func progressAPI(_ method: String, _ p: PendingProgress, _ body: [String: Any]? = nil) async throws -> Data {
-        guard authorized(p), !Task.isCancelled else { throw CancellationError() }
-        let path = "/api/me/progress/\(p.key)"
         let generation = accountGeneration
+        guard let account = accts[p.account], let host = account.host, host == server else { throw CancellationError() }
+        let epoch = mediaEpoch
+        func check() throws {
+            try checkSession(epoch)
+            guard generation == accountGeneration, accts[p.account]?.id == account.id, authorized(p),
+                  progressDisk.pending.contains(where: { $0.account == p.account && $0.key == p.key }) else { throw CancellationError() }
+        }
+        try check()
+        let path = "/api/me/progress/\(p.key)"
         do {
             let auth = try await token(p.account)
-            guard generation == accountGeneration, authorized(p), progressDisk.pending.contains(where: { $0.account == p.account && $0.key == p.key }), !Task.isCancelled else { throw CancellationError() }
-            return try await http(method, path, body, ["Authorization": "Bearer " + auth])
-        }
-        catch let e as HttpErr where e.code == 401 {
-            _ = try await token(p.account, fresh: .infinity)
-            guard generation == accountGeneration, authorized(p), progressDisk.pending.contains(where: { $0.account == p.account && $0.key == p.key }), !Task.isCancelled else { throw CancellationError() }
-            return try await http(method, path, body, ["Authorization": "Bearer " + (accts[p.account]?.a ?? "")])
+            try check()
+            return try await http(method, path, body, ["Authorization": "Bearer " + auth], base: host, epoch: epoch, account: (p.account, account.id))
+        } catch let e as HttpErr where e.code == 401 {
+            try check()
+            let auth = try await token(p.account, fresh: .infinity)
+            try check()
+            return try await http(method, path, body, ["Authorization": "Bearer " + auth], base: host, epoch: epoch, account: (p.account, account.id))
         }
     }
 }

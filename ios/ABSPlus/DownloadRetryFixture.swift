@@ -16,14 +16,21 @@ struct DownloadRetryFixture: View {
         }.task { await run() }
     }
 
+    @MainActor private func login(_ host: String, expired: Bool = false) async {
+        let c = URLSessionConfiguration.ephemeral
+        c.protocolClasses = [RetryLoginProtocol.self]
+        app.network = URLSession(configuration: c, delegate: NoRedirects.shared, delegateQueue: nil)
+        try! await app.login(host, "fixture", "fixture", main: true)
+        app.network = URLSession(configuration: .ephemeral, delegate: NoRedirects.shared, delegateQueue: nil)
+        if expired { app.accts["fixture"]!.a = "e30.eyJleHAiOjB9." }
+    }
+
     /// Persist the exact gap between moving the final file and receiving its completion callback.
     @MainActor private func interruptedCompletion(seed: Bool) async {
         let n = Self.n, d = Downloader.shared
-        let paths = n.tracks.map { app.rel(n.item, $0) }
         if seed {
-            app.logout()
-            app.d.set("http://retry-fixture.invalid", forKey: "server")
-            app.me = "fixture"; app.accts = ["fixture": Tok(a: "fixture", r: "")]
+            await login("http://retry-fixture.invalid")
+            let paths = n.tracks.map { app.rel(n.item, $0) }
             app.remove(n); app.dlq = [n]
             let session = URLSession(configuration: .ephemeral)
             for (t, path) in zip(n.tracks, paths) {
@@ -41,11 +48,11 @@ struct DownloadRetryFixture: View {
             result = "Completion gap persisted"
             return
         }
-        assert(app.queued(n) && paths.allSatisfy { app.transfers[$0] != nil && app.dlRetry[$0]?.next != nil })
+        let paths = n.tracks.map { app.rel(n.item, $0) }
+        assert(app.queued(n) && paths.allSatisfy { app.transfers[$0] == nil && app.dlRetry[$0]?.next != nil })
         assert(n.tracks.allSatisfy { app.done(n.item, $0) })
         let tasks = await d.session.allTasks
         assert(tasks.isEmpty, "No system task survives the interrupted completion")
-        await d.restore()
         await app.resumeQueue()
         assert(app.dlq.isEmpty && app.dlRetry.isEmpty && app.transfers.isEmpty && app.inflight.isEmpty,
                "Completed titles and stale retries must settle after relaunch")
@@ -95,10 +102,7 @@ struct DownloadRetryFixture: View {
             result = "Relaunch passed"
             return
         }
-        app.logout()
-        app.d.set("http://retry-fixture.invalid", forKey: "server")
-        app.me = "fixture"
-        app.accts = ["fixture": Tok(a: "fixture", r: "")]
+        await login("http://retry-fixture.invalid")
         app.remove(n)
         app.dlq = [n]
         let first = app.rel(n.item, n.tracks[0]), second = app.rel(n.item, n.tracks[1])
@@ -141,6 +145,9 @@ struct DownloadRetryFixture: View {
             assert(r.attempts == 5 && r.next == nil && r.error != nil)
         }
         assert(DownloadRetry.transient(URLError(.networkConnectionLost), code: 0))
+        var privateError = DownloadRetry()
+        privateError.fail(Msg(errorDescription: "secret-request-url"), code: 0, retryAfter: nil)
+        assert(!String(decoding: try! JSONEncoder().encode(privateError), as: UTF8.self).contains("secret-request-url"))
         let sibling = Now(item: n.item, ep: "sibling", title: "Sibling", author: "", tracks: [Track(ino: "sibling", ext: ".mp3", size: 7, duration: 60, start: 0)])
         try! Data("fixture".utf8).write(to: app.file(sibling.item, sibling.tracks[0]))
         app.remove(n)
@@ -169,8 +176,7 @@ struct DownloadRetryFixture: View {
         // Controlled local endpoint: real URLSession download returns 503 once, then 200.
         let server = try! RetryHTTPServer()
         await server.ready()
-        app.d.set("http://127.0.0.1:\(server.port)", forKey: "server")
-        app.me = "fixture"; app.accts = ["fixture": Tok(a: "fixture", r: "")]
+        await login("http://127.0.0.1:\(server.port)")
         app.remove(n)
         await app.download(n)
         let end = Date().addingTimeInterval(15)
@@ -187,8 +193,8 @@ struct DownloadRetryFixture: View {
             let auth = try! RetryHTTPServer()
             auth.refreshCode = code
             await auth.ready()
-            app.d.set("http://127.0.0.1:\(auth.port)", forKey: "server")
-            app.accts = ["fixture": Tok(a: "e30.eyJleHAiOjB9.", r: "refresh-fixture")]
+            await login("http://127.0.0.1:\(auth.port)", expired: true)
+            let first = app.rel(n.item, n.tracks[0])
             await app.download(n)
             for t in n.tracks {
                 let r = app.dlRetry[app.rel(n.item, t)]!
@@ -208,9 +214,7 @@ struct DownloadRetryFixture: View {
             let auth = try! RetryHTTPServer()
             auth.holdRefresh = true
             await auth.ready()
-            app.d.set("http://127.0.0.1:\(auth.port)", forKey: "server")
-            app.me = "fixture"
-            app.accts = ["fixture": Tok(a: "e30.eyJleHAiOjB9.", r: "refresh-fixture")]
+            await login("http://127.0.0.1:\(auth.port)", expired: true)
             let pending = Task { await app.download(n) }
             await auth.waitFor("refresh")
             assert(app.inflight.isEmpty)
@@ -223,18 +227,16 @@ struct DownloadRetryFixture: View {
             app.remove(n); auth.stop()
         }
 
-        // Restore actual background tasks while the server holds responses; queue restart must not duplicate them.
+        // Re-enter the foreground queue while responses are held: never duplicate live foreground tasks.
         let held = try! RetryHTTPServer()
         held.holdFiles = true
         await held.ready()
-        app.d.set("http://127.0.0.1:\(held.port)", forKey: "server")
-        app.me = "fixture"; app.accts = ["fixture": Tok(a: "fixture", r: "")]
+        await login("http://127.0.0.1:\(held.port)")
+        let heldPaths = Set(n.tracks.map { app.rel(n.item, $0) })
         await app.download(n)
         await held.waitFor("one"); await held.waitFor("two")
         let descriptions = app.transfers
-        app.inflight = []; app.got = [:] // process-local view has not yet adopted the system tasks
-        await d.restore()
-        assert(app.inflight == Set([first, second]) && app.transfers == descriptions)
+        assert(app.inflight == heldPaths && app.transfers == descriptions)
         await app.resumeQueue()
         assert(app.transfers == descriptions)
         let live = await d.session.allTasks
@@ -242,9 +244,23 @@ struct DownloadRetryFixture: View {
         app.remove(n)
         held.release(); held.stop()
 
+        // Saved queue contains no bearer/refresh values or transport requests, and requires its owner.
+        await login("http://retry-fixture.invalid")
+        app.dlq = [n]
+        app.failed(second, nil, code: 429, retryAfter: "120")
+        let saved = app.d.data(forKey: "downloadQueue")!
+        let json = String(decoding: saved, as: UTF8.self)
+        assert(!json.contains("accessToken") && !json.contains("refresh-fixture") && !json.contains("Authorization"))
+        app.accts["fixture"]!.id = UUID().uuidString
+        let other = Abs()
+        assert(other.dlq.isEmpty && other.dlRetry.isEmpty, "Queue cannot be adopted by a different login")
+        app.d.set(saved, forKey: "downloadQueue")
+        await login("http://other-retry-fixture.invalid")
+        assert(app.dlq.isEmpty && app.dlRetry.isEmpty && app.d.data(forKey: "downloadQueue") == nil)
+        assert(!app.done(n.item, n.tracks[0]))
+
         // Persist a partial multi-file title for a real process termination/relaunch test.
-        app.d.set("http://retry-fixture.invalid", forKey: "server")
-        app.me = "fixture"; app.accts = ["fixture": Tok(a: "fixture", r: "")]
+        await login("http://retry-fixture.invalid")
         app.dlq = [n]
         let cancelledID = app.queueID(n)!
         app.remove(n); app.dlq = [n]
@@ -254,6 +270,18 @@ struct DownloadRetryFixture: View {
         app.failed(second, nil, code: 429, retryAfter: "120")
         result = "Retry fixtures passed"
     }
+}
+
+private final class RetryLoginProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.path == "/login" }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let body = Data(#"{"user":{"id":"retry-fixture-user","username":"fixture","accessToken":"fixture","refreshToken":"refresh-fixture"}}"#.utf8)
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
 }
 
 private final class RetryTask: URLSessionDownloadTask, @unchecked Sendable {
