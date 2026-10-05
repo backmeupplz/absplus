@@ -27,7 +27,7 @@ jobs:
           xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
           -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
           -resultBundlePath ios-tests.xcresult
-          -only-testing:UITests/ListLifecycle -only-testing:UITests/Accessibility -only-testing:UITests/RetainedDownloads -only-testing:UITests/OfflineHome -only-testing:UITests/OfflineLibrary test
+          -only-testing:UITests/ListLifecycle -only-testing:UITests/Accessibility -only-testing:UITests/RetainedDownloads -only-testing:UITests/OfflineHome -only-testing:UITests/OfflineLibrary -only-testing:UITests/OfflineSeries test
       - name: Preserve native failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v6
