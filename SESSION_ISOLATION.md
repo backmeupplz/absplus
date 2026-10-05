@@ -131,3 +131,28 @@ Full Android suite with real player callbacks passed: 82 tests across 15 suites,
 failures/errors/skips; debug/release APK tasks exited 0
 (/tmp/abs33-f169-lock-reauth-final-source.log). iOS source unchanged: prior integration results
 above remain applicable; no iOS rerun, credentials, personal data or publishing.
+
+
+## Sibling-removal integration (#13)
+
+Merged main 4e6dd6d into the #33/#34 integration. Selected iOS removal uses
+nonrecursive rmdir on the existing encoded, account-partitioned audio folder.
+All ten iOS CI selectors remain enabled. The new Android and iOS removal fixtures
+use production synthetic login and scoped metadata/audio paths. iOS uses the existing
+DEBUG-only synthetic credential persistence adapter; production Keychain and account
+guards are unchanged. Live sibling transfer/resume/deadline assertions remain;
+reconstruction correctly asserts foreground identities and unsafe resume archives
+are discarded while the owner-bound queue, partial bytes and retry budget survive.
+
+Validation: full Android testDebugUnitTest plus assembleDebug/assembleRelease passed
+with 86 tests across 16 suites, zero failures/errors/skips, exit 0
+(/tmp/abs33-f169-removal-android.log). Focused iOS DownloadRemoval, SessionIsolation
+and both ProgressReplay tests passed together: 4/4, zero failures/skips, finalized
+Passed bundle /tmp/abs33-f169-removal-final-tests.xcresult and log
+/tmp/abs33-f169-removal-final-tests.log. Unsigned Release simulator build exited 0
+(/tmp/abs33-f169-removal-release.log). Only the dedicated simulator
+9A662338-0141-4E3B-A181-94FCADEAC675 was targeted. Existing audio-session warnings remain.
+Initial fixture integration attempts exposed the removed background restore API and
+missing DEBUG credential adapter; both were corrected without changing production
+isolation. The failed attempt’s owned stalled diagnostic child was stopped after
+XCTest finished; the final green run finalized normally. No push or board actions.

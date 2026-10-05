@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import Security
 import CryptoKit
 
@@ -701,7 +702,8 @@ let resumeDir: URL = {
         dlq.removeAll { $0.key == n.key }
         n.tracks.forEach { try? FileManager.default.removeItem(at: file(n.item, $0)) }
         let dir = audioDir.appending(path: component(n.item))
-        if (try? FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty) == true { try? FileManager.default.removeItem(at: dir) }
+        // Never recursively remove an episode's shared folder, even if a sibling arrives during cleanup.
+        _ = dir.withUnsafeFileSystemRepresentation { path in path.map { Darwin.rmdir($0) } }
         dlChanged()
     }
 
@@ -829,7 +831,7 @@ let resumeDir: URL = {
 
     private static func kcRead() -> [String: Tok] {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(where: { ["--download-retry-test", "--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
             return UserDefaults.standard.data(forKey: "fixture-accounts").flatMap { try? JSONDecoder().decode([String: Tok].self, from: $0) } ?? [:]
         }
 #endif
@@ -842,7 +844,7 @@ let resumeDir: URL = {
 
     private func kcWrite(_ v: [String: Tok]) {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(where: { ["--download-retry-test", "--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
             d.set(try? JSONEncoder().encode(v), forKey: "fixture-accounts")
             return
         }
