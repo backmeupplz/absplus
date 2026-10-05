@@ -14,13 +14,34 @@ final class LoadingLifecycle: XCTestCase {
         XCTAssertFalse(app.staticTexts["No favorites"].exists)
         XCTAssertFalse(app.staticTexts["No series"].exists)
     }
-    private func release(_ app: XCUIApplication) { app.buttons["Release fixture requests"].tap() }
+    private func release(_ app: XCUIApplication) {
+        let button = app.buttons["Release fixture requests"]
+        XCTAssertTrue(button.isHittable, app.debugDescription)
+        // Like tab selection, a highlighted 50ms touch is not an acknowledgment.
+        button.press(forDuration: 0.1)
+        let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "released"), object: button)
+        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: 4), .completed, app.debugDescription)
+    }
     private func retry(_ app: XCUIApplication) {
         XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 15))
         app.buttons["loading.retry"].tap()
     }
-    private func hold(_ app: XCUIApplication) { app.buttons["Hold fixture requests"].tap() }
-    private func tab(_ app: XCUIApplication, _ name: String) { app.tabBars.buttons[name].tap() }
+    private func hold(_ app: XCUIApplication) {
+        let button = app.buttons["Hold fixture requests"]
+        XCTAssertTrue(button.isHittable, app.debugDescription)
+        button.press(forDuration: 0.1)
+        let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "held"), object: button)
+        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: 4), .completed, app.debugDescription)
+    }
+    private func tab(_ app: XCUIApplication, _ name: String) {
+        let button = app.tabBars.buttons[name]
+        XCTAssertTrue(button.isHittable, app.debugDescription)
+        // Hosted iOS 26 can animate the 50ms synthesized tap without committing
+        // selection. Send one deliberate touch, then prove navigation before
+        // attributing a missing loading state to the destination screen.
+        button.press(forDuration: 0.1)
+        XCTAssertTrue(button.wait(for: \.isSelected, toEqual: true, timeout: 4), app.debugDescription)
+    }
 
     func testDelayedSuccessAllTabsAndDetailsBack() {
         let app = launch()
