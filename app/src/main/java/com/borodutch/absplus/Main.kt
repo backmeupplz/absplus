@@ -337,7 +337,7 @@ class Main : AppCompatActivity() {
     private fun library() {
         begin()
         retainPage = true
-        val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true }
+        val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true; isSelectionRequired = true }
         val search = field("Search titles & authors").apply {
             startIconDrawable = ContextCompat.getDrawable(context, R.drawable.i_search)
             val r = dp(28).toFloat()
@@ -345,8 +345,12 @@ class Main : AppCompatActivity() {
         }
         var all = listOf<Card>()
         var shown = all
-        val sel = Abs.p.getString("lib", null)
-        val g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
+        var sel = Abs.p.getString("lib", null)
+        val owner = screen
+        fun ownsLibrary() = Abs.p.getString("lib", null) == sel &&
+            (owner == screen || stack.any { it.generation == owner })
+        var request = 0
+        var g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
         fun filter(preservePosition: Boolean = true) {
             val lm = g.layoutManager as GridLayoutManager
             val first = lm.findFirstVisibleItemPosition()
@@ -371,34 +375,63 @@ class Main : AppCompatActivity() {
             onDl = onReturn
             return onReturn!!.invoke()
         }
-        show(col(header("Library"), HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0),
-            search.lp(m = 0).pad(16, 4), g.lp(-1, 0, 1f)))
-        load("/api/libraries", retained = sel != null) { j ->
-            val libs = j.getJSONArray("libraries")
-            chips.removeAllViews()
-            for (i in 0 until libs.length()) {
-                val l = libs.getJSONObject(i)
-                val id = l.getString("id")
-                // ABS coverAspectRatio: 1 = square, 0 = book (1.6)
-                Abs.p.edit().putFloat("ratio:$id", if (l.optJSONObject("settings")?.optInt("coverAspectRatio", 1) == 0) 1.6f else 1f).apply()
-                chips.addView(Chip(this).apply {
-                    text = l.getString("name")
-                    isCheckable = true
-                    isChecked = id == sel
-                    setOnClickListener { Abs.p.edit().putString("lib", id).apply(); library() }
-                })
-            }
-            if (sel == null && libs.length() > 0) {
-                Abs.p.edit().putString("lib", libs.getJSONObject(0).getString("id")).apply()
-                library()
+        val empty = text("No libraries available.", muted = true).pad(16, 4).apply { isVisible = false }
+        val page = col(header("Library"), HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0),
+            search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f))
+        show(page)
+        fun refresh() {
+            val current = ++request
+            // Cached membership cannot authorize requests to a removed/revoked library.
+            bg({ Abs.get("/api/libraries") }, { if (ownsLibrary() && current == request) err(it) }) membership@{ json ->
+                if (!ownsLibrary() || Abs.offline || current != request) return@membership
+                val libs = JSONObject(json).getJSONArray("libraries")
+                val available = (0 until libs.length()).map { libs.getJSONObject(it).getString("id") }
+                val selected = sel?.takeIf { it in available } ?: available.firstOrNull()
+                val changed = selected != sel
+                sel = selected
+                Abs.p.edit().putString("lib", selected).apply()
+                if (changed) {
+                    all = emptyList()
+                    search.editText!!.setText("")
+                    filter(preservePosition = false)
+                }
+                chips.removeAllViews()
+                for (i in 0 until libs.length()) {
+                    val l = libs.getJSONObject(i)
+                    val id = l.getString("id")
+                    // ABS coverAspectRatio: 1 = square, 0 = book (1.6)
+                    Abs.p.edit().putFloat("ratio:$id", if (l.optJSONObject("settings")?.optInt("coverAspectRatio", 1) == 0) 1.6f else 1f).apply()
+                    chips.addView(Chip(this).apply {
+                        text = l.getString("name")
+                        isCheckable = true
+                        isChecked = id == sel
+                        setOnClickListener { if (id != sel) { Abs.p.edit().putString("lib", id).apply(); library() } }
+                    })
+                }
+                empty.isVisible = selected == null
+                if (selected == null) return@membership
+                // Rebuild only a changed context, using its freshly fetched cover ratio.
+                if (changed) {
+                    page.removeView(g)
+                    g = grid(Abs.p.getFloat("ratio:$selected", 1f)) { shown }
+                    page.addView(g.lp(-1, 0, 1f))
+                }
+                val path = "/api/libraries/$selected/items?minified=1&sort=media.metadata.title"
+                fun render(json: String) {
+                    val r = JSONObject(json).getJSONArray("results")
+                    all = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
+                    filter()
+                }
+                val cached = Abs.cached(path)?.also(::render)
+                bg({ Abs.get(path) }, {
+                    if (ownsLibrary() && current == request && ((cached == null && !Abs.offline) || it is Expired)) err(it)
+                }) { result ->
+                    if (ownsLibrary() && !Abs.offline && current == request && sel == selected && result != cached) render(result)
+                }
             }
         }
-        if (sel == null) return
-        load("/api/libraries/$sel/items?minified=1&sort=media.metadata.title", retained = true) { j ->
-            val r = j.getJSONArray("results")
-            all = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
-            filter()
-        }
+        onReturn = { refresh() }
+        refresh()
         load("/api/me") { Abs.setMe(it); g.adapter?.notifyDataSetChanged() }
     }
 
