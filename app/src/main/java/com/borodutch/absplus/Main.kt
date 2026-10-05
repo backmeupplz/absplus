@@ -85,10 +85,22 @@ class Main : AppCompatActivity() {
     private var ctl: MediaController? = null
     private val h = Handler(Looper.getMainLooper())
     private var generation = 0
+    private var loadRows = LinearLayoutHolder()
+    private class LinearLayoutHolder {
+        var box: LinearLayout? = null
+        var owner = 0
+        val requests = HashMap<String, Any>()
+        val statuses = HashMap<String, LoadStatus>()
+    }
+    private var playRequest = 0
+    private var pendingPlay: String? = null
+    private var pendingPlayScope: Abs.Scope? = null
+    private var playStatus: LoadStatus? = null
+    private var pinging = false
     private var screen = 0 // visible page identity; retained pages still receive their own results
     // Retain the view, data and controls rather than re-running a list builder on Back.
     private class Page(val render: () -> Unit, val view: View?, val generation: Int,
-        val library: String?, val offline: Boolean, val resume: (() -> Unit)?)
+        val library: String?, val resume: (() -> Unit)?, val loads: LinearLayoutHolder)
     private var retainPage = false
     private var onReturn: (() -> Unit)? = null
     private val stack = ArrayDeque<Page>()
@@ -123,8 +135,8 @@ class Main : AppCompatActivity() {
             labelVisibilityMode = com.google.android.material.navigation.NavigationBarView.LABEL_VISIBILITY_LABELED
         }
         banner = row(
-            text("Offline · showing downloads only", M.attr.textAppearanceLabelLarge).apply { setTextColor(color(M.attr.colorOnErrorContainer)) }.lp(0, -2, 1f),
-            button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) { thread { Abs.ping() } }
+            text("Offline · saved content available", M.attr.textAppearanceLabelLarge).apply { setTextColor(color(M.attr.colorOnErrorContainer)) }.lp(0, -2, 1f),
+            button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) { retryConnection() }
                 .apply { setTextColor(color(M.attr.colorOnErrorContainer)) },
         ).pad(16, 0).apply { setBackgroundColor(color(M.attr.colorErrorContainer)); visibility = View.GONE }
         setContentView(col(content.lp(-1, 0, 1f), banner, dlBar, mini, nav))
@@ -140,9 +152,8 @@ class Main : AppCompatActivity() {
         Abs.progressSync.wake()
         val f = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlayerService::class.java))).buildAsync()
         fut = f
-        f.addListener({
-            if (fut === f && !isDestroyed) { ctl = runCatching { f.get() }.getOrNull(); restore(); tick.run() }
-        }, mainExecutor)
+        f.addListener({ if (fut === f && !isDestroyed) { ctl = runCatching { f.get() }.getOrNull(); restore() } }, mainExecutor)
+        tick.run()
         Dl.onChange = { msg ->
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
@@ -160,6 +171,10 @@ class Main : AppCompatActivity() {
         fut?.let { MediaController.releaseFuture(it) }
         fut = null
         ctl = null
+        playRequest++
+        pendingPlay = null
+        playStatus?.success()
+        playStatus = null
         super.onStop()
     }
 
@@ -179,13 +194,33 @@ class Main : AppCompatActivity() {
         override fun run() {
             updatePlayer()
             updateDl()
-            if (Abs.offline != wasOffline) { // connectivity flipped: re-render with/without the downloads-only filter
-                wasOffline = Abs.offline
-                banner.isVisible = wasOffline
-                if (Abs.me != null && nav.isVisible) cur()
-            }
-            if (Abs.offline && ++ticks % 10 == 0) thread { Abs.ping() }
+            refreshConnection()
+            if (Abs.offline && ++ticks % 10 == 0) retryConnection()
             h.postDelayed(this, 1000)
+        }
+    }
+
+    private fun refreshConnection() {
+        banner.isVisible = Abs.offline
+        if (Abs.offline == wasOffline) return
+        wasOffline = Abs.offline
+        // Retain controls and layout managers, but never retain stale offline membership.
+        // Hidden pages refresh on Back, when their load/status owner is active again.
+        onReturn?.invoke()
+    }
+
+    private fun retryConnection() {
+        if (pinging) return
+        refreshConnection() // Observe the offline page before a successful probe flips the flag.
+        pinging = true
+        val retry = (banner as ViewGroup).getChildAt(1) as MaterialButton
+        retry.isEnabled = false
+        retry.text = "Connecting…"
+        bg({ Abs.ping() }, { pinging = false; retry.isEnabled = true; retry.text = "Retry" }) {
+            pinging = false
+            retry.isEnabled = true
+            retry.text = "Retry"
+            refreshConnection()
         }
     }
 
@@ -199,7 +234,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun push(s: () -> Unit) {
-        stack.addLast(Page(cur, content.getChildAt(0).takeIf { retainPage }, screen, Abs.p.getString("lib", null), Abs.offline, onReturn))
+        stack.addLast(Page(cur, content.getChildAt(0).takeIf { retainPage }, screen, Abs.p.getString("lib", null), onReturn, loadRows))
         cur = s
         back.isEnabled = true
         s()
@@ -209,15 +244,24 @@ class Main : AppCompatActivity() {
         val page = stack.removeLastOrNull() ?: return
         cur = page.render
         back.isEnabled = stack.isNotEmpty()
-        if (page.view == null || page.library != Abs.p.getString("lib", null) || page.offline != Abs.offline) {
+        if (page.view == null || page.library != Abs.p.getString("lib", null)) {
             cur() // an explicit context change must not reuse the old list
         } else {
             screen = page.generation
+            playRequest++
+            pendingPlay = null
+            playStatus?.success()
+            playStatus = null
+            loadRows = page.loads
             retainPage = true
             onDl = page.resume
             onDlTick = null
             onReturn = page.resume
             show(page.view)
+            page.loads.box?.let { box ->
+                (box.parent as? ViewGroup)?.removeView(box)
+                content.addView(box, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+            }
             // Update badges/progress without replacing data, controls or layout managers.
             fun refresh(v: View) {
                 if (v is RecyclerView) v.adapter?.notifyDataSetChanged()
@@ -230,6 +274,11 @@ class Main : AppCompatActivity() {
 
     private fun begin() {
         screen = ++generation
+        playRequest++
+        pendingPlay = null
+        playStatus?.success()
+        playStatus = null
+        loadRows = LinearLayoutHolder().also { it.owner = screen }
         retainPage = false
         onReturn = null
         onDl = null
@@ -240,6 +289,45 @@ class Main : AppCompatActivity() {
     private fun show(v: View) {
         content.removeAllViews()
         content.addView(v)
+    }
+
+    /** Each page owns its status rows, including while retained behind details. */
+    private fun status(label: String): LoadStatus {
+        var box = loadRows.box
+        if (box == null) {
+            box = col()
+            loadRows.box = box
+            // Overlay feedback instead of changing the RecyclerView viewport as requests settle.
+            if (loadRows.owner == screen) content.addView(box, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        }
+        return LoadStatus(label).also { box.addView(it.view) }
+    }
+
+    private inner class LoadStatus(private val label: String) {
+        private val message = text("", M.attr.textAppearanceBodySmall, muted = true).apply {
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        private val spinner = CircularProgressIndicator(this@Main).apply {
+            isIndeterminate = true; indicatorSize = dp(20); trackThickness = dp(2)
+        }
+        private val retry = button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) {}
+        val view = row(spinner.lp(dp(28), dp(28)), message.lp(0, -2, 1f), retry).pad(16, 4).apply {
+            setBackgroundColor(color(M.attr.colorSurface))
+        }
+        fun loading(retained: Boolean) {
+            view.isVisible = true; spinner.isVisible = true; retry.isVisible = false
+            message.text = if (retained) "Updating $label…" else "Loading $label…"
+        }
+        fun success() { view.isVisible = false }
+        fun failed(retained: Boolean, e: Throwable, again: () -> Unit) {
+            view.isVisible = true; spinner.isVisible = false; retry.isVisible = true
+            message.text = if (Abs.offline) {
+                if (retained) "Offline · showing saved $label" else "Offline · $label unavailable"
+            } else if (retained) "Couldn't update $label. Showing saved content." else "Couldn't load $label."
+            val expired = e is Expired || e is HttpErr && e.code == 401
+            if (expired) { message.text = "Session expired. Sign in again."; retry.text = "Sign in" } else retry.text = "Retry"
+            retry.setOnClickListener { if (expired) login() else again() }
+        }
     }
 
     private fun header(title: String) =
@@ -263,6 +351,11 @@ class Main : AppCompatActivity() {
         Abs.requireLogin()
         loginAttempt?.cancel()
         screen = ++generation
+        playRequest++
+        pendingPlay = null
+        playStatus?.success()
+        playStatus = null
+        loadRows = LinearLayoutHolder().also { it.owner = screen }
         retainPage = false
         onReturn = null
         stack.clear()
@@ -273,14 +366,17 @@ class Main : AppCompatActivity() {
         val pass = field("Password", "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
         val go = button("Sign in") {}
         go.setOnClickListener {
+            if (!go.isEnabled) return@setOnClickListener
             go.isEnabled = false
+            go.text = "Signing in…"
+            val gen = screen
             val attempt = Abs.beginLogin().also { loginAttempt = it }
             val base = url.str(); val username = user.str(); val password = pass.str()
             thread {
                 val result = runCatching { Abs.login(base, username, password, true, attempt) }
                 runOnUiThread {
-                    if (!isDestroyed && loginAttempt === attempt && !attempt.cancelled) {
-                        result.fold({ if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 }, { go.isEnabled = true; err(it) })
+                    if (!isDestroyed && gen == screen && loginAttempt === attempt && !attempt.cancelled) {
+                        result.fold({ if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 }, { go.isEnabled = true; go.text = "Sign in"; err(it) })
                     }
                 }
             }
@@ -318,8 +414,10 @@ class Main : AppCompatActivity() {
             })
         }
         val contTitle = section("Continue listening")
+        val empty = text("Nothing to continue listening to.", muted = true).pad(16, 4).apply { isVisible = false }
         val hist = col()
-        val page = NestedScrollView(this).apply { addView(col(header("Home"), contTitle, cont, section("Recently played"), hist).pad(0, 0)) }
+        var loaded = false
+        val page = NestedScrollView(this).apply { addView(col(header("Home"), contTitle, cont, empty, section("Recently played"), hist).pad(0, 0)) }
         fun refresh() {
             val lm = cont.layoutManager as LinearLayoutManager
             val first = lm.findFirstVisibleItemPosition()
@@ -327,7 +425,8 @@ class Main : AppCompatActivity() {
             val key = (anchor?.tag as? Tile)?.key
             val offset = anchor?.let { lm.getDecoratedLeft(it) - cont.paddingLeft }
             items = avail(all)
-            contTitle.isVisible = items.isNotEmpty()
+            empty.isVisible = loaded && items.isEmpty()
+            contTitle.isVisible = loaded || items.isNotEmpty()
             cont.isVisible = items.isNotEmpty()
             cont.adapter?.notifyDataSetChanged()
             val at = items.indexOfFirst { it.key == key }
@@ -342,9 +441,10 @@ class Main : AppCompatActivity() {
         onDl = onReturn
         show(page)
         refresh()
-        load("/api/me", retained = true) { cont.adapter?.notifyDataSetChanged() }
-        load("/api/me/items-in-progress?limit=20", retained = true) { j ->
+        load("/api/me", retained = true, label = "progress") { cont.adapter?.notifyDataSetChanged() }
+        load("/api/me/items-in-progress?limit=20", retained = true, label = "continue listening") { j ->
             val a = j.getJSONArray("libraryItems")
+            loaded = true
             all = (0 until a.length()).map { a.getJSONObject(it) }.map { li ->
                 val c = Card.item(li)
                 li.optJSONObject("recentEpisode")?.let { Card(c.id, it.str("title"), c.title, it.getString("id")) } ?: c
@@ -364,22 +464,36 @@ class Main : AppCompatActivity() {
             val r = dp(28).toFloat()
             setBoxCornerRadii(r, r, r, r)
         }
-        var all = listOf<Card>()
-        var shown = all
+        val empty = text("", muted = true).pad(16, 4).apply { isVisible = false }
+        var loaded = false
+        var membershipLoaded = false
+        var online = if (Abs.offline) Abs.downloads().map { Abs.cachedCard(it.name) } else listOf<Card>()
+        var shown = online
         var sel = Abs.p.getString("lib", null)
         val owner = screen
+        val rows = loadRows
         val captured = Abs.scope()
-        fun ownsLibrary() = Abs.p.getString("lib", null) == sel &&
+        fun ownsLibrary() = captured == Abs.scope() && Abs.p.getString("lib", null) == sel &&
             (owner == screen || stack.any { it.generation == owner })
         var request = 0
         var g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
+        val heading = header("Library")
+        val title = heading.getChildAt(0) as TextView
+        val selector = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0)
         fun filter(preservePosition: Boolean = true) {
             val lm = g.layoutManager as GridLayoutManager
             val first = lm.findFirstVisibleItemPosition()
             val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
             val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
+            val all = if (Abs.offline) Abs.downloads().map { Abs.cachedCard(it.name) } else online
             val q = search.str().trim()
             shown = avail(if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.sub.contains(q, true) })
+            title.text = if (Abs.offline) "Downloaded" else "Library"
+            selector.isVisible = !Abs.offline
+            empty.text = if (Abs.offline && q.isEmpty()) "Nothing downloaded on this device."
+                else if (!Abs.offline && membershipLoaded && sel == null) "No libraries available."
+                else if (q.isNotEmpty()) "No matching titles." else "No titles in this library."
+            empty.isVisible = (loaded || Abs.offline || membershipLoaded && sel == null) && shown.isEmpty()
             g.adapter?.notifyDataSetChanged()
             if (!preservePosition) lm.scrollToPositionWithOffset(0, 0)
             else if (key != null && offset != null) {
@@ -388,32 +502,29 @@ class Main : AppCompatActivity() {
             }
         }
         search.editText!!.doAfterTextChanged { filter(preservePosition = false) }
-        if (Abs.offline) { // every downloaded item, whatever its library
-            show(col(header("Downloaded"), search.lp(m = 0).pad(16, 4), g.lp(-1, 0, 1f)))
-            onReturn = {
-                all = Abs.downloads().map { Abs.cachedCard(it.name) }
-                filter()
-            }
-            onDl = onReturn
-            return onReturn!!.invoke()
-        }
-        val empty = text("No libraries available.", muted = true).pad(16, 4).apply { isVisible = false }
-        val page = col(header("Library"), HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0),
-            search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f))
+        val page = col(heading, selector, search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f))
         show(page)
         fun refresh() {
             val current = ++request
-            // Cached membership cannot authorize requests to a removed/revoked library.
-            scopedBg(captured, { Abs.get("/api/libraries", captured) }, { if (ownsLibrary() && current == request) err(it) }) membership@{ json ->
-                if (!ownsLibrary() || Abs.offline || current != request) return@membership
-                val libs = JSONObject(json).getJSONArray("libraries")
+            // Supersede old title retries as soon as authoritative membership is requested.
+            rows.requests.keys.filter { it.startsWith("/api/libraries/") }.toList().forEach { path ->
+                rows.requests.remove(path)
+                rows.statuses.remove(path)?.let { (it.view.parent as? ViewGroup)?.removeView(it.view) }
+            }
+            fun valid() = ownsLibrary() && current == request
+            // Cached membership must never authorize requests to a revoked library.
+            load("/api/libraries", retained = true, label = "libraries", cacheFirst = false, valid = ::valid) membership@{ j ->
+                if (Abs.offline) return@membership
+                val libs = j.getJSONArray("libraries")
                 val available = (0 until libs.length()).map { libs.getJSONObject(it).getString("id") }
                 val selected = sel?.takeIf { it in available } ?: available.firstOrNull()
                 val changed = selected != sel
                 sel = selected
+                membershipLoaded = true
                 Abs.p.edit().putString("lib", selected).apply()
                 if (changed) {
-                    all = emptyList()
+                    online = emptyList()
+                    loaded = false
                     search.editText!!.setText("")
                     filter(preservePosition = false)
                 }
@@ -430,31 +541,35 @@ class Main : AppCompatActivity() {
                         setOnClickListener { if (id != sel) { Abs.p.edit().putString("lib", id).apply(); library() } }
                     })
                 }
-                empty.isVisible = selected == null
+                filter()
                 if (selected == null) return@membership
-                // Rebuild only a changed context, using its freshly fetched cover ratio.
                 if (changed) {
                     page.removeView(g)
                     g = grid(Abs.p.getFloat("ratio:$selected", 1f)) { shown }
                     page.addView(g.lp(-1, 0, 1f))
                 }
-                val path = "/api/libraries/$selected/items?minified=1&sort=media.metadata.title"
-                fun render(json: String) {
-                    val r = JSONObject(json).getJSONArray("results")
-                    all = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
+                load("/api/libraries/$selected/items?minified=1&sort=media.metadata.title", retained = true,
+                    label = "titles", valid = { valid() && sel == selected }) titles@{ json ->
+                    if (Abs.offline) return@titles
+                    val r = json.getJSONArray("results")
+                    loaded = true
+                    online = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
                     filter()
                 }
-                val cached = Abs.cached(path, captured)?.also(::render)
-                scopedBg(captured, { Abs.get(path, captured) }, {
-                    if (ownsLibrary() && current == request && ((cached == null && !Abs.offline) || it is Expired)) err(it)
-                }) { result ->
-                    if (ownsLibrary() && !Abs.offline && current == request && sel == selected && result != cached) render(result)
-                }
+            }
+            load("/api/me", retained = true, label = "progress") { g.adapter?.notifyDataSetChanged() }
+        }
+        onReturn = {
+            filter()
+            if (!Abs.offline) refresh()
+            else {
+                request++
+                rows.statuses.values.forEach { it.success() }
             }
         }
-        onReturn = { refresh() }
-        refresh()
-        load("/api/me") { g.adapter?.notifyDataSetChanged() }
+        onDl = { filter() }
+        filter()
+        if (!Abs.offline) refresh()
     }
 
     // --- series (from the server's book libraries)
@@ -462,17 +577,22 @@ class Main : AppCompatActivity() {
     private fun series() {
         begin()
         val box = col()
-        val empty = text("No series on the server yet.", muted = true).pad(16, 4)
+        var seriesVersion = 0
+        val empty = text("No series on the server yet.", muted = true).pad(16, 4).apply { isVisible = false }
         show(NestedScrollView(this).apply { addView(col(header("Series"), box, empty)) })
-        load("/api/libraries") { j ->
+        load("/api/libraries", label = "libraries") { j ->
+            val version = ++seriesVersion
             val libs = j.getJSONArray("libraries").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.filter { it.str("mediaType") == "book" }
             val boxes = libs.map { col() }
+            val completed = BooleanArray(libs.size)
+            empty.isVisible = libs.isEmpty()
             box.removeAllViews()
             boxes.forEach { box.addView(it) }
             libs.forEachIndexed { i, l ->
                 val id = l.getString("id")
                 val ratio = Abs.p.getFloat("ratio:$id", 1f)
-                load("/api/libraries/$id/series?limit=1000&sort=name") { sj ->
+                load("/api/libraries/$id/series?limit=1000&sort=name", label = l.getString("name") + " series") seriesResult@{ sj ->
+                    if (version != seriesVersion) return@seriesResult
                     val a = sj.getJSONArray("results")
                     boxes[i].removeAllViews()
                     if (libs.size > 1 && a.length() > 0) boxes[i].addView(section(l.getString("name")))
@@ -482,7 +602,8 @@ class Main : AppCompatActivity() {
                         val name = se.getString("name")
                         boxes[i].addView(listRow(Card(books.firstOrNull()?.id ?: "", name, ""), "${books.size} books", null) { push { shelf(name, books, ratio) } })
                     }
-                    empty.isVisible = boxes.all { it.childCount == 0 }
+                    completed[i] = true
+                    empty.isVisible = completed.all { it } && boxes.all { it.childCount == 0 }
                 }
             }
         }
@@ -516,6 +637,7 @@ class Main : AppCompatActivity() {
         retainPage = true
         val owner = screen
         var favs = avail(Abs.favs())
+        var membershipLoaded = false
         val empty = text("Tap ♡ on a book or podcast to keep it here.", muted = true).pad(16, 4)
         val g = grid(1f) { favs }
         fun refresh() {
@@ -524,7 +646,7 @@ class Main : AppCompatActivity() {
             val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
             val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
             favs = avail(Abs.favs())
-            empty.isVisible = favs.isEmpty()
+            empty.isVisible = membershipLoaded && favs.isEmpty()
             g.adapter?.notifyDataSetChanged()
             val at = favs.indexOfFirst { it.key == key }
             if (at >= 0 && offset != null) lm.scrollToPositionWithOffset(at, offset)
@@ -533,9 +655,16 @@ class Main : AppCompatActivity() {
         onDl = onReturn
         show(col(header("Favorites"), empty, g.lp(-1, 0, 1f)))
         refresh()
-        load("/api/me", retained = true) {
+        empty.isVisible = false
+        load("/api/me", retained = true, label = "favorites") {
+            membershipLoaded = true
             refresh()
-            favs.filter { it.title.isEmpty() }.forEach { c -> bg({ Abs.fillFav(c.id) }, {}) { if (ownsPage(owner, true)) refresh() } }
+            favs.filter { it.title.isEmpty() }.forEach { c ->
+                load("/api/items/${c.id}", retained = true, label = "favorite details") { item ->
+                    Abs.fillFavCard(Card.item(item))
+                    if (ownsPage(owner, true)) refresh()
+                }
+            }
         }
     }
 
@@ -642,8 +771,9 @@ class Main : AppCompatActivity() {
         (prog.layoutParams as LinearLayout.LayoutParams).topMargin = dp(6)
         val r = row(
             cover,
+            button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) { Dl.retry(this, j); downloads() }.apply { isVisible = j.error != null },
             col(text(j.n.title, M.attr.textAppearanceTitleSmall, 2), meta, prog).pad(14, 0).lp(0, -2, 1f),
-            icon(R.drawable.i_close, "Cancel download of ${j.n.title}") { confirm("Cancel downloading “${j.n.title}”?") { Dl.cancel(j.n); Abs.dlChanged(); downloads() } },
+            icon(R.drawable.i_close, "Cancel download of ${j.n.title}") { confirm("Cancel downloading “${j.n.title}”?") { Dl.cancel(j.n); Dl.start(this); Abs.dlChanged(); downloads() } },
         ).pad(16, 8)
         r.setBackgroundResource(res(android.R.attr.selectableItemBackground))
         r.setOnClickListener { push { item(j.n.item) } }
@@ -657,14 +787,15 @@ class Main : AppCompatActivity() {
 
     /** "45% · 47 of 105 MB", "Queued" or "Waiting for connection" */
     private fun dlStatus(j: Dl.Job) = when {
-        j !== Dl.jobs.firstOrNull() -> "Queued"
+        j.error != null -> j.error!!
+        j !== Dl.next -> "Queued"
         j.waiting -> "Waiting for connection"
         else -> "${(Dl.pct(j) * 100).toInt()}% · ${mb(j.got)} of ${mb(j.total)}"
     }
 
     /** determinate while bytes are coming in, indeterminate while queued or waiting */
     private fun progress(p: com.google.android.material.progressindicator.BaseProgressIndicator<*>, j: Dl.Job) {
-        val known = j === Dl.jobs.firstOrNull() && !j.waiting && j.total > 0
+        val known = j === Dl.next && !j.waiting && j.error == null && j.total > 0
         if (p.isIndeterminate == known) { // can't switch modes while shown
             val v = p.visibility
             p.visibility = View.INVISIBLE
@@ -750,7 +881,7 @@ class Main : AppCompatActivity() {
         begin()
         val rv = RecyclerView(this).apply { layoutManager = LinearLayoutManager(context) }
         show(col(subHeader(""), rv.lp(-1, 0, 1f)))
-        load("/api/items/$id?expanded=1") { renderItem(rv, it) }
+        load("/api/items/$id?expanded=1", label = "title") { renderItem(rv, it) }
     }
 
     private fun renderItem(rv: RecyclerView, j: JSONObject) {
@@ -777,9 +908,25 @@ class Main : AppCompatActivity() {
         val fav = icon(if (Abs.isFav(c.id)) R.drawable.i_favorite_fill else R.drawable.i_favorite,
             if (Abs.isFav(c.id)) "Remove from favorites" else "Add to favorites") {}
         fav.setOnClickListener {
+            if (!fav.isEnabled) return@setOnClickListener
+            fav.isEnabled = false
             val on = Abs.toggleFav(c)
-            val epoch = Abs.mediaEpoch
-            thread { runCatching { Abs.pushFavs(epoch) } }
+            val state = status("favorites sync")
+            val owner = screen
+            val syncScope = Abs.scope()
+            var syncing = false
+            fun sync() {
+                if (syncing || syncScope != Abs.scope()) return
+                syncing = true
+                fav.isEnabled = false
+                state.loading(true)
+                bg({ Abs.pushFavs(); check(!JSONObject(Abs.p.getString("favq", "{}")).has(c.id)) }, { e ->
+                    syncing = false
+                    if (e is StaleSession || syncScope != Abs.scope()) state.success()
+                    else if (owner == screen) { fav.isEnabled = true; state.failed(true, e, ::sync) }
+                }) { syncing = false; if (owner == screen) { fav.isEnabled = true; state.success() } }
+            }
+            sync()
             fav.icon = ContextCompat.getDrawable(this, if (on) R.drawable.i_favorite_fill else R.drawable.i_favorite)
             fav.contentDescription = if (on) "Remove from favorites" else "Add to favorites"
             toast(if (on) "Added to favorites" else "Removed from favorites")
@@ -802,6 +949,7 @@ class Main : AppCompatActivity() {
             onDlTick = { updDl() }
             val play = button(if (p > 0 && p < 1) "Resume" else "Play", R.drawable.i_play_arrow_fill) { play(n) }
             play.isEnabled = ts.isNotEmpty()
+            if (ts.isEmpty()) head.addView(text("No audio available.", muted = true))
             head.addView(row(play.lp(-2, -2), dl, fav, share).apply { gravity = Gravity.CENTER }.pad(0, 8))
         } else {
             val a = m.getJSONArray("episodes")
@@ -823,7 +971,9 @@ class Main : AppCompatActivity() {
         if (!book) head.addView(text("Episodes", M.attr.textAppearanceTitleMedium).lp().pad(0, 8))
         head.layoutParams = RecyclerView.LayoutParams(-1, -2)
         val one = Rv({ 1 }, { head.also { (it.parent as? ViewGroup)?.removeView(it) } }, { _, _ -> })
+        val position = rv.layoutManager?.onSaveInstanceState()
         rv.adapter = epAdapter?.let { ConcatAdapter(one, it) } ?: one
+        position?.let { rv.layoutManager?.onRestoreInstanceState(it) }
     }
 
     private class EpRow(val title: TextView, val meta: TextView, val dl: View, val play: MaterialButton)
@@ -867,7 +1017,8 @@ class Main : AppCompatActivity() {
 
     /** done -> remove, queued or downloading -> cancel, otherwise (incl. partial) -> download what's missing */
     private fun bindDl(v: View, n: Now) = (v.tag as DlView).run {
-        val done = n.tracks.all { Abs.done(n.item, it) }
+        val done = n.tracks.isNotEmpty() && n.tracks.all { Abs.done(n.item, it) }
+        btn.isEnabled = n.tracks.isNotEmpty()
         val j = if (done) null else Dl.job(n.key)
         btn.icon = ContextCompat.getDrawable(this@Main, if (done) R.drawable.i_download_done_fill else if (j != null) R.drawable.i_stop else R.drawable.i_download)
         btn.contentDescription = when {
@@ -891,7 +1042,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun removeDl(n: Now, busy: Boolean = false) = confirm(if (busy) "Cancel downloading “${n.title}”?" else "Remove the download of “${n.title}”?") {
-        if (busy) Dl.cancel(n) else Abs.remove(n.tracks.map { Abs.file(n.item, it) })
+        if (busy) { Dl.cancel(n); Dl.start(this) } else Abs.remove(n.tracks.map { Abs.file(n.item, it) })
         Abs.dlChanged()
         onDl?.invoke()
         updateDl()
@@ -916,7 +1067,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun updateDl() {
-        val j = Dl.jobs.firstOrNull()
+        val j = Dl.next ?: Dl.jobs.firstOrNull()
         dlBar.isVisible = j != null && Abs.me != null && nav.isVisible
         if (j != null) {
             if (!Covers.isBound(dlCover, j.n.item)) Covers.load(dlCover, j.n.item)
@@ -957,54 +1108,101 @@ class Main : AppCompatActivity() {
         val user = field("Username")
         val pass = field("Password", "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
         var attempt: Abs.LoginAttempt? = null
-        val dialog = MaterialAlertDialogBuilder(this).setTitle("Link another account")
-            .setMessage("They sign in here once to allow it.")
-            .setView(col(user, pass, pad = 20))
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Link", null).create()
-        dialog.setOnDismissListener { attempt?.cancel() }
-        dialog.setOnShowListener {
-            val link = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
-            link.setOnClickListener {
-                link.isEnabled = false
+        val message = text("They sign in here once to allow it.", muted = true)
+        val d = MaterialAlertDialogBuilder(this).setTitle("Link another account")
+            .setView(col(message, user, pass, pad = 20))
+            .setNegativeButton("Cancel", null).setPositiveButton("Link", null).create()
+        d.setOnDismissListener { attempt?.cancel() }
+        val gen = screen
+        var running = false
+        d.show()
+        run {
+            val go = d.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
+            go.setOnClickListener {
+                if (running) return@setOnClickListener
+                running = true; go.isEnabled = false; go.text = "Linking…"
+                d.setCancelable(false)
+                d.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).isEnabled = false
                 val current = Abs.beginLogin().also { attempt = it }
-                val username = user.str(); val password = pass.str(); val base = Abs.server
-                bg({ Abs.login(base, username, password, false, current) }, { link.isEnabled = true; err(it) }) {
-                    if (!current.cancelled) {
-                        dialog.dismiss()
-                        if (it == Abs.me) toast("That's you") else { toast("Linked $it"); then() }
-                    }
+                val base = Abs.server
+                val username = user.str(); val password = pass.str()
+                bg({ Abs.login(base, username, password, false, current) }, {
+                    if (it is StaleSession) { d.dismiss(); return@bg }
+                    running = false; go.isEnabled = true; go.text = "Link"
+                    d.setCancelable(true)
+                    d.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).isEnabled = true
+                    message.text = it.message ?: "Couldn't link account. Try again."
+                }) {
+                    d.dismiss()
+                    if (gen == screen) { if (it == Abs.me) toast("That's you") else { toast("Linked $it"); then() } }
                 }
             }
         }
-        dialog.show()
     }
 
     // --- playback
 
-    private fun playCard(c: Card): Thread {
-        val captured = Abs.scope(playback = true)
-        return scopedBg(captured, {
-            val path = "/api/items/${c.id}?expanded=1"
-            val j = JSONObject(Abs.cached(path, captured) ?: Abs.get(path, captured))
+    private fun playCard(c: Card) = preparePlay(c.key, Abs.scope(playback = true)) { captured ->
+        val path = "/api/items/${c.id}?expanded=1"
+        fun decode(raw: String): Now {
+            val j = JSONObject(raw)
+            Abs.validateCachedResponse(path, j)
             val m = j.getJSONObject("media")
-            if (c.ep == null) Now(c.id, null, c.title, c.sub, Abs.tracks(m.getJSONArray("tracks")))
+            val n = if (c.ep == null) Now(c.id, null, c.title, c.sub, Abs.tracks(m.getJSONArray("tracks")))
             else {
                 val a = m.getJSONArray("episodes")
                 val e = (0 until a.length()).map { a.getJSONObject(it) }.first { it.getString("id") == c.ep }
                 Now(c.id, c.ep, e.str("title"), Card.item(j).title, listOf(Abs.track(e.getJSONObject("audioFile"), 0.0)))
             }
-        }) { play(it, captured) }
+            check(n.tracks.isNotEmpty()) { "No audio" }
+            return n
+        }
+        runCatching { Abs.cached(path, captured)?.let(::decode) }.getOrNull() ?: decode(Abs.get(path, captured) { decode(it) })
     }
 
-    private fun play(n: Now, captured: Abs.Scope = Abs.scope(playback = true)) = Abs.ifCurrent(captured) {
-        if (n.tracks.isEmpty()) return@ifCurrent toast("No audio")
-        val request = Abs.scope()
-        scopedBg(captured, { Abs.positions(n, captured) }) { ps ->
+    private fun play(n: Now, captured: Abs.Scope = Abs.scope(playback = true)) = preparePlay(n.key, captured) { n }
+
+    private fun preparePlay(key: String, captured: Abs.Scope, get: (Abs.Scope) -> Now) {
+        if (captured != Abs.scope(playback = true) || Abs.loginPending || !nav.isVisible) return
+        if (pendingPlay == key && pendingPlayScope == captured) return
+        pendingPlay = key
+        pendingPlayScope = captured
+        val request = ++playRequest
+        val gen = screen
+        val requestScope = Abs.scope()
+        playStatus?.success()
+        val state = status("audio")
+        playStatus = state
+        state.loading(false)
+        bg({
+            Abs.inScope(captured) {}
+            val n = get(captured)
+            check(n.tracks.isNotEmpty()) { "No audio" }
+            n to Abs.positions(n, captured)
+        }, { e ->
+            if (request != playRequest || gen != screen || captured != Abs.scope(playback = true) || e is StaleScope || e is StaleSession) {
+                state.success()
+                if (request == playRequest) pendingPlay = null
+                return@bg
+            }
+            if (request == playRequest && gen == screen) {
+                pendingPlay = null
+                state.failed(false, e) { state.success(); preparePlay(key, captured, get) }
+            }
+        }) { (n, ps) ->
+            if (request != playRequest || gen != screen || captured != Abs.scope(playback = true)) {
+                state.success()
+                if (request == playRequest) pendingPlay = null
+                return@bg
+            }
+            pendingPlay = null
+            state.success()
+            if (ctl == null) { state.failed(false, IllegalStateException("Player not ready")) { state.success(); preparePlay(key, captured, get) }; return@bg }
             if (ps.size == 1) start(n, ps[0].time, captured = captured)
             else MaterialAlertDialogBuilder(this).setTitle("Resume “${n.title}” from")
-                .setItems(ps.map { "${it.who} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i -> Abs.ifCurrent(request) { start(n, ps[i].time, captured = captured) } }
-                .show()
+                .setItems(ps.map { "${it.who} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i ->
+                    if (request == playRequest && gen == screen) Abs.ifCurrent(requestScope) { start(n, ps[i].time, captured = captured) }
+                }.setNegativeButton("Cancel", null).show()
         }
     }
 
@@ -1015,8 +1213,9 @@ class Main : AppCompatActivity() {
             val c = ctl ?: return@ifCurrent
             if (c.mediaItemCount > 0 || Abs.me == null || Abs.loginPending || !nav.isVisible) return@ifCurrent
             val n = Abs.now ?: Abs.loadNow() ?: return@ifCurrent
+            val request = playRequest
             scopedBg(captured, { Abs.positions(n, captured).first().time }) { t ->
-                if (ctl === c && c.mediaItemCount == 0) start(n, t, play = false, captured = captured)
+                if (request == playRequest && pendingPlay == null && ctl === c && c.mediaItemCount == 0) start(n, t, play = false, captured = captured)
             }
         }
     }
@@ -1053,7 +1252,7 @@ class Main : AppCompatActivity() {
         miniCover = Cover(this).lp(dp(44), dp(44))
         miniTitle = text("", M.attr.textAppearanceTitleSmall, 1)
         miniSub = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
-        miniPlay = icon(R.drawable.i_play_arrow_fill, "Play") { ctl?.let { Util.handlePlayPauseButtonAction(it) } }
+        miniPlay = icon(R.drawable.i_play_arrow_fill, "Play") { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }
         miniProg = LinearProgressIndicator(this).apply { max = 1000; trackThickness = dp(2) }
         return MaterialCardView(this, null, M.attr.materialCardViewFilledStyle).apply {
             addView(col(row(miniCover, col(miniTitle, miniSub).pad(12, 0).lp(0, -2, 1f), miniPlay).pad(8, 6), miniProg))
@@ -1071,9 +1270,13 @@ class Main : AppCompatActivity() {
         val playing = !Util.shouldShowPlayButton(c)
         if (!Covers.isBound(miniCover, n.item)) Covers.load(miniCover, n.item)
         miniTitle.text = n.title
-        miniSub.text = n.author
+        miniSub.text = when {
+            c.playerError != null -> "Playback failed · tap play to retry"
+            c.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> "Buffering…"
+            else -> n.author
+        }
+        miniPlay.contentDescription = if (c.playerError != null) "Retry playback" else if (playing) "Pause" else "Play"
         miniPlay.icon = ContextCompat.getDrawable(this, if (playing) R.drawable.i_pause_fill else R.drawable.i_play_arrow_fill)
-        miniPlay.contentDescription = if (playing) "Pause" else "Play"
         miniProg.progress = (pos / n.duration * 1000).toInt()
         sheet?.invoke(c, n, pos, playing)
     }
@@ -1098,7 +1301,7 @@ class Main : AppCompatActivity() {
         }
         val el = text("", M.attr.textAppearanceLabelMedium, muted = true)
         val rem = text("", M.attr.textAppearanceLabelMedium, muted = true)
-        val play = icon(R.drawable.i_play_arrow_fill, "Play", M.attr.materialIconButtonFilledStyle) { ctl?.let { Util.handlePlayPauseButtonAction(it) } }.apply {
+        val play = icon(R.drawable.i_play_arrow_fill, "Play", M.attr.materialIconButtonFilledStyle) { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }.apply {
             iconSize = dp(36)
             iconPadding = 0
             iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START // with no text this centers the icon
@@ -1131,6 +1334,7 @@ class Main : AppCompatActivity() {
         sheet = { c, now, pos, playing ->
             if (now.key != n.key) d.dismiss()
             if (!dragging) slider.value = pos.toFloat().coerceIn(0f, slider.valueTo)
+            sub.text = when { c.playerError != null -> "Playback failed · tap play to retry"; c.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> "Buffering…"; else -> now.author }
             el.text = Abs.fmt(pos)
             rem.text = "-" + Abs.fmt(max(0.0, now.duration - pos))
             play.icon = ContextCompat.getDrawable(this, if (playing) R.drawable.i_pause_fill else R.drawable.i_play_arrow_fill)
@@ -1146,23 +1350,53 @@ class Main : AppCompatActivity() {
     // --- helpers
 
     private fun ownsPage(gen: Int, retained: Boolean) = gen == screen || retained && stack.any {
-        it.generation == gen && it.offline == Abs.offline && it.library == Abs.p.getString("lib", null)
+        it.generation == gen && it.library == Abs.p.getString("lib", null)
     }
 
-    /** Renders cached JSON instantly, then refreshes from the server. */
-    private fun load(path: String, retained: Boolean = false, render: (JSONObject) -> Unit) {
+    /** Cache-first rendering with a page-owned, retryable terminal state. */
+    private fun load(path: String, retained: Boolean = false, label: String = "content",
+        cacheFirst: Boolean = true, valid: (() -> Boolean)? = null, render: (JSONObject) -> Unit) {
+        val rows = loadRows
+        val gen = rows.owner
         val captured = Abs.scope()
-        val gen = screen
-        fun deliver(value: String) = Abs.ifCurrent(captured) {
-            val json = JSONObject(value)
-            if (path == "/api/me") Abs.setMe(json, captured)
-            render(json)
+        val requestId = Any()
+        rows.requests[path] = requestId
+        rows.statuses.remove(path)?.let { (it.view.parent as? ViewGroup)?.removeView(it.view) }
+        val state = status(label)
+        rows.statuses[path] = state
+        var rendered: String? = null
+        var running = false
+        fun deliver(raw: String) = Abs.ifCurrent(captured) {
+            if (raw != rendered) {
+                val current = loadRows
+                loadRows = rows
+                try {
+                    val json = JSONObject(raw)
+                    Abs.validateCachedResponse(path, json)
+                    if (path == "/api/me") Abs.setMe(json, captured)
+                    render(json); rendered = raw
+                } finally { if (loadRows === rows) loadRows = current }
+            }
         }
-        var old: String? = null
-        Abs.ifCurrent(captured) { old = Abs.cached(path, captured)?.also { deliver(it) } }
-        scopedBg(captured, { Abs.get(path, captured) }, { if ((old == null && !Abs.offline) || it is Expired) err(it) }) {
-            if (ownsPage(gen, retained) && it != old) deliver(it)
+        fun ownsRequest() = rows.requests[path] === requestId && captured == Abs.scope() &&
+            (valid?.invoke() ?: ownsPage(gen, retained))
+        // Cache is a small local snapshot. Membership can explicitly require a fresh response.
+        if (cacheFirst && ownsRequest()) runCatching { Abs.cached(path, captured)?.let(::deliver) }
+        fun request() {
+            if (running || !ownsRequest()) return
+            running = true
+            state.loading(rendered != null)
+            bg({ Abs.get(path, captured) }, { e ->
+                running = false
+                if (ownsRequest() && e !is StaleScope) state.failed(rendered != null, e, ::request) else state.success()
+            }) { raw ->
+                running = false
+                if (ownsRequest()) {
+                    runCatching { deliver(raw) }.fold({ state.success() }, { state.failed(rendered != null, it, ::request) })
+                } else state.success()
+            }
         }
+        request()
     }
 
     private fun <T> scopedBg(captured: Abs.Scope, work: () -> T, fail: (Throwable) -> Unit = ::err, done: (T) -> Unit): Thread {
@@ -1181,7 +1415,10 @@ class Main : AppCompatActivity() {
         return thread {
             val r = runCatching { Abs.sessionWork(epoch, work) }
             runOnUiThread {
-                if (!isDestroyed && epoch == Abs.mediaEpoch && owner == (Abs.server to Abs.me)) {
+                if (!isDestroyed && (epoch != Abs.mediaEpoch || owner != (Abs.server to Abs.me))) {
+                    // Only terminal cleanup is delivered for the old owner, never its result.
+                    fail(StaleSession())
+                } else if (!isDestroyed) {
                     runCatching { Abs.inSession(epoch) { Abs.sessionWork(epoch) { r.fold(done, fail) } } }
                         .exceptionOrNull()?.let { if (it !is StaleSession) err(it) }
                 }

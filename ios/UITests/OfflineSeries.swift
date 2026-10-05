@@ -7,8 +7,11 @@ final class OfflineSeries: XCTestCase {
         app.launchArguments = ["--offline-series-test"]
         app.launch()
         XCTAssertTrue(app.staticTexts["Cached series"].waitForExistence(timeout: 15))
+        // The failed refresh must leave cached rows usable, not just visible to AX.
+        XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 10))
+        XCTAssertLessThanOrEqual(app.buttons["loading.retry"].frame.maxY, app.staticTexts["Cached series"].frame.minY)
         app.staticTexts["Cached series"].tap()
-        XCTAssertTrue(app.staticTexts["Series title 006"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Series title 006"].waitForExistence(timeout: 10), app.debugDescription)
         return app
     }
 

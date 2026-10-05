@@ -14,6 +14,7 @@ struct ProgressFixture: View {
                     let args = ProcessInfo.processInfo.arguments
                     if args.contains("--progress-seed") { try await ProgressChecks.relaunch(seed: true); result = "PASS seeded" }
                     else if args.contains("--progress-drain") { try await ProgressChecks.relaunch(seed: false); result = "PASS relaunched" }
+                    else if args.contains("--progress-playback-auth") { try await ProgressChecks.playbackAuthenticationRegressions(); result = "PASS playback authentication" }
                     else { try await ProgressChecks.run(); result = "PASS progress replay" }
                 }
                 catch { result = "FAIL \(error.localizedDescription)" }
@@ -214,6 +215,78 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
             d.removePersistentDomain(forName: "progress-relaunch-fixture")
             try? FileManager.default.removeItem(at: file)
         }
+    }
+
+    /// Authentication can fail before AVFoundation has an item to report an error.
+    static func playbackAuthenticationRegressions() async throws {
+        URLProtocol.registerClass(ProgressServer.self)
+        ProgressServer.state.withLock { $0 = .init() }
+        let suite = "playback-auth-" + UUID().uuidString
+        let d = UserDefaults(suiteName: suite)!
+        let file = URL.temporaryDirectory.appending(path: suite + ".json")
+        defer { d.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: file) }
+        let origin = "http://abs-progress-fixture.invalid"
+        d.set(origin, forKey: "server"); d.set("own", forKey: "me")
+        let a = try await authenticated(d, file, ["own": Tok(a: "own", r: "own")])
+        let p = Player(source: a)
+        p.p.defaultRate = 1
+        defer { p.clear(); a.progressTask?.cancel() }
+        let track = Track(ino: "silent", ext: ".wav", size: 0, duration: 40, start: 0)
+        let remote = Now(item: suite + "-remote", ep: nil, title: "Remote fixture", author: "", tracks: [track])
+        var local = Now(item: suite + "-local", ep: nil, title: "Local fixture", author: "", tracks: [track])
+        let wav = a.file(local.item, track)
+        try FileManager.default.createDirectory(at: wav.deletingLastPathComponent(), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: wav.deletingLastPathComponent()) }
+        let format = AVAudioFormat(standardFormatWithSampleRate: 8000, channels: 1)!
+        do {
+            let audio = try AVAudioFile(forWriting: wav, settings: format.settings)
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 320000)!
+            buffer.frameLength = 320000
+            try audio.write(from: buffer)
+        }
+        local = Now(item: local.item, ep: nil, title: local.title, author: "",
+                    tracks: [Track(ino: track.ino, ext: track.ext, size: a.size(wav), duration: 40, start: 0)])
+        // An expired synthetic JWT forces the production refresh path.
+        let expired = "fixture.eyJleHAiOjB9.signature"
+        a.accts["own"]!.a = expired
+        ProgressServer.state.withLock { $0.failRefresh = true }
+        p.start(remote, 0)
+        try await wait("stream authentication terminal feedback") { p.playbackError != nil }
+        try check(!p.buffering && !p.playing && p.p.currentItem == nil && p.now == remote && a.toast == p.playbackError,
+                  "failed refresh left remote playback buffering or without retry feedback")
+        let refreshes = ProgressServer.state.withLock { $0.refreshes }
+        p.play() // same path as the production Retry playback control
+        try await wait("explicit playback retry fails terminally") { p.playbackError != nil }
+        try check(!p.buffering && ProgressServer.state.withLock { $0.refreshes } > refreshes,
+                  "authentication error did not permit an explicit retry")
+
+        ProgressServer.state.withLock { $0.offline = true }
+        p.start(local, 0)
+        try await wait("offline local playback despite refresh failure") { p.pos > 0.3 && p.playing && !p.buffering }
+        try check(p.playbackError == nil && (p.p.currentItem?.asset as? AVURLAsset)?.url.isFileURL == true,
+                  "authentication failure prevented downloaded playback")
+        p.clear()
+        await stop(a)
+
+        // Hold the old queue's refresh, then commit a newer queue with fresh auth.
+        // Its late failure must neither publish a toast nor clear new playback.
+        ProgressServer.state.withLock { $0.offline = false; $0.holdRefresh = true }
+        p.start(remote, 0)
+        try await wait("stale queue refresh held") { ProgressServer.state.withLock { $0.held != nil } }
+        let held = ProgressServer.state.withLock { state in let value = state.held; state.held = nil; return value }!
+        let settling = Task { try? await a.token(force: true) }
+        await Task.yield()
+        a.accts["own"]!.a = "own"
+        p.start(local, 0)
+        try await wait("new queue playing before stale failure") { p.pos > 0.3 && p.playing && !p.buffering }
+        a.toast = "new queue feedback"
+        held.respond()
+        _ = await settling.value
+        try await Task.sleep(for: .milliseconds(100))
+        try check(p.now == local && p.playing && !p.buffering && p.playbackError == nil && a.toast == "new queue feedback",
+                  "stale queue authentication failure changed newer playback or feedback")
+        p.clear()
+        await stop(a)
     }
 
     static func reviewRegressions(_ book: Now) async throws {
@@ -496,6 +569,86 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         }
     }
 
+    /// Owner cancellation must compose with account-scoped resume choices and disk replay.
+    static func ownerRegressions(_ book: Now) async throws {
+        let suite = "owner-" + UUID().uuidString
+        let d = UserDefaults(suiteName: suite)!
+        let file = URL.temporaryDirectory.appending(path: suite + ".json")
+        defer { d.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: file) }
+        let origin = "http://abs-progress-fixture.invalid"
+        d.set(origin, forKey: "server"); d.set("own", forKey: "me")
+        let accounts = ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")]
+        let a = try await authenticated(d, file, accounts)
+        let p = Player(source: a), owner = UUID(), newerOwner = UUID()
+        defer { p.clear(); a.progressTask?.cancel() }
+        let n = Now(item: suite, ep: "episode", title: "Owner fixture", author: "", tracks: book.tracks)
+        a.shares[n.item] = ["linked"]
+        ProgressServer.state.withLock { s in
+            s.offline = false
+            s.rows["own:" + n.key] = ["libraryItemId": n.item, "episodeId": n.ep!, "currentTime": 0.0, "lastUpdate": 1.0]
+            s.rows["linked:" + n.key] = ["libraryItemId": n.item, "episodeId": n.ep!, "currentTime": 70.0, "lastUpdate": 2.0]
+        }
+        // Cancelling a held HTTP load must settle its Loading state without rendering,
+        // changing offline state, or caching account data after cancellation.
+        let load = Loading(), loadPath = "/api/owner-loading-" + suite
+        ProgressServer.state.withLock { state in
+            state.holdGet = loadPath
+            state.rows["own:" + loadPath] = ["mediaProgress": [], "bookmarks": []]
+        }
+        var renders = 0
+        let loading = Task { await load.run { await a.load(loadPath) { (_: Me) in renders += 1 } } }
+        try await wait("held owner load") { ProgressServer.state.withLock { $0.held != nil } }
+        try check(load.busy, "held load did not expose busy state")
+        load.cancel()
+        await loading.value
+        ProgressServer.state.withLock { $0.held = nil }
+        try check(!load.busy && !load.finished && load.error == nil && renders == 0 && a.cached(loadPath) == nil && !a.offline, "cancelled load published/cache/error state")
+        // A held position response also cannot commit after its screen leaves.
+        ProgressServer.state.withLock { $0.holdGet = "/api/me/progress/" + n.key }
+        let preparing = Task { await p.play(n, owner: owner) }
+        try await wait("held owner positions") { ProgressServer.state.withLock { $0.held != nil } }
+        p.cancelPreparation(owner: owner)
+        let held = ProgressServer.state.withLock { state in let value = state.held; state.held = nil; return value }
+        held?.respond()
+        await preparing.value
+        try check(p.now == nil && p.preparing == nil && p.choices == nil && a.loadNow() == nil, "cancelled position response committed")
+        await p.play(n, owner: owner)
+        guard let cancelled = p.choices else { throw Msg(errorDescription: "owner fixture missing choice") }
+        p.cancelPreparation(owner: owner)
+        p.resume(cancelled, at: 1)
+        try check(p.now == nil && p.choices == nil && a.loadNow() == nil && a.hist.isEmpty, "cancelled resume choice committed")
+        await p.play(n, owner: owner)
+        guard let superseded = p.choices else { throw Msg(errorDescription: "owner fixture missing superseded choice") }
+        await p.play(n, owner: newerOwner)
+        guard let current = p.choices else { throw Msg(errorDescription: "owner fixture missing current choice") }
+        p.cancelPreparation(owner: owner)
+        p.resume(superseded, at: 1)
+        try check(p.now == nil && p.choices?.request == current.request, "old owner cancelled/replayed newer choice")
+        // Reauthentication preserves committed playback, never a pending resume choice.
+        _ = try await a.login(origin, "own", "fixture", main: true)
+        p.resume(current, at: 1)
+        try check(p.now == nil && a.loadNow() == nil && a.hist.isEmpty, "reauthenticated stale resume choice committed")
+        _ = try await a.login(origin, "linked", "fixture", main: false)
+        a.shares[n.item] = ["linked"]
+        await p.play(n, owner: newerOwner)
+        guard let authenticatedChoice = p.choices else { throw Msg(errorDescription: "reauthenticated owner missing choice") }
+        p.resume(authenticatedChoice, at: 1)
+        ProgressServer.state.withLock { $0.offline = true }
+        p.cancelPreparation(owner: newerOwner)
+        try check(p.now == n && a.loadNow() == n && a.hist.count == 1 && p.preparing == nil, "owner cancellation revoked committed playback")
+        // The committed episode's offline progress survives owner teardown and replays.
+        p.clear()
+        a.push(n, 74, finished: false)
+        await stop(a)
+        let restored = configured(defaults: d, progressFile: file, accounts: a.accts)
+        try check(restored.progressDisk.pending.count == 2 && restored.progressDisk.local[n.key]?.currentTime == 74, "owner teardown lost scoped episode progress")
+        due(restored)
+        ProgressServer.state.withLock { $0.offline = false }
+        await restored.replayProgress()
+        try check(restored.progressDisk.pending.isEmpty && ProgressServer.state.withLock { $0.rows["linked:" + n.key]?["currentTime"] as? Double } == 74, "owner episode did not replay to linked account")
+        await stop(restored)
+    }
+
     static func preparationRegressions(_ book: Now) async throws {
         for change in ["user", "server", "logout"] {
             for path in ["play", "cachedCard", "item", "restore", "choices", "queue"] {
@@ -507,6 +660,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                 d.set(origin, forKey: "server"); d.set("own", forKey: "me")
                 let a = try await authenticated(d, file, ["own": Tok(a: "own", r: "own"), "linked": Tok(a: "linked", r: "linked")])
                 let p = Player(source: a)
+                let owner = UUID()
                 let n = Now(item: suite, ep: nil, title: "Old title", author: "", tracks: book.tracks)
                 let itemPath = "/api/items/" + n.item
                 let item: [String: Any] = ["id": n.item, "media": ["metadata": ["title": n.title], "tracks": [["ino": "0", "duration": 100.0]]]]
@@ -521,7 +675,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                 var choice: Player.ResumeChoices?
                 if path == "choices" {
                     a.shares[n.item] = ["linked"]
-                    await p.play(n)
+                    await p.play(n, owner: owner)
                     choice = p.choices
                     try check(choice?.positions.count == 2, "resume choice fixture failed")
                 } else if path == "queue" {
@@ -534,8 +688,8 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
                     ProgressServer.state.withLock { $0.holdGet = path == "item" ? itemPath : "/api/me/progress/" + n.key }
                     preparation = Task {
                         if path == "restore" { await p.restore() }
-                        else if path == "item" || path == "cachedCard" { await p.playCard(Card(id: n.item, title: n.title, sub: "")) }
-                        else { await p.play(n) }
+                        else if path == "item" || path == "cachedCard" { await p.playCard(Card(id: n.item, title: n.title, sub: ""), owner: owner) }
+                        else { await p.play(n, owner: owner) }
                     }
                 }
                 if path != "choices" { try await wait { ProgressServer.state.withLock { $0.held != nil } } }
@@ -615,6 +769,7 @@ final class ProgressServer: URLProtocol, @unchecked Sendable {
         print("Progress fixture phase: acknowledgmentRegressions")
         try await acknowledgmentRegressions(book)
         print("Progress fixture phase: preparationRegressions")
+        try await ownerRegressions(book)
         try await preparationRegressions(book)
 
         print("Progress fixture phase: in-flight replay, retries and revocation")

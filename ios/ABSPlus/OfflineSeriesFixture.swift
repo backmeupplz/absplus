@@ -78,9 +78,9 @@ final class OfflineSeriesProtocol: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         guard request.url?.path == "/login" else {
-            // The buttons own connectivity in this fixture. Authenticated cover/API
-            // reads must not undo their state while newly visible cards load.
-            client?.urlProtocol(self, didFailWithError: URLError(.cancelled)); return
+            // The buttons own connectivity. A real refresh error must still expose
+            // Retry without a network-error callback overriding the explicit state.
+            client?.urlProtocol(self, didFailWithError: Msg(errorDescription: "Fixture refresh unavailable")); return
         }
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(#"{"user":{"id":"series-fixture-id","username":"series-fixture","accessToken":"fixture"}}"#.utf8))

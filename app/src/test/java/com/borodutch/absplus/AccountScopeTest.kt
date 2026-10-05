@@ -64,7 +64,7 @@ class AccountScopeTest {
                     .put("bookmarks", JSONArray()).toString()
                 "/api/me/progress/book" -> if (x.requestHeaders.getFirst("Authorization") == "Bearer linked")
                     """{"currentTime":45,"lastUpdate":1000000}""" else """{"currentTime":10,"lastUpdate":100}"""
-                "/api/items/book" -> JSONObject().put("id", "book").put("media", JSONObject()
+                "/api/items/book" -> JSONObject().put("id", "book").put("mediaType", "book").put("media", JSONObject()
                     .put("metadata", JSONObject().put("title", "A book"))
                     .put("tracks", JSONArray().put(JSONObject().put("ino", "audio").put("duration", 100)
                         .put("metadata", JSONObject().put("ext", ".wav").put("size", 4))))).toString()
@@ -124,7 +124,7 @@ class AccountScopeTest {
             else -> { Abs.logout(); login("A") }
         }
     }
-    private fun call(name: String, vararg args: Any): Any? = Main::class.java.declaredMethods.single { it.name == name }
+    private fun call(name: String, vararg args: Any?): Any? = Main::class.java.declaredMethods.single { it.name == name }
         .apply { isAccessible = true }.invoke(activity.get(), *args)
     private fun await(done: () -> Boolean) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
@@ -276,7 +276,7 @@ class AccountScopeTest {
                 newer = true
                 val g = hold("/api/me")
                 var renders = 0
-                call("load", "/api/me", false, { _: JSONObject -> renders++ })
+                call("load", "/api/me", false, "progress", true, null, { _: JSONObject -> renders++ })
                 assertEquals(1, renders)
                 entered(g)
                 if (queued) release(g, deliver = false)
@@ -351,6 +351,27 @@ class AccountScopeTest {
         assertEquals(1, player.mediaItemCount)
     }
 
+    @Test fun sameOwnerReauthSettlesOldPreparationAndAllowsSameTitleRetry() {
+        call("shelf", "Audio", emptyList<Card>(), 1f)
+        val g = hold("/api/me/progress/book")
+        call("play", book, Abs.scope(playback = true))
+        entered(g)
+        val playback = Abs.scope(playback = true)
+        login("A")
+        release(g)
+        assertEquals(playback, Abs.scope(playback = true))
+        assertFalse("Loading audio…" in visibleTexts())
+        assertFalse("Session expired. Sign in again." in visibleTexts())
+        val pending = Main::class.java.getDeclaredField("pendingPlay").apply { isAccessible = true }
+        assertNull(pending.get(activity.get()))
+        assertNull(Abs.now)
+        call("play", book, Abs.scope(playback = true))
+        await { Abs.now != null }
+        assertSame(book, Abs.now)
+        assertEquals(playback, Abs.nowScope)
+        assertNull(pending.get(activity.get()))
+    }
+
     @Test fun oldRefreshCannotReinsertIdenticalCredentialsAfterSameNameLogin() {
         val g = hold("/auth/refresh")
         var result: Result<String>? = null
@@ -361,5 +382,85 @@ class AccountScopeTest {
         release(g)
         assertTrue(result!!.exceptionOrNull() is Expired)
         assertEquals("A", JSONObject(Abs.p.getString("acct:A", """{}""")!!).getString("a"))
+    }
+
+    private fun visibleTexts(): List<String> {
+        fun walk(v: android.view.View): List<android.view.View> = if (v.visibility != android.view.View.VISIBLE) emptyList()
+            else listOf(v) + if (v is android.view.ViewGroup) (0 until v.childCount).flatMap { walk(v.getChildAt(it)) } else emptyList()
+        return walk(activity.get().window.decorView).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
+    }
+
+    @Test fun reauthClearsStaleLoadWithoutExpiryAndFreshLoadUpdatesPersistedProgress() {
+        login("A") // Rotate away startup Home cache before testing a cold load.
+        val g = hold("/api/me")
+        var renders = 0
+        call("load", "/api/me", false, "progress", true, null, { _: JSONObject -> renders++ })
+        assertTrue("Loading progress…" in visibleTexts())
+        entered(g)
+        val playback = Abs.scope(playback = true)
+        login("A") // Same strings, different request generation.
+        release(g)
+        assertEquals(0, renders)
+        assertFalse("Loading progress…" in visibleTexts())
+        assertFalse("Session expired. Sign in again." in visibleTexts())
+        assertEquals(playback, Abs.scope(playback = true))
+        assertNull(Abs.cached("/api/me"))
+        call("load", "/api/me", false, "progress", true, null, { _: JSONObject -> renders++ })
+        await { renders == 1 }
+        assertFalse("Loading progress…" in visibleTexts())
+        Abs.startProgress(false) { 1000L }
+        Abs.offline = true
+        assertEquals(80.0, Abs.positions(book).first().time, 0.0)
+        Abs.offline = false
+    }
+
+    @Test fun staleAudioCompletionCannotClearNewSameTitleRequestForAnotherAccount() {
+        val first = hold("/api/me/progress/book")
+        call("play", book, Abs.scope(playback = true))
+        entered(first)
+        login("B")
+        val second = hold("/api/me/progress/book")
+        call("play", book, Abs.scope(playback = true))
+        entered(second)
+        release(first)
+        gate = second
+        assertTrue("Loading audio…" in visibleTexts())
+        val pending = Main::class.java.getDeclaredField("pendingPlay").apply { isAccessible = true }
+        assertEquals("book", pending.get(activity.get()))
+        assertNull(Abs.now)
+        release(second)
+        await { Abs.now != null }
+        assertEquals("B", Abs.nowScope!!.owner)
+        assertNull(pending.get(activity.get()))
+        assertFalse("Loading audio…" in visibleTexts())
+        assertTrue(pending().all { it.getString("owner") == "B" })
+    }
+
+    @Test fun offlinePreparationUsesJournalWithoutNetworkAndNavigationCancelsQueuedStart() {
+        Abs.push(book, 42.0, false)
+        Abs.startProgress(false) { 1000L }
+        val original = Abs.openConnection
+        val requests = java.util.concurrent.atomic.AtomicInteger()
+        Abs.openConnection = { requests.incrementAndGet(); throw java.io.IOException("must stay offline") }
+        Abs.offline = true
+        try {
+            call("shelf", "Offline root", emptyList<Card>(), 1f)
+            call("push", { call("shelf", "Offline audio", emptyList<Card>(), 1f) })
+            call("play", book, Abs.scope(playback = true))
+            assertTrue("Loading audio…" in visibleTexts())
+            activity.get().onBackPressedDispatcher.onBackPressed()
+            shadowOf(Looper.getMainLooper()).idle()
+            assertNull(Abs.now)
+            assertFalse("Loading audio…" in visibleTexts())
+            call("push", { call("shelf", "Offline audio", emptyList<Card>(), 1f) })
+            call("play", book, Abs.scope(playback = true))
+            await { Abs.now != null }
+            assertEquals(42_000L, controller.currentPosition)
+            assertEquals(0, requests.get())
+            assertEquals("A", Abs.nowScope!!.owner)
+        } finally {
+            Abs.openConnection = original
+            Abs.offline = false
+        }
     }
 }

@@ -171,9 +171,8 @@ class AccountPlayerIsolationTest {
                 assertTrue(host.denied.await(5, TimeUnit.SECONDS))
                 shadowOf(Looper.getMainLooper()).idle()
                 assertTrue(views(activity.get().window.decorView).filterIsInstance<TextView>().none { it.text.contains("A private title") })
-                val play = activity.get().call("playCard", Card("book", "", "")) as Thread
-                play.join(5000); assertFalse(play.isAlive)
-                shadowOf(Looper.getMainLooper()).idle()
+                activity.get().call("playCard", Card("book", "", ""))
+                drainUntil { views(activity.get().window.decorView).filterIsInstance<TextView>().any { it.text == "Couldn't load audio." } }
                 assertNull(Abs.now)
             } finally { activity.pause().stop().destroy() }
             assertEquals(16044, bytes.length().toInt())
@@ -246,11 +245,13 @@ class AccountPlayerIsolationTest {
                 val scope = Abs.nowScope!!
                 val media = player.currentMediaItem!!
                 player.seekTo(350)
-                // Real HTTP refresh expiry reaches Main.err through its normal async page request.
+                // Real HTTP refresh expiry exposes the page-owned Sign in action.
                 val stored = JSONObject(Abs.p.getString("acct:A", null)!!).put("a", "x.eyJleHAiOjF9.x")
                 Abs.p.edit().putString("acct:A", stored.toString()).commit()
                 host.rejectRefresh = true
                 activity.get().call("home")
+                drainUntil { views(activity.get().window.decorView).filterIsInstance<TextView>().any { it.text == "Session expired. Sign in again." } }
+                views(activity.get().window.decorView).filterIsInstance<TextView>().first { it.text == "Sign in" }.performClick()
                 drainUntil { Abs.loginPending }
                 assertTrue(views(activity.get().window.decorView).filterIsInstance<TextView>().any { it.text == "Sign in" })
                 assertEquals(media, player.currentMediaItem); assertEquals(350L, player.currentPosition)
