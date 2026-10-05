@@ -65,7 +65,7 @@ struct RetainedFixture: View {
         let n = Now(item: "replacement", ep: nil, title: "Replacement", author: "Fixture", tracks: [track])
         let replacementRel = app.rel(n.item, track)
         let old = URLSession.shared.downloadTask(with: URL(string: a + "/old")!)
-        let replacement = URLSession.shared.downloadTask(with: URL(string: a + "/replacement")!)
+        let replacement = RetainedTask()
         app.dlq = [n]
         Downloader.shared.bind(old, replacementRel)
         app.remove(n)
@@ -78,12 +78,18 @@ struct RetainedFixture: View {
         Downloader.shared.urlSession(URLSession.shared, task: old, didCompleteWithError: URLError(.timedOut))
         try check(!app.done(n.item, track), "cancelled transfer overwrote replacement")
         try check(app.inflight.contains(replacementRel) && app.got[replacementRel] == 123 && app.transfers[replacementRel] == description && app.queued(n), "old completion changed replacement state")
-        // UI observation may empty dlq between didFinish and didComplete.
+        // Completed bytes remain queued until their live transfer reports completion.
         Downloader.shared.urlSession(URLSession.shared, downloadTask: replacement, didFinishDownloadingTo: temp)
         app.dlChanged()
-        try check(!app.queued(n), "completed title not removed")
+        try check(app.done(n.item, track) && app.queued(n), "live completion lost its queue owner")
         Downloader.shared.urlSession(URLSession.shared, task: replacement, didCompleteWithError: nil)
-        try check(!app.inflight.contains(replacementRel) && app.got[replacementRel] == nil && app.transfers[replacementRel] == nil, "terminal callback leaked state after queue removal")
+        try check(!app.queued(n) && !app.inflight.contains(replacementRel) && app.got[replacementRel] == nil && app.transfers[replacementRel] == nil, "terminal callback leaked state after queue removal")
+        // Even explicit queue pruning must not leak terminal transfer state.
+        app.dlq = [n]
+        Downloader.shared.bind(replacement, replacementRel)
+        app.dlq = []
+        Downloader.shared.urlSession(URLSession.shared, task: replacement, didCompleteWithError: nil)
+        try check(app.transfers[replacementRel] == nil && !app.inflight.contains(replacementRel), "pruned queue leaked transfer")
         app.remove(n)
         try await cancellationChecks(track, a)
         let requestsBefore = RetainedProtocol.itemRequests.withLock { $0 }
@@ -167,16 +173,16 @@ struct RetainedFixture: View {
         for _ in 0..<5 {
             app.dlq.append(retry)
             failTransfer()
-            try check(app.queued(retry), "fresh cancellation attempt inherited retry budget")
+            try check(app.queued(retry) && app.dlRetry[rr]?.attempts == 1, "fresh cancellation attempt inherited retry budget")
             app.remove(retry)
         }
         app.dlq.append(retry)
         for _ in 0..<20 { await Task.yield() }
         try check(app.transfers[rr] == nil && !app.inflight.contains(rr), "scheduled old retry claimed a requeued title")
         // Automatic retries within one queue identity still exhaust their original budget.
-        for _ in 0..<3 { failTransfer(); try check(app.queued(retry), "automatic retry stopped early") }
+        for attempt in 1...5 { failTransfer(); try check(app.queued(retry) && app.dlRetry[rr]?.attempts == attempt && app.downloadError(retry) == nil, "automatic retry stopped early") }
         failTransfer()
-        try check(!app.queued(retry), "automatic retries lost their bounded budget")
+        try check(app.queued(retry) && app.dlRetry[rr]?.attempts == 5 && app.dlRetry[rr]?.next == nil && app.downloadError(retry) != nil, "automatic retries lost their bounded budget")
         app.remove(retry)
 
         // An admitted retry can itself suspend in authentication and then be cancelled.
@@ -209,6 +215,10 @@ struct RetainedFixture: View {
             try check(app.dlq.isEmpty && app.transfers.isEmpty && !app.inflight.contains(rr), "relogin revived old retry")
         }
     }
+}
+
+private final class RetainedTask: URLSessionDownloadTask, @unchecked Sendable {
+    override var response: URLResponse? { HTTPURLResponse(url: URL(string: "http://retained-a.invalid/replacement")!, statusCode: 200, httpVersion: nil, headerFields: nil) }
 }
 
 final class RetainedProtocol: URLProtocol, @unchecked Sendable {

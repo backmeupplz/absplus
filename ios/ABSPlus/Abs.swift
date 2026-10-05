@@ -78,6 +78,7 @@ struct Hist: Codable { var card: Card, at: Double }
 
 struct HttpErr: LocalizedError {
     let code: Int
+    var retryAfter: String? = nil
     var errorDescription: String? { code == 401 ? "Unauthorized (401)" : code == 403 ? "Not allowed (403)" : "HTTP \(code)" }
 }
 struct Expired: LocalizedError { var errorDescription: String? { "Session expired, please log in again" } }
@@ -139,10 +140,13 @@ let resumeDir: URL = {
     } }
     @ObservationIgnored private var queueIDs: [String: UUID] = [:]
     func queueID(_ n: Now) -> UUID? { queueIDs[n.key] }
+    var dlRetry: [String: DownloadRetry] = [:] { didSet { store("dlRetry", dlRetry) } }
+    @ObservationIgnored var transfers: [String: String] = [:] { didSet { store("transfers", transfers) } }
+    @ObservationIgnored private var retryWake: Task<Void, Never>?
+    @ObservationIgnored private var fetching = Set<UUID>()
+
     /// bytes received so far per download path
     var got: [String: Int64] = [:]
-    /// Current transfer description per path; persisted independently of the mutable title queue.
-    @ObservationIgnored var transfers: [String: String] = [:] { didSet { store("transfers", transfers) } }
     @ObservationIgnored private var dlMemo: [String: Bool] = [:]
     @ObservationIgnored private var refreshing: [String: Task<String, Error>] = [:]
     @ObservationIgnored private var pushingFavs = false
@@ -167,6 +171,7 @@ let resumeDir: URL = {
         shares = load("shares") ?? [:]
         dlq = load("dlq") ?? []
         for n in dlq { queueIDs[n.key] = UUID() }
+        dlRetry = load("dlRetry") ?? [:]
         transfers = load("transfers") ?? [:]
         if me == nil && !accts.isEmpty { // the Keychain outlives a reinstall
             accts = [:]
@@ -201,7 +206,7 @@ let resumeDir: URL = {
             let (data, resp) = try await URLSession.shared.data(for: r)
             offline = false
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            if code >= 400 { throw HttpErr(code: code) }
+            if code >= 400 { throw HttpErr(code: code, retryAfter: (resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After")) }
             return data
         } catch let e as URLError where e.code != .cancelled {
             offline = true
@@ -236,7 +241,9 @@ let resumeDir: URL = {
         guard epoch == mediaEpoch else { throw CancellationError() }
         let name = try save(r)
         if main {
-            cancel(Set(transfers.keys).union(dlq.flatMap { n in n.tracks.map { rel(n.item, $0) } }))
+            refreshing.values.forEach { $0.cancel() }; refreshing = [:]
+            retryWake?.cancel(); retryWake = nil
+            cancel(Set(transfers.keys).union(dlRetry.keys).union(dlq.flatMap { n in n.tracks.map { rel(n.item, $0) } }))
             dlq = []
             try? FileManager.default.removeItem(at: cacheDir)
             try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
@@ -257,7 +264,9 @@ let resumeDir: URL = {
     var accounts: [String] { accts.keys.filter { $0 != me }.sorted() }
 
     func logout() {
-        cancel(Set(transfers.keys).union(dlq.flatMap { n in n.tracks.map { rel(n.item, $0) } })) // downloads stop, files stay
+        refreshing.values.forEach { $0.cancel() }; refreshing = [:]
+        retryWake?.cancel(); retryWake = nil
+        cancel(Set(transfers.keys).union(dlRetry.keys).union(dlq.flatMap { n in n.tracks.map { rel(n.item, $0) } })) // downloads stop, files stay
         selectMedia(nil)
         dlq = []
         try? FileManager.default.removeItem(at: resumeDir) // resume archives contain authorization headers
@@ -280,14 +289,18 @@ let resumeDir: URL = {
     }
 
     /// A valid access token for `name`, refreshing it if less than `fresh` seconds of it are left.
-    func token(_ name: String? = nil, fresh: Double = 60) async throws -> String {
+    func token(_ name: String? = nil, fresh: Double = 60, force: Bool = false) async throws -> String {
         guard let name = name ?? me, let a = accts[name] else { throw Expired() }
-        if exp(a.a) - Date().timeIntervalSince1970 > fresh { return a.a }
+        if !force && exp(a.a) - Date().timeIntervalSince1970 > fresh { return a.a }
         if let t = refreshing[name] { return try await t.value }
+        let epoch = mediaEpoch
+        let host = server
         let t = Task {
-            defer { refreshing[name] = nil }
+            defer { if epoch == mediaEpoch { refreshing[name] = nil } }
             do {
-                try save(try await http("POST", "/auth/refresh", [:], ["x-refresh-token": a.r]))
+                let data = try await http("POST", "/auth/refresh", [:], ["x-refresh-token": a.r])
+                guard epoch == mediaEpoch, host == server, accts[name]?.r == a.r else { throw CancellationError() }
+                try save(data)
                 return accts[name]?.a ?? ""
             } catch let e as HttpErr where e.code == 401 && name == me {
                 throw Expired()
@@ -363,35 +376,84 @@ let resumeDir: URL = {
     /// queues a title and starts its missing files
     func download(_ n: Now) async {
         if !queued(n) { dlq.append(n) }
+        for t in n.tracks { dlRetry[rel(n.item, t)] = nil }
         await fetch(n)
     }
 
     /// starts the files of a queued title that are neither on disk nor on their way, continuing interrupted ones
     func fetch(_ n: Now, queueID expected: UUID? = nil) async {
-        guard let id = queueID(n), expected == nil || expected == id else { return }
+        guard let id = queueID(n), expected == nil || expected == id, me != nil else { return }
+        dlChanged() // reconcile files saved before an interrupted completion callback
+        guard queued(n) else { scheduleRetries(); return }
+        guard fetching.insert(id).inserted else { return }
+        defer { fetching.remove(id) }
         let epoch = mediaEpoch
+        let host = server
+        let pending = n.tracks.filter { t in
+            let r = rel(n.item, t)
+            return !done(n.item, t) && !inflight.contains(r) && dlRetry[r]?.error == nil && (dlRetry[r]?.next ?? .distantPast) <= Date()
+        }
+        guard !pending.isEmpty else { scheduleRetries(); return }
         do {
-            let auth = "Bearer " + (try await token(fresh: 1800)) // long enough for the system's own retries
-            guard epoch == mediaEpoch, me != nil, queueID(n) == id else { return }
-            for t in n.tracks where !done(n.item, t) && !inflight.contains(rel(n.item, t)) {
+            let auth = "Bearer " + (try await token(fresh: 1800, force: pending.contains { dlRetry[rel(n.item, $0)]?.refreshToken == true }))
+            guard epoch == mediaEpoch, host == server, me != nil, queueID(n) == id else { return }
+            for t in pending where !done(n.item, t) && !inflight.contains(rel(n.item, t)) {
                 let r = rel(n.item, t)
-                let url = URL(string: "\(server)/api/items/\(n.item)/file/\(t.ino)/download")!
+                if var retry = dlRetry[r] { retry.refreshToken = false; dlRetry[r] = retry }
+                guard let url = URL(string: "\(host)/api/items/\(n.item)/file/\(t.ino)/download") else {
+                    failed(r, Msg(errorDescription: "Invalid download URL"), code: 0); continue
+                }
                 if let data = try? Data(contentsOf: resumeFile(r)) {
                     try? FileManager.default.removeItem(at: resumeFile(r))
                     Downloader.shared.start(r, url, auth, resume: data)
                 } else {
-                    try? FileManager.default.removeItem(at: file(n.item, t)) // drop stale partials
+                    try? FileManager.default.removeItem(at: file(n.item, t))
                     Downloader.shared.start(r, url, auth)
                 }
             }
             dlChanged()
-        } catch { if epoch == mediaEpoch, queueID(n) == id { say(error) } }
+        } catch {
+            guard epoch == mediaEpoch, host == server, queueID(n) == id else { return }
+            for t in pending { failed(rel(n.item, t), error, code: (error as? HttpErr)?.code ?? 0, retryAfter: (error as? HttpErr)?.retryAfter) }
+            say(error)
+        }
+        scheduleRetries()
     }
 
-    /// after a relaunch: carry on with queued titles that have files left and nothing transferring
+    func failed(_ rel: String, _ error: Error?, code: Int, retryAfter: String? = nil) {
+        var state = dlRetry[rel] ?? DownloadRetry()
+        state.fail(error, code: code, retryAfter: retryAfter)
+        state.refreshToken = state.refreshToken || code == 401
+        dlRetry[rel] = state
+        if let message = state.error { toast = "Download paused: " + message }
+        scheduleRetries()
+    }
+
+    func downloadError(_ n: Now) -> String? {
+        n.tracks.compactMap { dlRetry[rel(n.item, $0)]?.error }.first
+    }
+    func downloadWaiting(_ n: Now) -> Bool {
+        n.tracks.contains { let r = rel(n.item, $0); return !inflight.contains(r) && dlRetry[r]?.next != nil }
+    }
+
+    /// In-process wakeups are advisory. Persisted deadlines remain authoritative after suspension/relaunch.
+    func scheduleRetries() {
+        retryWake?.cancel(); retryWake = nil
+        let paths = Set(dlq.flatMap { n in n.tracks.map { rel(n.item, $0) } })
+        guard me != nil, let next = dlRetry.filter({ paths.contains($0.key) && !inflight.contains($0.key) }).values.compactMap(\.next).min() else { return }
+        retryWake = Task {
+            // Cap each sleep (not the server deadline) to avoid overflow on untrusted Retry-After.
+            do { try await Task.sleep(for: .seconds(min(3600, max(0.05, next.timeIntervalSinceNow)))) } catch { return }
+            retryWake = nil
+            await resumeQueue()
+        }
+    }
+
+    /// after a relaunch: carry on with queued titles, preserving file-specific budgets and deadlines
     func resumeQueue() async {
         let pending = dlq.compactMap { n in queueID(n).map { (n, $0) } }
         for (n, id) in pending { await fetch(n, queueID: id) }
+        scheduleRetries()
     }
 
     func queued(_ n: Now) -> Bool { dlq.contains { $0.key == n.key } }
@@ -405,7 +467,19 @@ let resumeDir: URL = {
     func dlChanged() {
         dlMemo = [:]
         dlv += 1
-        let left = dlq.filter { n in !n.tracks.allSatisfy { done(n.item, $0) } }
+        for n in dlq {
+            for t in n.tracks where done(n.item, t) {
+                let r = rel(n.item, t)
+                // A live transfer still owns its completion/error callback.
+                guard transfers[r] == nil, !inflight.contains(r) else { continue }
+                if dlRetry[r] != nil { dlRetry[r] = nil }
+                got[r] = nil
+                try? FileManager.default.removeItem(at: resumeFile(r))
+            }
+        }
+        let left = dlq.filter { n in
+            !n.tracks.allSatisfy { done(n.item, $0) } || n.tracks.contains { transfers[rel(n.item, $0)] != nil }
+        }
         if left.count != dlq.count { dlq = left }
     }
 
@@ -470,11 +544,11 @@ let resumeDir: URL = {
     }
 
     private func cancel(_ rels: Set<String>) {
-        Downloader.shared.resetRetries(rels)
         let descriptions = Set(rels.compactMap { transfers.removeValue(forKey: $0) })
         inflight.subtract(rels)
-        rels.forEach { got[$0] = nil; try? FileManager.default.removeItem(at: resumeFile($0)) }
+        rels.forEach { dlRetry[$0] = nil; got[$0] = nil; try? FileManager.default.removeItem(at: resumeFile($0)) }
         Downloader.shared.session.getAllTasks { ts in ts.filter { descriptions.contains($0.taskDescription ?? "") }.forEach { $0.cancel() } }
+        scheduleRetries()
     }
 
     // --- what's playing, kept across app restarts
@@ -604,10 +678,7 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
     static let shared = Downloader()
     var bgDone: (() -> Void)?
     private var reported: [String: Date] = [:]
-    private var tries: [String: Int] = [:]
-    @MainActor func resetRetries(_ rels: Set<String>) {
-        for rel in rels { tries[rel] = nil; reported[rel] = nil }
-    }
+    private var fileErrors: [Int: Error] = [:]
     lazy var session: URLSession = {
         let c = URLSessionConfiguration.background(withIdentifier: "com.borodutch.absplus.dl")
         c.sessionSendsLaunchEvents = true
@@ -642,16 +713,19 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
         return parts[2]
     }
 
-    /// picks up downloads still running from an earlier launch
-    func restore() {
-        session.getAllTasks { ts in
-            Task { @MainActor in
-                for t in ts {
-                    guard let rel = self.activeRel(t) else { t.cancel(); continue }
-                    app.inflight.insert(rel)
-                    app.got[rel] = t.countOfBytesReceived
-                }
+    /// Reconcile before starting the queue so a relaunch never duplicates a system-owned transfer.
+    func restore() async {
+        let tasks = await session.allTasks
+        await MainActor.run {
+            let live = Set(tasks.compactMap { self.activeRel($0) })
+            app.inflight = live
+            app.transfers = app.transfers.filter { live.contains($0.key) }
+            for t in tasks {
+                guard let rel = self.activeRel(t) else { t.cancel(); continue }
+                app.got[rel] = t.countOfBytesReceived
             }
+            app.dlChanged()
+            app.scheduleRetries()
         }
     }
 
@@ -662,44 +736,40 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
     }
 
     func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didFinishDownloadingTo loc: URL) {
-        guard let rel = MainActor.assumeIsolated({ activeRel(t) }), ((t.response as? HTTPURLResponse)?.statusCode ?? 0) < 400 else { return }
+        guard let rel = MainActor.assumeIsolated({ activeRel(t) }), (200...299).contains((t.response as? HTTPURLResponse)?.statusCode ?? 0) else { return }
         let dst = dlDir.appending(path: rel)
         let fm = FileManager.default
-        try? fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? fm.removeItem(at: dst)
-        try? fm.moveItem(at: loc, to: dst)
+        do {
+            try fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if fm.fileExists(atPath: dst.path) { try fm.removeItem(at: dst) }
+            try fm.moveItem(at: loc, to: dst)
+        } catch { fileErrors[t.taskIdentifier] = error }
     }
 
     func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {
-        let code = (task.response as? HTTPURLResponse)?.statusCode ?? 0
+        let fileError = fileErrors.removeValue(forKey: task.taskIdentifier)
         guard let rel = MainActor.assumeIsolated({ activeRel(task) }) else { return }
-        let resume = (e as? URLError)?.downloadTaskResumeData
+        let response = task.response as? HTTPURLResponse
+        let code = response?.statusCode ?? 0
         reported[rel] = nil
         MainActor.assumeIsolated {
             app.inflight.remove(rel)
             app.transfers[rel] = nil
             app.got[rel] = nil
-            let n = app.dlq.first { q in q.tracks.contains { app.rel(q.item, $0) == rel } }
-            // force-quit, a dropped connection or an expired token: continue the file (start over after a 401)
-            if let n, resume != nil || code == 401, tries[rel, default: 0] < 3 {
-                tries[rel, default: 0] += 1
-                if let resume, code != 401 { try? resume.write(to: app.resumeFile(rel)) }
-                let epoch = app.mediaEpoch
-                let id = app.queueID(n)
-                Task {
-                    guard app.mediaEpoch == epoch, let id, app.queueID(n) == id, app.transfers[rel] == nil else { return }
-                    await app.fetch(n, queueID: id)
+            guard let n = app.dlq.first(where: { q in q.tracks.contains { app.rel(q.item, $0) == rel } }),
+                  let track = n.tracks.first(where: { app.rel(n.item, $0) == rel }) else { return }
+            if e == nil, fileError == nil, (200...299).contains(code), app.done(n.item, track) {
+                app.dlRetry[rel] = nil
+                try? FileManager.default.removeItem(at: app.resumeFile(rel))
+            } else {
+                if let resume = (e as? URLError)?.downloadTaskResumeData, code != 401 {
+                    try? resume.write(to: app.resumeFile(rel))
                 }
-                return
-            }
-            tries[rel] = nil
-            app.got[rel] = nil
-            let cancelled = (e as? URLError)?.code == .cancelled
-            if !cancelled && (e != nil || code >= 400) {
-                app.toast = "Download failed (\(code > 0 ? "HTTP \(code)" : e?.localizedDescription ?? "")), tap download to retry"
-                app.dlq.removeAll { $0.key == n?.key }
+                let error = e ?? fileError ?? (code < 400 ? URLError(.networkConnectionLost) : nil)
+                app.failed(rel, error, code: code, retryAfter: response?.value(forHTTPHeaderField: "Retry-After"))
             }
             app.dlChanged()
+            app.scheduleRetries()
         }
     }
 
