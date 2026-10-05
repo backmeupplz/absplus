@@ -99,7 +99,7 @@ class Main : AppCompatActivity() {
     private var screen = 0 // visible page identity; retained pages still receive their own results
     // Retain the view, data and controls rather than re-running a list builder on Back.
     private class Page(val render: () -> Unit, val view: View?, val generation: Int,
-        val library: String?, val offline: Boolean, val resume: (() -> Unit)?, val loads: LinearLayoutHolder)
+        val library: String?, val resume: (() -> Unit)?, val loads: LinearLayoutHolder)
     private var retainPage = false
     private var onReturn: (() -> Unit)? = null
     private val stack = ArrayDeque<Page>()
@@ -192,18 +192,24 @@ class Main : AppCompatActivity() {
         override fun run() {
             updatePlayer()
             updateDl()
-            if (Abs.offline != wasOffline) { // connectivity flipped: re-render with/without the downloads-only filter
-                wasOffline = Abs.offline
-                banner.isVisible = wasOffline
-                // Do not rebuild a list or erase its query/anchor for a background connectivity change.
-            }
+            refreshConnection()
             if (Abs.offline && ++ticks % 10 == 0) retryConnection()
             h.postDelayed(this, 1000)
         }
     }
 
+    private fun refreshConnection() {
+        banner.isVisible = Abs.offline
+        if (Abs.offline == wasOffline) return
+        wasOffline = Abs.offline
+        // Retain controls and layout managers, but never retain stale offline membership.
+        // Hidden pages refresh on Back, when their load/status owner is active again.
+        onReturn?.invoke()
+    }
+
     private fun retryConnection() {
         if (pinging) return
+        refreshConnection() // Observe the offline page before a successful probe flips the flag.
         pinging = true
         val retry = (banner as ViewGroup).getChildAt(1) as MaterialButton
         retry.isEnabled = false
@@ -212,7 +218,7 @@ class Main : AppCompatActivity() {
             pinging = false
             retry.isEnabled = true
             retry.text = "Retry"
-            banner.isVisible = Abs.offline
+            refreshConnection()
         }
     }
 
@@ -226,7 +232,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun push(s: () -> Unit) {
-        stack.addLast(Page(cur, content.getChildAt(0).takeIf { retainPage }, screen, Abs.p.getString("lib", null), Abs.offline, onReturn, loadRows))
+        stack.addLast(Page(cur, content.getChildAt(0).takeIf { retainPage }, screen, Abs.p.getString("lib", null), onReturn, loadRows))
         cur = s
         back.isEnabled = true
         s()
@@ -236,7 +242,7 @@ class Main : AppCompatActivity() {
         val page = stack.removeLastOrNull() ?: return
         cur = page.render
         back.isEnabled = stack.isNotEmpty()
-        if (page.view == null || page.library != Abs.p.getString("lib", null) || page.offline != Abs.offline) {
+        if (page.view == null || page.library != Abs.p.getString("lib", null)) {
             cur() // an explicit context change must not reuse the old list
         } else {
             screen = page.generation
@@ -443,19 +449,25 @@ class Main : AppCompatActivity() {
         }
         val empty = text("", muted = true).pad(16, 4).apply { isVisible = false }
         var loaded = false
-        var all = listOf<Card>()
-        var shown = all
-        val sel = Abs.p.getString("lib", null)
+        var online = if (Abs.offline) Abs.downloads().map { Abs.cachedCard(it.name) } else listOf<Card>()
+        var shown = online
+        var sel = Abs.p.getString("lib", null)
         val g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
+        val heading = header("Library")
+        val title = heading.getChildAt(0) as TextView
+        val selector = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0)
         fun filter(preservePosition: Boolean = true) {
             val lm = g.layoutManager as GridLayoutManager
             val first = lm.findFirstVisibleItemPosition()
             val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
             val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
+            val all = if (Abs.offline) Abs.downloads().map { Abs.cachedCard(it.name) } else online
             val q = search.str().trim()
             shown = avail(if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.sub.contains(q, true) })
+            title.text = if (Abs.offline) "Downloaded" else "Library"
+            selector.isVisible = !Abs.offline
             empty.text = if (q.isNotEmpty()) "No matching titles." else if (Abs.offline) "Nothing downloaded on this device." else "No titles in this library."
-            empty.isVisible = loaded && shown.isEmpty()
+            empty.isVisible = (loaded || Abs.offline) && shown.isEmpty()
             g.adapter?.notifyDataSetChanged()
             if (!preservePosition) lm.scrollToPositionWithOffset(0, 0)
             else if (key != null && offset != null) {
@@ -463,48 +475,55 @@ class Main : AppCompatActivity() {
                 if (at >= 0) lm.scrollToPositionWithOffset(at, offset)
             }
         }
-        search.editText!!.doAfterTextChanged { filter(preservePosition = false) }
-        if (Abs.offline) { // every downloaded item, whatever its library
-            show(col(header("Downloaded"), search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f)))
-            onReturn = {
+        fun titles() {
+            val id = sel ?: return
+            load("/api/libraries/$id/items?minified=1&sort=media.metadata.title", retained = true, label = "titles") { j ->
+                val r = j.getJSONArray("results")
                 loaded = true
-                all = Abs.downloads().map { Abs.cachedCard(it.name) }
+                online = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
                 filter()
             }
-            onDl = onReturn
-            return onReturn!!.invoke()
         }
-        show(col(header("Library"), HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0),
-            search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f)))
-        load("/api/libraries", retained = sel != null, label = "libraries") { j ->
-            val libs = j.getJSONArray("libraries")
-            if (libs.length() == 0 && sel == null) { empty.text = "No libraries available."; empty.isVisible = true }
-            chips.removeAllViews()
-            for (i in 0 until libs.length()) {
-                val l = libs.getJSONObject(i)
-                val id = l.getString("id")
-                // ABS coverAspectRatio: 1 = square, 0 = book (1.6)
-                Abs.p.edit().putFloat("ratio:$id", if (l.optJSONObject("settings")?.optInt("coverAspectRatio", 1) == 0) 1.6f else 1f).apply()
-                chips.addView(Chip(this).apply {
-                    text = l.getString("name")
-                    isCheckable = true
-                    isChecked = id == sel
-                    setOnClickListener { Abs.p.edit().putString("lib", id).apply(); library() }
-                })
+        fun fetch() {
+            val selected = sel
+            load("/api/libraries", retained = true, label = "libraries") { j ->
+                val libs = j.getJSONArray("libraries")
+                if (libs.length() == 0 && sel == null) { empty.text = "No libraries available."; empty.isVisible = !Abs.offline }
+                val selecting = sel == null && libs.length() > 0
+                if (selecting) {
+                    sel = libs.getJSONObject(0).getString("id")
+                    Abs.p.edit().putString("lib", sel).apply()
+                }
+                chips.removeAllViews()
+                for (i in 0 until libs.length()) {
+                    val l = libs.getJSONObject(i)
+                    val id = l.getString("id")
+                    // ABS coverAspectRatio: 1 = square, 0 = book (1.6)
+                    Abs.p.edit().putFloat("ratio:$id", if (l.optJSONObject("settings")?.optInt("coverAspectRatio", 1) == 0) 1.6f else 1f).apply()
+                    chips.addView(Chip(this).apply {
+                        text = l.getString("name")
+                        isCheckable = true
+                        isChecked = id == sel
+                        setOnClickListener { Abs.p.edit().putString("lib", id).apply(); library() }
+                    })
+                }
+                if (selecting) titles()
             }
-            if (sel == null && libs.length() > 0) {
-                Abs.p.edit().putString("lib", libs.getJSONObject(0).getString("id")).apply()
-                library()
-            }
+            if (selected != null) titles()
+            load("/api/me", retained = true, label = "progress") { Abs.setMe(it); g.adapter?.notifyDataSetChanged() }
         }
-        if (sel == null) return
-        load("/api/libraries/$sel/items?minified=1&sort=media.metadata.title", retained = true, label = "titles") { j ->
-            val r = j.getJSONArray("results")
-            loaded = true
-            all = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
+        search.editText!!.doAfterTextChanged { filter(preservePosition = false) }
+        show(col(heading, selector, search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f)))
+        var pageOffline = Abs.offline
+        onReturn = {
+            val reconnect = pageOffline && !Abs.offline
+            pageOffline = Abs.offline
             filter()
+            if (reconnect) fetch()
         }
-        load("/api/me", retained = true, label = "progress") { Abs.setMe(it); g.adapter?.notifyDataSetChanged() }
+        onDl = onReturn
+        filter()
+        if (!Abs.offline) fetch()
     }
 
     // --- series (from the server's book libraries)
@@ -1071,14 +1090,20 @@ class Main : AppCompatActivity() {
 
     private fun playCard(c: Card) = preparePlay(c.key) {
         val path = "/api/items/${c.id}?expanded=1"
-        val j = JSONObject(Abs.cached(path) ?: Abs.get(path))
-        val m = j.getJSONObject("media")
-        if (c.ep == null) Now(c.id, null, c.title, c.sub, Abs.tracks(m.getJSONArray("tracks")))
-        else {
-            val a = m.getJSONArray("episodes")
-            val e = (0 until a.length()).map { a.getJSONObject(it) }.first { it.getString("id") == c.ep }
-            Now(c.id, c.ep, e.str("title"), Card.item(j).title, listOf(Abs.track(e.getJSONObject("audioFile"), 0.0)))
+        fun decode(raw: String): Now {
+            val j = JSONObject(raw)
+            Abs.validateCachedResponse(path, j)
+            val m = j.getJSONObject("media")
+            val n = if (c.ep == null) Now(c.id, null, c.title, c.sub, Abs.tracks(m.getJSONArray("tracks")))
+            else {
+                val a = m.getJSONArray("episodes")
+                val e = (0 until a.length()).map { a.getJSONObject(it) }.first { it.getString("id") == c.ep }
+                Now(c.id, c.ep, e.str("title"), Card.item(j).title, listOf(Abs.track(e.getJSONObject("audioFile"), 0.0)))
+            }
+            check(n.tracks.isNotEmpty()) { "No audio" }
+            return n
         }
+        runCatching { Abs.cached(path)?.let(::decode) }.getOrNull() ?: decode(Abs.get(path) { decode(it) })
     }
 
     private fun play(n: Now) = preparePlay(n.key) { n }
@@ -1253,7 +1278,7 @@ class Main : AppCompatActivity() {
     // --- helpers
 
     private fun ownsPage(gen: Int, retained: Boolean) = gen == screen || retained && stack.any {
-        it.generation == gen && it.offline == Abs.offline && it.library == Abs.p.getString("lib", null)
+        it.generation == gen && it.library == Abs.p.getString("lib", null)
     }
 
     /** Cache-first rendering with a page-owned, retryable terminal state. */

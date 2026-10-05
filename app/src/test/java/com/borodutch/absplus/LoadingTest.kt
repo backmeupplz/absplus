@@ -32,6 +32,9 @@ class LoadingTest {
     private fun Main.call(name: String, vararg args: Any) = Main::class.java.declaredMethods.single { it.name == name }
         .apply { isAccessible = true }.invoke(this, *args)
     private fun Main.content() = Main::class.java.getDeclaredField("content").apply { isAccessible = true }.get(this) as FrameLayout
+    private fun Main.connectivityTick() {
+        (Main::class.java.getDeclaredField("tick").apply { isAccessible = true }.get(this) as Runnable).run()
+    }
     private fun views(v: View): List<View> = listOf(v) + if (v is ViewGroup) (0 until v.childCount).flatMap { views(v.getChildAt(it)) } else emptyList()
     private fun visible(v: View): Boolean = v.visibility == View.VISIBLE && ((v.parent as? View)?.let(::visible) ?: true)
     private fun Main.has(s: String) = views(content()).filterIsInstance<TextView>().any { it.text.toString() == s && visible(it) }
@@ -353,4 +356,106 @@ class LoadingTest {
             assertEquals(path, "preserved fixture", Abs.cached(path))
         }
     }
+    private fun audioBook(id: String) = org.json.JSONObject(book(id)).apply {
+        getJSONObject("media").put("tracks", org.json.JSONArray().put(org.json.JSONObject()
+            .put("ino", "audio").put("duration", 60).put("metadata", org.json.JSONObject().put("ext", ".mp3").put("size", 7))))
+    }.toString()
+
+    @Test fun mountedLibraryReconnectAndOfflineBackRetainQueryAnchorAndRefreshMembership() = fixture { a, s ->
+        val ids = (0 until 160).map { "reconnect%03d".format(it) }
+        ids.forEach { id ->
+            cache("/api/items/$id?expanded=1", audioBook(id))
+            File(Abs.dir, "$id/audio.mp3").apply { parentFile!!.mkdirs(); writeText("fixture") }
+        }
+        Abs.dlChanged()
+        try {
+            val pingCalls = AtomicInteger(); val libCalls = AtomicInteger(); val titleCalls = AtomicInteger(); val progressCalls = AtomicInteger()
+            val pingRelease = CountDownLatch(1); val titlesRelease = CountDownLatch(1)
+            s.route("/ping") { pingCalls.incrementAndGet(); pingRelease.await(5, TimeUnit.SECONDS); "{}" }
+            s.route("/api/libraries") { libCalls.incrementAndGet(); libs }
+            s.route("/api/libraries/books/items") {
+                titleCalls.incrementAndGet(); titlesRelease.await(5, TimeUnit.SECONDS)
+                org.json.JSONObject().put("results", org.json.JSONArray((ids + "reconnectRemote").map { org.json.JSONObject(book(it)) })).toString()
+            }
+            s.route("/api/me") { progressCalls.incrementAndGet(); me }
+            ids.forEach { id ->
+                s.route("/api/items/$id") { audioBook(id) }
+                s.route("/api/items/$id/cover", 404) { "{}" }
+            }
+            s.start(); Abs.p.edit().putString("lib", "books").commit(); Abs.offline = true
+            a.call("tab", 1); a.connectivityTick()
+            val page = a.content().getChildAt(0)
+            val search = views(page).filterIsInstance<TextInputEditText>().single()
+            search.setText("Title reconnect")
+            val grid = views(page).filterIsInstance<RecyclerView>().single()
+            val lm = grid.layoutManager as androidx.recyclerview.widget.GridLayoutManager
+            layout(a.content()); lm.scrollToPositionWithOffset(80, -31); layout(a.content())
+            fun anchor() = lm.findViewByPosition(lm.findFirstVisibleItemPosition())!!
+            fun key() = anchor().tag.let { tag -> tag.javaClass.getDeclaredField("key").apply { isAccessible = true }.get(tag) as String }
+            val key = key(); val offset = lm.getDecoratedTop(anchor()) - grid.paddingTop
+            assertEquals(160, grid.adapter!!.itemCount); assertEquals(0, titleCalls.get())
+            val banner = Main::class.java.getDeclaredField("banner").apply { isAccessible = true }.get(a) as ViewGroup
+            val retry = views(banner).filterIsInstance<MaterialButton>().single()
+            retry.performClick(); retry.performClick(); await { pingCalls.get() == 1 }
+            assertFalse(retry.isEnabled); assertEquals("Connecting…", retry.text.toString())
+            pingRelease.countDown(); await { titleCalls.get() == 1 && libCalls.get() == 1 && progressCalls.get() == 1 }
+            titlesRelease.countDown(); await { grid.adapter!!.itemCount == 161 }; layout(a.content())
+            assertSame(page, a.content().getChildAt(0)); assertSame(lm, grid.layoutManager)
+            assertEquals("Title reconnect", search.text.toString()); assertEquals(key, key())
+            assertEquals(offset, lm.getDecoratedTop(anchor()) - grid.paddingTop)
+            assertFalse(banner.visibility == View.VISIBLE)
+            assertTrue(views(page).filterIsInstance<com.google.android.material.chip.Chip>().single().isChecked)
+            assertTrue(a.has("Library"))
+            // Actual grid click opens the real title detail, not a substitute shelf.
+            anchor().performClick(); await { !a.has("Loading title…") && !a.has("Updating title…") }
+            Abs.offline = true; a.connectivityTick()
+            a.onBackPressedDispatcher.onBackPressed(); layout(a.content())
+            assertSame(page, a.content().getChildAt(0)); assertEquals(160, grid.adapter!!.itemCount)
+            assertEquals("Title reconnect", search.text.toString()); assertEquals(key, key())
+            assertEquals(offset, lm.getDecoratedTop(anchor()) - grid.paddingTop)
+            assertTrue(a.has("Downloaded")); assertFalse(visible(views(page).filterIsInstance<com.google.android.material.chip.Chip>().single()))
+            // Visible connectivity transitions also recompute membership without navigation.
+            Abs.offline = false; a.connectivityTick()
+            await { titleCalls.get() == 2 && libCalls.get() == 2 && progressCalls.get() == 2 }
+            await { !a.has("Updating titles…") }; layout(a.content())
+            assertEquals(161, grid.adapter!!.itemCount)
+            Abs.offline = true; a.connectivityTick(); layout(a.content())
+            assertEquals(160, grid.adapter!!.itemCount); assertEquals(key, key())
+            assertEquals(offset, lm.getDecoratedTop(anchor()) - grid.paddingTop)
+            assertEquals(1, pingCalls.get())
+        } finally { ids.forEach { File(Abs.dir, it).deleteRecursively() }; Abs.dlChanged() }
+    }
+
+    @Test fun homePlayRefetchesPoisonedExpandedCacheAndRetryReachesProgress() = fixture { a, s ->
+        val itemCalls = AtomicInteger(); val progressCalls = AtomicInteger()
+        val response = java.util.concurrent.atomic.AtomicReference("{}")
+        s.route("/api/me") { me }
+        s.route("/api/me/items-in-progress") { org.json.JSONObject().put("libraryItems", org.json.JSONArray().put(org.json.JSONObject(book("poison")))).toString() }
+        s.route("/api/items/poison") { itemCalls.incrementAndGet(); response.get() }
+        s.route("/api/items/poison/cover", 404) { "{}" }
+        s.route("/api/me/progress/poison") { progressCalls.incrementAndGet(); """{"currentTime":0}""" }
+        s.start()
+        for ((index, poisoned) in listOf("{}", "not-json", book("poison")).withIndex()) {
+            cache("/api/items/poison?expanded=1", poisoned)
+            response.set("{}")
+            a.call("tab", 0)
+            val page = a.content().getChildAt(0)
+            val list = views(page).filterIsInstance<RecyclerView>().single()
+            await { list.adapter!!.itemCount == 1 }; layout(a.content())
+            val tile = (list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager).findViewByPosition(0)!!
+            tile.performClick(); assertTrue(a.has("Loading audio…"))
+            await { a.has("Couldn't load audio.") }
+            assertEquals(index * 2 + 1, itemCalls.get()); assertEquals(index, progressCalls.get())
+            assertEquals(poisoned, Abs.cached("/api/items/poison?expanded=1"))
+            response.set(audioBook("poison"))
+            val retry = a.button("Retry"); retry.performClick(); retry.performClick()
+            await { progressCalls.get() == index + 1 && a.has("Couldn't load audio.") }
+            // No media controller is attached in this fixture. Reaching positions proves metadata
+            // recovery; terminal Player-not-ready remains retryable rather than claiming playback.
+            assertEquals(index * 2 + 2, itemCalls.get())
+            assertEquals(audioBook("poison"), Abs.cached("/api/items/poison?expanded=1"))
+            assertSame(page, a.content().getChildAt(0))
+        }
+    }
+
 }

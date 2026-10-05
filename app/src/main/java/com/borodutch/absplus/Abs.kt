@@ -183,10 +183,11 @@ object Abs {
 
     private fun cacheFile(path: String) = File(cacheDir, path.replace(Regex("[^A-Za-z0-9]"), "_"))
     fun cached(path: String) = cacheFile(path).takeIf { it.exists() }?.readText()
-    fun get(path: String): String {
+    fun get(path: String, validate: (String) -> Unit = {}): String {
         val owner = server to me
         return api("GET", path).also {
             validateCachedResponse(path, JSONObject(it))
+            validate(it)
             if (owner == (server to me)) cacheFile(path).writeText(it)
         }
     }
@@ -194,7 +195,7 @@ object Abs {
     /** Validate every field required by cached-response consumers before replacing a good snapshot.
      * Keep this side-effect-free: UI rendering and setMe mutate view/preferences on the main thread.
      */
-    private fun validateCachedResponse(path: String, j: JSONObject) {
+    internal fun validateCachedResponse(path: String, j: JSONObject) {
         fun objects(a: JSONArray, check: (JSONObject) -> Unit) {
             for (i in 0 until a.length()) check(a.getJSONObject(i))
         }
