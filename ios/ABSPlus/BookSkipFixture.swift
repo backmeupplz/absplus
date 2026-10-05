@@ -35,8 +35,9 @@ struct BookSkipFixture: View {
     }
 
     private func seed() throws {
-        // No account => token() fails locally and progress writes stay local.
-        app.me = nil
+        // Synthetic identity satisfies playback scope; no token means no network requests.
+        UserDefaults.standard.set("https://book-skip-fixture.invalid", forKey: "server")
+        app.me = "skip-fixture"
         app.accts = [:]
         app.shares = [:]
         app.offline = true
@@ -57,7 +58,7 @@ struct BookSkipFixture: View {
             tracks.append(Track(ino: String(i), ext: ".wav", size: app.size(url), duration: Double(seconds), start: i == 0 ? 0 : 100))
         }
         player.setSpeed(1.5)
-        player.start(Now(item: id, ep: nil, title: "Skip parity: 100 + 50 seconds", author: "Local synthetic audio", tracks: tracks), 110, play: false)
+        player.start(Now(item: id, ep: nil, title: "Skip parity: 100 + 50 seconds", author: "Local synthetic audio", tracks: tracks), 110, play: false, generation: app.playbackGeneration)
     }
 
     private func writeAudio(_ url: URL, seconds: Int) throws {

@@ -51,7 +51,8 @@ class BookSkipTest {
             drainUntil { future.isDone }
             controller = future.get()
             Main::class.java.getDeclaredField("ctl").apply { isAccessible = true }.set(activity.get(), controller)
-            Abs.now = book
+            val captured = Abs.scope(playback = true)
+            Abs.bindPlayback(book, captured)
             session.player.setMediaItems(book.tracks.mapIndexed { i, track ->
                 val size = (track.duration * 8000 * 2).toInt()
                 val wav = ByteBuffer.allocate(44 + size).order(ByteOrder.LITTLE_ENDIAN)
@@ -60,14 +61,15 @@ class BookSkipTest {
                     .putShort(2).putShort(16).put("data".toByteArray()).putInt(size)
                 val file = java.io.File(activity.get().cacheDir, "skip-fixture-$i.wav")
                 file.writeBytes(wav.array())
-                MediaItem.Builder().setMediaId("${book.key}#$i").setUri(file.toURI().toString()).build()
+                val id = Abs.mediaId(book, captured, i)
+                MediaItem.Builder().setMediaId(id).setCustomCacheKey(id).setUri(file.toURI().toString()).build()
             }, 0, 0)
             session.player.setPlaybackSpeed(1.5f)
             session.player.prepare()
             drainUntil { controller.mediaItemCount == 2 && controller.isCommandAvailable(Player.COMMAND_SEEK_BACK) }
             test(activity.get(), session.player, controller)
         } finally {
-            Abs.now = null // no progress push during fixture teardown
+            Abs.clearPlayback() // no progress push during fixture teardown
             MediaController.releaseFuture(future)
             shadowOf(Looper.getMainLooper()).idle()
             service.destroy()
@@ -130,16 +132,40 @@ class BookSkipTest {
         }
     }
 
+    @Test fun sameTitleFromAnEarlierGenerationCannotSkipTheCurrentBook() = withSession { _, p, remote ->
+        position(p, 110.0)
+        val staleItems = (0 until p.mediaItemCount).map(p::getMediaItemAt)
+        val oldScope = Abs.nowScope!!
+        Abs.logout()
+        val currentScope = Abs.scope(playback = true)
+        assertNotEquals(oldScope.generation, currentScope.generation)
+        Abs.bindPlayback(book, currentScope)
+        // A newly bound identical title must not authorize the old service playlist.
+        p.seekBack()
+        p.seekForward()
+        assertEquals(1, p.currentMediaItemIndex)
+        assertEquals(10_000L, p.currentPosition)
+        // Exercise the asynchronous controller path too, after account cleanup settles.
+        shadowOf(Looper.getMainLooper()).idle()
+        p.setMediaItems(staleItems, 1, 10_000)
+        drainUntil { remote.mediaItemCount == 2 && remote.currentMediaItemIndex == 1 }
+        remote.seekBack()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(1, p.currentMediaItemIndex)
+        assertEquals(10_000L, p.currentPosition)
+        assertEquals(1.5f, p.playbackParameters.speed, 0f)
+    }
+
     @Test fun staleBookOrEmptyPlaylistCannotSeekAnotherTitle() = withSession { _, p, _ ->
         position(p, 110.0)
-        Abs.now = Now("other", null, "Other", "", book.tracks)
+        Abs.bindPlayback(Now("other", null, "Other", "", book.tracks), Abs.scope(playback = true))
         p.seekBack()
         assertEquals(1, p.currentMediaItemIndex)
         assertEquals(10_000L, p.currentPosition)
-        Abs.now = null
+        Abs.clearPlayback()
         p.seekForward()
         assertEquals(10_000L, p.currentPosition)
-        Abs.now = book
+        Abs.bindPlayback(book, Abs.scope(playback = true))
         p.clearMediaItems()
         p.seekBack()
         assertEquals(0, p.mediaItemCount)

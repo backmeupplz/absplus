@@ -1,6 +1,6 @@
 # Book-global skip regression (#28)
 
-Run `sh ios/book-skips-test.sh` on a Mac with Xcode and the iOS 27.0 / iPhone 18 Pro simulator runtime. It creates and deletes its own disposable simulator and prints the preserved build/log/xcresult directory. No credentials, account, server, downloaded library, or shared simulator is used.
+Run `sh ios/book-skips-test.sh` on a Mac with Xcode and the iOS 27.0 / iPhone 18 Pro simulator runtime. It creates and deletes its own disposable simulator and prints the preserved build/log/xcresult directory. No credentials, real account, server, downloaded library, or shared simulator is used. The fixture seeds only a synthetic identity with no tokens, then captures its current playback generation for the production scope guard.
 
 `BookSkipFixture` (Debug-only launch argument `--book-skip-test`) writes two synthetic PCM WAV files of 100 and 50 seconds and a local cover. Production `Player.start`, downloaded-file URL selection, AVQueuePlayer, and `FullPlayer` are used unchanged. No fake position calculator or mocked player stands in for AVFoundation. The fixture exposes the actual current item filename, `currentTime`, rate, default rate, readiness, and model position through an accessibility snapshot. XCTest waits for actual native positions (0.15-second tolerance), records them as xcresult attachments, and taps the real FullPlayer skip buttons.
 

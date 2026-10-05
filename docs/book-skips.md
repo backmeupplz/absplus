@@ -2,7 +2,7 @@
 
 Android's full-player buttons call MediaController.seekBack/seekForward. Media3 1.11.1 dispatches those commands via MediaSessionStub to the session Player. Its legacy platform rewind/fast-forward callback also delegates to Player.seekBack/seekForward. ExoPlayer's default implementation clamps inside the current media item, not the book.
 
-PlayerService now installs a ForwardingPlayer that overrides only those two commands. It uses the existing Now track offsets/Abs.pos/Now.at conversion, clamps to the book's bounds, and seeks by playlist index plus file offset. It does not pause, play, rebuild the playlist, or change playback speed. A stale/mismatched Now cannot seek another title. The full-player UI and loading behavior are unchanged.
+PlayerService now installs a ForwardingPlayer that overrides only those two commands. It uses the existing Now track offsets/Abs.pos/Now.at conversion, clamps to the book's bounds, and seeks by playlist index plus file offset. It does not pause, play, rebuild the playlist, or change playback speed. The playback scope is captured and validated under the account lock, and the media ID must match its generation. A stale/mismatched Now or same-title playlist from an earlier account generation cannot seek the current title. The full-player UI and loading behavior are unchanged.
 
 ## Android regression
 
@@ -12,7 +12,7 @@ With JDK 21 and an Android SDK, run:
 ./gradlew testDebugUnitTest assembleDebug assembleRelease
 ```
 
-BookSkipTest instantiates the real PlayerService/ExoPlayer, a real MediaSession and connected MediaController, and the real Main full-player dialog. Two locally generated WAV files last 100 and 50 seconds. Tests click the actual rewind/forward buttons and separately send Media3 controller commands; they inspect the service player's media index, file position, playWhenReady and speed (1.5x). Coverage includes 110−30=80, 95+30=125, within-file/repeated skips and both bounds, paused/playing intent, and stale/absent book/playlist safety. At the terminal bound only, the assertion permits ExoPlayer's duration-minus-one-millisecond resolution.
+BookSkipTest instantiates the real PlayerService/ExoPlayer, a real MediaSession and connected MediaController, and the real Main full-player dialog. Two locally generated WAV files last 100 and 50 seconds. Tests click the actual rewind/forward buttons and separately send Media3 controller commands; they inspect the service player's media index, file position, playWhenReady and speed (1.5x). Coverage includes 110−30=80, 95+30=125, within-file/repeated skips and both bounds, paused/playing intent, and stale/absent book/playlist safety, including an identical title rebound after logout with an older-generation playlist. At the terminal bound only, the assertion permits ExoPlayer's duration-minus-one-millisecond resolution.
 
 Regression sensitivity was verified by temporarily returning the session to the unwrapped ExoPlayer: both the full-player button and remote-controller tests failed at 110−30, reporting 100 instead of 80. Restoring BookPlayer makes both pass.
 

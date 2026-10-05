@@ -137,9 +137,12 @@ class Main : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        Abs.progressSync.wake()
         val f = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlayerService::class.java))).buildAsync()
         fut = f
-        f.addListener({ ctl = runCatching { f.get() }.getOrNull(); restore(); tick.run() }, mainExecutor)
+        f.addListener({
+            if (fut === f && !isDestroyed) { ctl = runCatching { f.get() }.getOrNull(); restore(); tick.run() }
+        }, mainExecutor)
         Dl.onChange = { msg ->
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
@@ -321,7 +324,7 @@ class Main : AppCompatActivity() {
         onDl = onReturn
         show(page)
         refresh()
-        load("/api/me", retained = true) { Abs.setMe(it); cont.adapter?.notifyDataSetChanged() }
+        load("/api/me", retained = true) { cont.adapter?.notifyDataSetChanged() }
         load("/api/me/items-in-progress?limit=20", retained = true) { j ->
             val a = j.getJSONArray("libraryItems")
             all = (0 until a.length()).map { a.getJSONObject(it) }.map { li ->
@@ -337,7 +340,7 @@ class Main : AppCompatActivity() {
     private fun library() {
         begin()
         retainPage = true
-        val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true }
+        val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true; isSelectionRequired = true }
         val search = field("Search titles & authors").apply {
             startIconDrawable = ContextCompat.getDrawable(context, R.drawable.i_search)
             val r = dp(28).toFloat()
@@ -345,8 +348,13 @@ class Main : AppCompatActivity() {
         }
         var all = listOf<Card>()
         var shown = all
-        val sel = Abs.p.getString("lib", null)
-        val g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
+        var sel = Abs.p.getString("lib", null)
+        val owner = screen
+        val captured = Abs.scope()
+        fun ownsLibrary() = Abs.p.getString("lib", null) == sel &&
+            (owner == screen || stack.any { it.generation == owner })
+        var request = 0
+        var g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
         fun filter(preservePosition: Boolean = true) {
             val lm = g.layoutManager as GridLayoutManager
             val first = lm.findFirstVisibleItemPosition()
@@ -371,35 +379,64 @@ class Main : AppCompatActivity() {
             onDl = onReturn
             return onReturn!!.invoke()
         }
-        show(col(header("Library"), HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0),
-            search.lp(m = 0).pad(16, 4), g.lp(-1, 0, 1f)))
-        load("/api/libraries", retained = sel != null) { j ->
-            val libs = j.getJSONArray("libraries")
-            chips.removeAllViews()
-            for (i in 0 until libs.length()) {
-                val l = libs.getJSONObject(i)
-                val id = l.getString("id")
-                // ABS coverAspectRatio: 1 = square, 0 = book (1.6)
-                Abs.p.edit().putFloat("ratio:$id", if (l.optJSONObject("settings")?.optInt("coverAspectRatio", 1) == 0) 1.6f else 1f).apply()
-                chips.addView(Chip(this).apply {
-                    text = l.getString("name")
-                    isCheckable = true
-                    isChecked = id == sel
-                    setOnClickListener { Abs.p.edit().putString("lib", id).apply(); library() }
-                })
-            }
-            if (sel == null && libs.length() > 0) {
-                Abs.p.edit().putString("lib", libs.getJSONObject(0).getString("id")).apply()
-                library()
+        val empty = text("No libraries available.", muted = true).pad(16, 4).apply { isVisible = false }
+        val page = col(header("Library"), HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0),
+            search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f))
+        show(page)
+        fun refresh() {
+            val current = ++request
+            // Cached membership cannot authorize requests to a removed/revoked library.
+            scopedBg(captured, { Abs.get("/api/libraries", captured) }, { if (ownsLibrary() && current == request) err(it) }) membership@{ json ->
+                if (!ownsLibrary() || Abs.offline || current != request) return@membership
+                val libs = JSONObject(json).getJSONArray("libraries")
+                val available = (0 until libs.length()).map { libs.getJSONObject(it).getString("id") }
+                val selected = sel?.takeIf { it in available } ?: available.firstOrNull()
+                val changed = selected != sel
+                sel = selected
+                Abs.p.edit().putString("lib", selected).apply()
+                if (changed) {
+                    all = emptyList()
+                    search.editText!!.setText("")
+                    filter(preservePosition = false)
+                }
+                chips.removeAllViews()
+                for (i in 0 until libs.length()) {
+                    val l = libs.getJSONObject(i)
+                    val id = l.getString("id")
+                    // ABS coverAspectRatio: 1 = square, 0 = book (1.6)
+                    Abs.p.edit().putFloat("ratio:$id", if (l.optJSONObject("settings")?.optInt("coverAspectRatio", 1) == 0) 1.6f else 1f).apply()
+                    chips.addView(Chip(this).apply {
+                        text = l.getString("name")
+                        isCheckable = true
+                        isChecked = id == sel
+                        setOnClickListener { if (id != sel) { Abs.p.edit().putString("lib", id).apply(); library() } }
+                    })
+                }
+                empty.isVisible = selected == null
+                if (selected == null) return@membership
+                // Rebuild only a changed context, using its freshly fetched cover ratio.
+                if (changed) {
+                    page.removeView(g)
+                    g = grid(Abs.p.getFloat("ratio:$selected", 1f)) { shown }
+                    page.addView(g.lp(-1, 0, 1f))
+                }
+                val path = "/api/libraries/$selected/items?minified=1&sort=media.metadata.title"
+                fun render(json: String) {
+                    val r = JSONObject(json).getJSONArray("results")
+                    all = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
+                    filter()
+                }
+                val cached = Abs.cached(path, captured)?.also(::render)
+                scopedBg(captured, { Abs.get(path, captured) }, {
+                    if (ownsLibrary() && current == request && ((cached == null && !Abs.offline) || it is Expired)) err(it)
+                }) { result ->
+                    if (ownsLibrary() && !Abs.offline && current == request && sel == selected && result != cached) render(result)
+                }
             }
         }
-        if (sel == null) return
-        load("/api/libraries/$sel/items?minified=1&sort=media.metadata.title", retained = true) { j ->
-            val r = j.getJSONArray("results")
-            all = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
-            filter()
-        }
-        load("/api/me") { Abs.setMe(it); g.adapter?.notifyDataSetChanged() }
+        onReturn = { refresh() }
+        refresh()
+        load("/api/me") { g.adapter?.notifyDataSetChanged() }
     }
 
     // --- series (from the server's book libraries)
@@ -478,8 +515,7 @@ class Main : AppCompatActivity() {
         onDl = onReturn
         show(col(header("Favorites"), empty, g.lp(-1, 0, 1f)))
         refresh()
-        load("/api/me", retained = true) { me ->
-            Abs.setMe(me)
+        load("/api/me", retained = true) {
             refresh()
             favs.filter { it.title.isEmpty() }.forEach { c -> bg({ Abs.fillFav(c.id) }, {}) { if (ownsPage(owner, true)) refresh() } }
         }
@@ -912,52 +948,60 @@ class Main : AppCompatActivity() {
 
     // --- playback
 
-    private fun playCard(c: Card) = bg({
-        val path = "/api/items/${c.id}?expanded=1"
-        val j = JSONObject(Abs.cached(path) ?: Abs.get(path))
-        val m = j.getJSONObject("media")
-        if (c.ep == null) Now(c.id, null, c.title, c.sub, Abs.tracks(m.getJSONArray("tracks")))
-        else {
-            val a = m.getJSONArray("episodes")
-            val e = (0 until a.length()).map { a.getJSONObject(it) }.first { it.getString("id") == c.ep }
-            Now(c.id, c.ep, e.str("title"), Card.item(j).title, listOf(Abs.track(e.getJSONObject("audioFile"), 0.0)))
-        }
-    }) { play(it) }
+    private fun playCard(c: Card) {
+        val captured = Abs.scope(playback = true)
+        scopedBg(captured, {
+            val path = "/api/items/${c.id}?expanded=1"
+            val j = JSONObject(Abs.cached(path, captured) ?: Abs.get(path, captured))
+            val m = j.getJSONObject("media")
+            if (c.ep == null) Now(c.id, null, c.title, c.sub, Abs.tracks(m.getJSONArray("tracks")))
+            else {
+                val a = m.getJSONArray("episodes")
+                val e = (0 until a.length()).map { a.getJSONObject(it) }.first { it.getString("id") == c.ep }
+                Now(c.id, c.ep, e.str("title"), Card.item(j).title, listOf(Abs.track(e.getJSONObject("audioFile"), 0.0)))
+            }
+        }) { play(it, captured) }
+    }
 
-    private fun play(n: Now) {
-        if (n.tracks.isEmpty()) return toast("No audio")
-        bg({ Abs.positions(n) }) { ps ->
-            if (ps.size == 1) start(n, ps[0].time)
+    private fun play(n: Now, captured: Abs.Scope = Abs.scope(playback = true)) = Abs.ifCurrent(captured) {
+        if (n.tracks.isEmpty()) return@ifCurrent toast("No audio")
+        scopedBg(captured, { Abs.positions(n, captured) }) { ps ->
+            if (ps.size == 1) start(n, ps[0].time, captured = captured)
             else MaterialAlertDialogBuilder(this).setTitle("Resume “${n.title}” from")
-                .setItems(ps.map { "${it.who} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i -> start(n, ps[i].time) }
+                .setItems(ps.map { "${it.who} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i -> start(n, ps[i].time, captured = captured) }
                 .show()
         }
     }
 
     /** After an app restart: put the last title back in the player, paused, at its latest position. */
     private fun restore() {
-        val c = ctl ?: return
-        if (c.mediaItemCount > 0 || Abs.me == null) return
-        val n = Abs.now ?: Abs.loadNow() ?: return
-        bg({ Abs.positions(n).first().time }) { t -> if (ctl === c && c.mediaItemCount == 0) start(n, t, play = false) }
+        val captured = Abs.scope(playback = true)
+        Abs.ifCurrent(captured) {
+            val c = ctl ?: return@ifCurrent
+            if (c.mediaItemCount > 0 || Abs.me == null) return@ifCurrent
+            val n = Abs.now ?: Abs.loadNow() ?: return@ifCurrent
+            scopedBg(captured, { Abs.positions(n, captured).first().time }) { t ->
+                if (ctl === c && c.mediaItemCount == 0) start(n, t, play = false, captured = captured)
+            }
+        }
     }
 
-    private fun start(n: Now, t: Double, play: Boolean = true) {
-        val c = ctl ?: return toast("Player not ready")
-        Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0) Abs.pos(c, old).let { p -> thread { Abs.push(old, p, false) } } }
-        Abs.now = n
+    private fun start(n: Now, t: Double, play: Boolean = true, captured: Abs.Scope) = Abs.ifCurrent(captured) {
+        val c = ctl ?: return@ifCurrent toast("Player not ready")
+        Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0 && Abs.nowScope == captured) Abs.pos(c, old).let { p -> Abs.push(old, p, false) } }
+        Abs.bindPlayback(n, captured)
         Abs.saveNow(n)
         if (play) Abs.addHistory(n)
-        val art = "${Abs.server}/api/items/${n.item}/cover?width=400&format=webp"
+        val art = "${captured.server}/api/items/${n.item}/cover?width=400&format=webp"
         val items = n.tracks.mapIndexed { i, tr ->
-            MediaItem.Builder().setMediaId("${n.key}#$i").setUri(Abs.uri(n.item, tr))
+            MediaItem.Builder().setMediaId(Abs.mediaId(n, captured, i)).setCustomCacheKey(Abs.mediaId(n, captured, i)).setUri(Abs.uri(n.item, tr))
                 .setMediaMetadata(MediaMetadata.Builder().setTitle(n.title).setArtist(n.author).setArtworkUri(android.net.Uri.parse(art)).build()).build()
         }
         val (i, ms) = n.at(if (t > n.duration - 5) 0.0 else t)
         c.setMediaItems(items, i, ms)
         c.setPlaybackSpeed(Abs.p.getFloat("speed", 1f))
         c.prepare()
-        if (!play) return updatePlayer()
+        if (!play) return@ifCurrent updatePlayer()
         c.play()
         updatePlayer()
         if (stack.isEmpty() && nav.selectedItemId == 0) home()
@@ -1071,11 +1115,23 @@ class Main : AppCompatActivity() {
 
     /** Renders cached JSON instantly, then refreshes from the server. */
     private fun load(path: String, retained: Boolean = false, render: (JSONObject) -> Unit) {
+        val captured = Abs.scope()
         val gen = screen
-        val old = Abs.cached(path)?.also { render(JSONObject(it)) }
-        bg({ Abs.get(path) }, { if ((old == null && !Abs.offline) || it is Expired) err(it) }) {
-            if (ownsPage(gen, retained) && it != old) render(JSONObject(it))
+        fun deliver(value: String) = Abs.ifCurrent(captured) {
+            val json = JSONObject(value)
+            if (path == "/api/me") Abs.setMe(json, captured)
+            render(json)
         }
+        var old: String? = null
+        Abs.ifCurrent(captured) { old = Abs.cached(path, captured)?.also { deliver(it) } }
+        scopedBg(captured, { Abs.get(path, captured) }, { if ((old == null && !Abs.offline) || it is Expired) err(it) }) {
+            if (ownsPage(gen, retained) && it != old) deliver(it)
+        }
+    }
+
+    private fun <T> scopedBg(captured: Abs.Scope, work: () -> T, fail: (Throwable) -> Unit = ::err, done: (T) -> Unit) = thread {
+        val r = runCatching { Abs.inScope(captured) {}; work() }
+        runOnUiThread { if (!isDestroyed) Abs.ifCurrent(captured) { r.fold(done, fail) } }
     }
 
     private fun <T> bg(work: () -> T, fail: (Throwable) -> Unit = ::err, done: (T) -> Unit) = thread {
@@ -1084,6 +1140,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun err(e: Throwable) {
+        if (e is StaleScope) return // a newer login replaced the request, not an expired session
         toast(e.message ?: e.toString())
         if (e is Expired) login()
     }
