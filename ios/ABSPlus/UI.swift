@@ -260,7 +260,7 @@ struct Stack<Root: View>: View {
             root.navigationDestination(for: Route.self) { r in
                 switch r {
                 case .item(let id): ItemView(id: id)
-                case .shelf(let name, let cards, let ratio): ScrollView { CardGrid(cards: cards, ratio: ratio) }.navigationTitle(name)
+                case .shelf(let name, let cards, let ratio): ShelfView(name: name, cards: cards, ratio: ratio)
                 case .settings: SettingsView()
                 case .downloads: DownloadsView()
                 }
@@ -268,6 +268,22 @@ struct Stack<Root: View>: View {
         }
         .safeAreaInset(edge: .bottom) { DlBar() }
         .environment(nav)
+    }
+}
+
+/// Keep the full series roster for the lifetime of this route. Download and
+/// connectivity changes refresh membership, not the navigation/scroll context.
+struct ShelfView: View {
+    let name: String
+    let cards: [Card]
+    let ratio: CGFloat
+    @State private var visibleTitle: String?
+
+    var body: some View {
+        ScrollView { CardGrid(cards: avail(cards), ratio: ratio) }
+            // Use native stable targets without pinning to .top: keep the intra-row offset.
+            .scrollPosition(id: $visibleTitle)
+            .navigationTitle(name)
     }
 }
 
