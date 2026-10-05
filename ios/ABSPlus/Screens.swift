@@ -140,7 +140,7 @@ struct SeriesView: View {
                     Section {
                         ForEach(ss, id: \.id) { s in
                             let cards = s.books.map(\.card)
-                            NavigationLink(value: Route.shelf(s.name, avail(cards), ratio(l.id))) {
+                            NavigationLink(value: Route.shelf(s.name, cards, ratio(l.id))) {
                                 Row(card: Card(id: cards.first?.id ?? "", title: s.name, sub: ""), meta: "\(cards.count) book\(cards.count == 1 ? "" : "s")")
                             }
                         }

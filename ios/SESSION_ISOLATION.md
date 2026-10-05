@@ -56,6 +56,10 @@ remain in the suite. Debug launch fixtures alone use a synthetic UserDefaults cr
 store so unsigned simulator persistence does not depend on Keychain entitlements; release
 continues using device-only Keychain. OfflineLibrary joins the same debug-only credential
 store and authenticates via the synthetic OfflineHomeProtocol before writing scoped audio.
+OfflineSeries likewise authenticates a synthetic immutable account before writing scoped
+JSON/audio. Its explicit connectivity controls are not overridden by cancelled synthetic
+cover/API reads; the actual guarded transport and account isolation remain unchanged.
+CI includes all seven native suites (including OfflineSeries) together.
 
 #34 integration: mediaEpoch is the persisted login/session generation. Its progress replay
 must capture this generation plus recipient account identity, clear progress queues in
@@ -72,6 +76,19 @@ The first focused attempt exposed a fixture filename assumption (hyphen percent-
 corrected before the full run; its stalled post-test diagnostic child alone was stopped.
 Existing AVAudioSession main-thread runtime warnings remain. Android was untouched and
 was not rerun. No publication, signing or real account/server access.
+
+## Offline series integration validation (2026-10-04)
+
+Merged main `b7e3ab8` without changing production isolation guards or account cover/media/JSON
+ownership. All seven native suites passed together on disposable ABS33-SeriesMerge:
+11 tests, zero failures/skips, finalized `Passed` in `/tmp/abs33-series-final.xcresult`
+(log `/tmp/abs33-series-final.log`). Unsigned Release simulator build also exited 0
+(`/tmp/abs33-series-release.log`). Final Xcode execution needed no diagnostic intervention.
+The initial run exposed synthetic network errors overriding the Series online control;
+only its fixture transport was corrected, preserving all upstream assertions. Its completed
+failed-run diagnostic collector was stopped before retry. Existing AVAudioSession warnings remain.
+Android `testDebugUnitTest assembleDebug --rerun-tasks` exited 0: all 33 tests passed,
+44 tasks freshly executed (`/tmp/abs33-series-android.log`). No publication or signing.
 
 ## Local build evidence
 
