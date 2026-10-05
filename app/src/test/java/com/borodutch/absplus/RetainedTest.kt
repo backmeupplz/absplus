@@ -23,7 +23,7 @@ class RetainedTest {
         Abs.logout()
         val servers = List(2) { HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
             createContext("/login") { x ->
-                val body = """{"user":{"username":"fixture","accessToken":"fixture"}}""".toByteArray()
+                val body = """{"user":{"id":"fixture-id","username":"fixture","accessToken":"fixture"}}""".toByteArray()
                 x.sendResponseHeaders(200, body.size.toLong())
                 x.responseBody.use { it.write(body) }
             }
@@ -44,7 +44,7 @@ class RetainedTest {
                 val old = Dl.job(n.key)!!
                 Abs.login(destination, "fixture", "fixture", true)
                 assertTrue(Dl.jobs.isEmpty())
-                assertEquals("[]", Abs.p.getString("dlq", null))
+                assertEquals(0, org.json.JSONArray(Abs.p.getString("dlq", "[]")).length())
                 // Relaunch reads prefs, not the cleared in-memory list.
                 Dl.jobs.clear()
                 Dl.load()
@@ -79,7 +79,7 @@ class RetainedTest {
             val path = x.requestURI.path
             if (path.endsWith("/late")) { entered.countDown(); release.await(5, TimeUnit.SECONDS) }
             val body = when {
-                path.endsWith("/login") -> """{"user":{"username":"fixture","accessToken":"fixture"}}"""
+                path.endsWith("/login") -> """{"user":{"id":"fixture-id","username":"fixture","accessToken":"fixture"}}"""
                 path.endsWith("/pod") -> """{"id":"pod","mediaType":"podcast","media":{"metadata":{"title":"Podcast","author":"Author"},"episodes":[{"id":"ep","title":"Episode","audioFile":$audio}]},"token":"secret"}"""
                 else -> """{"id":"book","mediaType":"book","media":{"metadata":{"title":"Book","authorName":"Author"},"tracks":[$audio]},"token":"secret"}"""
             }.toByteArray()

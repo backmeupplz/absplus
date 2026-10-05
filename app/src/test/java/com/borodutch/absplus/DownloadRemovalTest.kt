@@ -1,8 +1,6 @@
 package com.borodutch.absplus
 
 import android.content.Context
-import com.sun.net.httpserver.HttpServer
-import java.net.InetSocketAddress
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -14,14 +12,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
 
-/** Native filesystem/SharedPreferences coverage; synthetic local login/metadata, no download worker. */
+/** Native filesystem/SharedPreferences regression coverage; disposable login server, no real credentials or download worker. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29], manifest = Config.NONE)
 class DownloadRemovalTest {
     private lateinit var context: Context
-    private lateinit var server: HttpServer
-    private val responses = mutableMapOf<String, String>()
     private val a = episode("podcast", "a")
     private val b = episode("podcast", "b")
     private val c = episode("podcast", "c")
@@ -31,29 +29,15 @@ class DownloadRemovalTest {
 
     @Before fun setUp() {
         context = RuntimeEnvironment.getApplication()
+        resetProcessState()
         Abs.init(context)
-        Abs.logout()
-        dropProcessState()
-        Abs.init(context)
-        server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
-            createContext("/") { x ->
-                val body = (if (x.requestURI.path == "/login")
-                    """{"user":{"username":"fixture","accessToken":"fixture"}}"""
-                else responses.getValue(x.requestURI.toString())).toByteArray()
-                x.sendResponseHeaders(200, body.size.toLong())
-                x.responseBody.use { it.write(body) }
-            }
-            start()
-        }
-        Abs.login("http://127.0.0.1:${server.address.port}", "fixture", "fixture", true)
+        assertTrue(Abs.p.edit().clear().commit())
         Abs.dir.deleteRecursively()
         Abs.dir.mkdirs()
-        File(context.filesDir, "json").deleteRecursively()
-        File(context.filesDir, "json").mkdirs()
+        File(context.filesDir, "session-json").deleteRecursively()
+        login()
         cache(a, b, c, d)
         cache(other, otherPartial)
-        // Exercise the allowlisted retained metadata rather than the private JSON cache.
-        File(context.filesDir, "json").listFiles()?.forEach { it.delete() }
         complete(a)
         complete(b)
         complete(other)
@@ -77,10 +61,8 @@ class DownloadRemovalTest {
         Dl.clear()
         Abs.p.edit().clear().commit()
         Abs.dir.deleteRecursively()
-        File(context.filesDir, "json").deleteRecursively()
-        Abs.logout()
-        server.stop(0)
-        dropProcessState()
+        File(context.filesDir, "session-json").deleteRecursively()
+        resetProcessState()
     }
 
     @Test fun removingOneCompleteEpisodePreservesSiblingsAndPartialQueueAcrossReload() {
@@ -130,10 +112,10 @@ class DownloadRemovalTest {
     }
 
     @Test fun removeAllDeletesOnlySelectedItemAndItsQueueAcrossReload() {
-        Abs.removeAll(file(a).parentFile!!)
+        Abs.removeAll(File(Abs.mediaDir, "audio/${a.item}"))
 
         listOf(a, b, c, d).forEach(::assertRemoved)
-        assertFalse(file(a).parentFile!!.exists())
+        assertFalse(File(Abs.mediaDir, "audio/${a.item}").exists())
         assertFalse(Abs.downloaded(a.item))
         assertComplete(other)
         assertPartial(otherPartial, 7)
@@ -141,7 +123,7 @@ class DownloadRemovalTest {
         assertEquals(listOf(other.item), Abs.downloads().map { it.name })
         reload()
         listOf(a, b, c, d).forEach(::assertRemoved)
-        assertFalse(file(a).parentFile!!.exists())
+        assertFalse(File(Abs.mediaDir, "audio/${a.item}").exists())
         assertFalse(Abs.downloaded(a.item))
         assertComplete(other)
         assertPartial(otherPartial, 7)
@@ -155,7 +137,7 @@ class DownloadRemovalTest {
 
         assertRemoved(a)
         assertRemoved(b)
-        assertTrue(file(a).parentFile!!.isDirectory)
+        assertTrue(File(Abs.mediaDir, "audio/${a.item}").isDirectory)
         assertFalse(Abs.downloaded(a.item))
         assertEquals(listOf(other.item), Abs.downloads().map { it.name })
         reload()
@@ -167,6 +149,19 @@ class DownloadRemovalTest {
         assertPartial(otherPartial, 7)
         assertQueue(c, d, otherPartial)
         assertFalse(Abs.downloaded(a.item))
+    }
+
+    private fun login() {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/login") { x ->
+            x.requestBody.close()
+            val body = """{"user":{"id":"removal-fixture-user","username":"fixture","accessToken":"fixture"}}""".toByteArray()
+            x.sendResponseHeaders(200, body.size.toLong())
+            x.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try { Abs.login("http://127.0.0.1:${server.address.port}", "fixture", "fixture", true) }
+        finally { server.stop(0) }
     }
 
     private fun episode(item: String, ep: String) = Now(item, ep, "Episode $ep", "Fixture author",
@@ -219,8 +214,8 @@ class DownloadRemovalTest {
                 }
             }))
         val path = "/api/items/${episodes.first().item}?expanded=1"
-        responses[path] = json.toString()
-        Abs.get(path)
+        (Abs::class.java.getDeclaredMethod("cacheFile", String::class.java).apply { isAccessible = true }
+            .invoke(Abs, path) as File).apply { parentFile!!.mkdirs(); writeText(json.toString()) }
     }
 
     private fun reload() {
@@ -228,7 +223,7 @@ class DownloadRemovalTest {
         val cached = listOf(a.item, other.item).associateWith { Abs.cached("/api/items/$it?expanded=1") }
         assertTrue(cached.values.all { it != null })
         assertTrue(Abs.p.edit().commit()) // Flush prior apply() writes before dropping process references.
-        dropProcessState()
+        resetProcessState()
         Abs.init(context)
         Dl.load()
         Abs.offline = true
@@ -236,16 +231,15 @@ class DownloadRemovalTest {
         cached.forEach { (id, json) -> assertEquals(json, Abs.cached("/api/items/$id?expanded=1")) }
     }
 
-    /** Drop only memory: Dl.clear() would erase the durable queue under test. */
-    private fun dropProcessState() {
-        Dl.jobs.clear()
+    /** Simulated process restart: retain disk/preferences, discard singleton queue, paths and memoized state. */
+    private fun resetProcessState() {
+        Dl.clear()
         Dl.onChange = null
-        Abs.progressSync.close()
         Abs.clearPlayback()
         Abs.offline = false
         Abs.progress = emptyMap()
         Abs.dlChanged()
-        listOf("p", "dir", "cacheDir").forEach { name ->
+        listOf("p", "dir", "cacheRoot").forEach { name ->
             Abs::class.java.getDeclaredField(name).apply { isAccessible = true }.set(null, null)
         }
     }

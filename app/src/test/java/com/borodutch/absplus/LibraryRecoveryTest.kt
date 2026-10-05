@@ -78,7 +78,10 @@ class LibraryRecoveryTest {
             createContext("/") { x ->
                 val path = x.requestURI.path
                 requests.add(path)
+                x.requestBody.close()
                 val body = when (path) {
+                    "/login" -> JSONObject().put("user", JSONObject().put("id", "fixture-id")
+                        .put("username", "fixture").put("accessToken", "fixture")).toString()
                     "/api/libraries" -> {
                         val result = membership
                         membershipGate?.await(30, TimeUnit.SECONDS)
@@ -102,9 +105,8 @@ class LibraryRecoveryTest {
             (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
             Abs.logout()
             Abs.offline = false
-            Abs.p.edit().putString("server", "http://127.0.0.1:" + server.address.port)
-                .putString("lib", "A").putString("me", "fixture")
-                .putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").toString()).commit()
+            Abs.login("http://127.0.0.1:" + server.address.port, "fixture", "fixture", true)
+            Abs.p.edit().putString("lib", "A").commit()
         }
         fun open() { a.call("tab", 1) }
         fun details() { a.call("push", { a.call("item", "A0"); Unit }) }

@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.textfield.TextInputEditText
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -27,6 +28,13 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class NavigationTest {
+    @Before fun resetSession() {
+        // Robolectric reuses Kotlin singletons across classes. Reset before Main.onCreate
+        // can launch Home requests using another fixture's already-stopped server.
+        Abs.init(org.robolectric.RuntimeEnvironment.getApplication())
+        Abs.logout()
+    }
+
     private fun Main.call(name: String, vararg args: Any) {
         val m = Main::class.java.declaredMethods.single { it.name == name }
         m.isAccessible = true
@@ -120,7 +128,7 @@ class NavigationTest {
             Abs.offline = false
             Abs.p.edit().putString("server", "http://127.0.0.1:${server.address.port}")
                 .putString("lib", "books").putString("me", "fixture")
-                .putString("acct:fixture", "{\"a\":\"fixture\",\"r\":\"\"}").commit()
+                .putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").put("server", "http://127.0.0.1:${server.address.port}").toString()).commit()
             a.call("tab", 1)
             val page = a.content().getChildAt(0)
             val grid = views(page).filterIsInstance<RecyclerView>().single()
@@ -181,13 +189,18 @@ class NavigationTest {
         controller.destroy()
     }
 
-    private fun title(lm: GridLayoutManager, at: Int) = views(lm.findViewByPosition(at)!!)
-        .filterIsInstance<android.widget.TextView>().first { it.text.startsWith("Title") }.text.toString()
+    private fun title(lm: GridLayoutManager, at: Int): String {
+        val view = lm.findViewByPosition(at)
+        assertNotNull("Expected a laid-out title at $at (items=${lm.itemCount})", view)
+        return views(view!!).filterIsInstance<android.widget.TextView>().first { it.text.startsWith("Title") }.text.toString()
+    }
 
     @Test fun offlineDeletesRefreshOnReturnAndDownloadChangeWithoutLosingAnchor() {
         val controller = Robolectric.buildActivity(Main::class.java).create()
         val a = controller.get()
         (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
+        Abs.p.edit().putString("server", "http://127.0.0.1:1").putString("me", "fixture").commit()
+        Abs::class.java.getDeclaredMethod("selectMedia", String::class.java, String::class.java).apply { isAccessible = true }.invoke(Abs, Abs.server, "user:fixture-id")
         Abs.offline = true
         repeat(200) { i ->
             val id = "download$i"
@@ -263,7 +276,7 @@ class NavigationTest {
         try {
             // Cached routes render immediately; failed refreshes remain offline, not expired.
             Abs.p.edit().putString("server", "http://127.0.0.1:1").putString("me", "fixture")
-                .putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").toString()).commit()
+                .putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").put("server", "http://127.0.0.1:1").toString()).commit()
             Abs.offline = true
             Abs.dlChanged()
             a.call("tab", 2)
@@ -348,7 +361,7 @@ class NavigationTest {
             val favs = JSONObject()
             repeat(200) { favs.put("fav$it", Card("fav$it", "Title $it", "").json()) }
             Abs.p.edit().putString("server", "http://127.0.0.1:" + server.address.port)
-                .putString("me", "fixture").putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").toString())
+                .putString("me", "fixture").putString("acct:fixture", JSONObject().put("a", "fixture").put("r", "").put("server", "http://127.0.0.1:" + server.address.port).toString())
                 .putString("fav", favs.toString()).putString("favq", "{}").commit()
             a.call("tab", 3)
             val page = a.content().getChildAt(0)
@@ -357,6 +370,8 @@ class NavigationTest {
             layout(a.content())
             lm.scrollToPositionWithOffset(100, -23)
             layout(a.content())
+            assertFalse("fixture must stay online before the delayed response", Abs.offline)
+            assertEquals(200, grid.adapter!!.itemCount)
             val name = title(lm, lm.findFirstVisibleItemPosition())
             val y = lm.findViewByPosition(lm.findFirstVisibleItemPosition())!!.top
             assertTrue(requested.await(5, TimeUnit.SECONDS))

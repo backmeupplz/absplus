@@ -17,6 +17,9 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
+import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -43,10 +46,22 @@ class OfflineLibraryTest {
     private fun save(id: String, track: String, bytes: String = "fixture") = File(Abs.mediaDir, "audio/$id/$track.mp3").writeText(bytes)
 
     @Test fun realLibraryFiltersCompleteTitlesButStorageKeepsPartialFiles() {
+        // Reset before Main can schedule reads against another test's stopped server.
+        Abs.init(RuntimeEnvironment.getApplication()); Abs.logout()
         val controller = Robolectric.buildActivity(Main::class.java).create()
         val a = controller.get()
         (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
         try {
+            val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+            server.createContext("/login") { x ->
+                x.requestBody.close()
+                val bytes = """{"user":{"id":"library-fixture-id","username":"fixture","accessToken":"fixture"}}""".toByteArray()
+                x.sendResponseHeaders(200, bytes.size.toLong())
+                x.responseBody.use { it.write(bytes) }
+            }
+            server.start()
+            try { Abs.login("http://127.0.0.1:" + server.address.port, "fixture", "fixture", true) }
+            finally { server.stop(0) }
             val ids = listOf("partial", "complete", "zero", "podcast", "podcast-zero", "empty", "missing-zero")
             ids.forEach { seed(it, it.startsWith("podcast"), it == "empty", if (it == "missing-zero") 0 else 7) }
             save("partial", "one"); save("complete", "one"); save("complete", "two"); save("podcast", "one")
@@ -94,7 +109,7 @@ class OfflineLibraryTest {
             listOf("partial", "complete", "zero", "podcast", "podcast-zero", "empty", "missing-zero")
                 .forEach { File(Abs.mediaDir, "audio/$it").deleteRecursively() }
             Abs.dlChanged()
-            Abs.offline = false
+            Abs.logout()
             controller.destroy()
         }
     }

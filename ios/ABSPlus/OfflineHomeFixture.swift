@@ -1,16 +1,17 @@
 #if DEBUG
 import SwiftUI
 
-/// Disposable-simulator fixture. No login, playback, or user server is used.
+/// Disposable-simulator fixture. Synthetic login only; no playback or user server is used.
 struct OfflineHomeFixture: View {
-    private static var seeded = false
-    init() {
-        guard !Self.seeded else { return }
-        Self.seeded = true
+    @State private var seeded = false
+    @State private var failure: String?
+    private func seed() async throws {
         URLProtocol.registerClass(OfflineHomeProtocol.self)
-        app.d.set("http://abs-home-fixture.invalid", forKey: "server")
-        app.accts["home-fixture"] = Tok(a: "fixture", r: "")
-        app.me = "home-fixture"
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [OfflineHomeProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        app.logout()
+        try await app.login("http://abs-home-fixture.invalid", "home-fixture", "fixture", main: true)
         app.offline = true
         app.dlq = []
         for id in ["home-podcast", "home-book"] {
@@ -59,6 +60,13 @@ struct OfflineHomeFixture: View {
         try! JSONSerialization.data(withJSONObject: json).write(to: app.cacheDir.appending(path: name))
     }
     var body: some View {
+        Group {
+            if seeded { fixture } else { Text(failure ?? "Preparing offline Home").task {
+                do { try await seed(); seeded = true } catch { failure = error.localizedDescription }
+            } }
+        }
+    }
+    private var fixture: some View {
         Stack { HomeView() }
             .safeAreaInset(edge: .bottom) {
                 HStack {
@@ -78,7 +86,14 @@ struct OfflineHomeFixture: View {
 final class OfflineHomeProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "abs-home-fixture.invalid" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func startLoading() { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)) }
+    override func startLoading() {
+        guard request.url?.path == "/login" else {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)); return
+        }
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(#"{"user":{"id":"home-fixture-id","username":"home-fixture","accessToken":"fixture"}}"#.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
     override func stopLoading() {}
 }
 #endif

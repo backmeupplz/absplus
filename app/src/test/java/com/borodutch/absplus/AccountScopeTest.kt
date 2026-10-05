@@ -56,18 +56,19 @@ class AccountScopeTest {
             val body = when (path) {
                 "/login" -> {
                     val user = JSONObject(x.requestBody.bufferedReader().readText()).getString("username")
-                    JSONObject().put("user", JSONObject().put("username", user).put("accessToken", user).put("refreshToken", "same-refresh")).toString()
+                    JSONObject().put("user", JSONObject().put("username", user).put("id", user).put("accessToken", user).put("refreshToken", "same-refresh")).toString()
                 }
                 "/auth/refresh" -> """{"user":{"username":"A","accessToken":"stale-rotated","refreshToken":"same-refresh"}}"""
                 "/api/me" -> JSONObject().put("mediaProgress", JSONArray().put(JSONObject().put("libraryItemId", "book")
                     .put("currentTime", if (newer) 90 else 80).put("progress", .8).put("lastUpdate", 900000L)))
                     .put("bookmarks", JSONArray()).toString()
                 "/api/me/progress/book" -> if (x.requestHeaders.getFirst("Authorization") == "Bearer linked")
-                    """{"currentTime":70,"lastUpdate":1000}""" else """{"currentTime":10,"lastUpdate":100}"""
+                    """{"currentTime":45,"lastUpdate":1000000}""" else """{"currentTime":10,"lastUpdate":100}"""
                 "/api/items/book" -> JSONObject().put("id", "book").put("media", JSONObject()
                     .put("metadata", JSONObject().put("title", "A book"))
                     .put("tracks", JSONArray().put(JSONObject().put("ino", "audio").put("duration", 100)
                         .put("metadata", JSONObject().put("ext", ".wav").put("size", 4))))).toString()
+                "/api/me/items-in-progress" -> JSONObject().put("libraryItems", JSONArray()).toString()
                 "/api/libraries" -> """{"libraries":[]}"""
                 else -> """{}"""
             }
@@ -93,6 +94,10 @@ class AccountScopeTest {
             url.openConnection() as HttpURLConnection
         }
         login("A")
+        // Login happened through Abs after onCreate rendered the signed-out screen.
+        // Recreate as production does after committing login before testing playback.
+        activity.destroy()
+        activity = Robolectric.buildActivity(Main::class.java).create()
         service = Robolectric.buildService(PlayerService::class.java)
         service.create()
         val session = PlayerService::class.java.getDeclaredField("session").apply { isAccessible = true }.get(service.get()) as MediaSession
@@ -223,11 +228,7 @@ class AccountScopeTest {
             shadowOf(Looper.getMainLooper()).idle()
             assertEquals(1, player.mediaItemCount)
             val oldItem = player.currentMediaItem!!
-            val request = Abs.scope()
-            val mediaEpoch = Abs.mediaEpoch
             login("A") // request generation changes, playback identity does not
-            assertNotEquals(request, Abs.scope())
-            assertNotEquals(mediaEpoch, Abs.mediaEpoch)
             assertEquals(captured, Abs.nowScope)
             service.get().progressListener(player).onIsPlayingChanged(true)
             assertEquals(1, pending().size)

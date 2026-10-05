@@ -19,6 +19,8 @@ struct ABSPlusApp: App {
                 AccessibilityFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
                 ListLifecycleFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--isolation-test") {
+                IsolationFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--retained-test") {
                 RetainedFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--offline-series-test") {
@@ -36,9 +38,14 @@ struct ABSPlusApp: App {
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        Downloader.shared.retireLegacyDownloads()
+        return true
+    }
+
     func application(_ a: UIApplication, handleEventsForBackgroundURLSession id: String, completionHandler: @escaping () -> Void) {
-        Downloader.shared.bgDone = completionHandler
-        _ = Downloader.shared.session
+        Downloader.shared.retireLegacyDownloads()
+        completionHandler() // obsolete background transfers are never adopted
     }
 }
 
@@ -58,6 +65,7 @@ struct RootView: View {
                     Tab("Series", systemImage: "square.stack", value: 2) { Stack { SeriesView() } }
                     Tab("Favorites", systemImage: "heart", value: 3) { Stack { FavoritesView() } }
                 }
+                .id(app.mediaEpoch)
                 .tabViewBottomAccessory(isEnabled: player.now != nil) {
                     MiniPlayer().onTapGesture { full = true }
                 }
@@ -74,18 +82,19 @@ struct RootView: View {
                     }
                 }
                 .sheet(isPresented: $full) { FullPlayer() }
-                .task {
+                .task(id: app.mediaEpoch) {
+                    let epoch = app.mediaEpoch
                     app.startProgressReplay()
-                    await Downloader.shared.restore()
                     await player.restore()
-                    try? await Task.sleep(for: .seconds(2)) // interrupted transfers report back with their resume data first
+                    guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
                     await app.resumeQueue()
                 }
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { app.startProgressReplay() }
+            if phase == .active { app.startProgressReplay(); Task { await app.resumeQueue() } }
         }
+        .onChange(of: app.mediaEpoch) { full = false; tab = 0 }
         .overlay(alignment: .top) {
             if let t = app.toast {
                 Text(t).font(.subheadline.weight(.medium)).multilineTextAlignment(.center)
@@ -100,11 +109,13 @@ struct RootView: View {
         .task(id: app.toast) {
             guard app.toast != nil else { return }
             try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
             app.toast = nil
         }
         .task(id: app.offline) { // try to get back online every 10s
             while app.offline && !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(10))
+                guard !Task.isCancelled else { return }
                 await app.ping()
             }
         }
@@ -123,6 +134,7 @@ struct LoginView: View {
     @State private var user = ""
     @State private var pass = ""
     @State private var busy = false
+    @State private var loginTask: Task<Void, Never>?
 
     var body: some View {
         ScrollView {
@@ -156,14 +168,16 @@ struct LoginView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .onSubmit(signIn)
+        .onDisappear { loginTask?.cancel(); loginTask = nil }
     }
 
     private func signIn() {
         guard !busy, !url.isEmpty, !user.isEmpty else { return }
         busy = true
-        Task {
+        let epoch = app.mediaEpoch
+        loginTask = Task {
             defer { busy = false }
-            do { _ = try await app.login(url, user, pass, main: true) } catch { app.say(error) }
+            do { _ = try await app.login(url, user, pass, main: true) } catch { if epoch == app.mediaEpoch, !Task.isCancelled { app.say(error) } }
         }
     }
 }

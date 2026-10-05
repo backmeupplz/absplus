@@ -1,6 +1,5 @@
 #if DEBUG
 import SwiftUI
-import os
 
 /// Synthetic files in a disposable simulator; exercises production removal, delegates and persisted queue.
 struct DownloadRemovalFixture: View {
@@ -9,12 +8,9 @@ struct DownloadRemovalFixture: View {
         Now(item: item, ep: id, title: "Episode " + id, author: "Fixture", tracks: [
             Track(ino: id, ext: ".mp3", size: 7, duration: 60, start: 0)])
     }
-    var body: some View { Text(result).task {
-        do { try await run() }
-        catch { result = "Removal failed: " + error.localizedDescription }
-    } }
+    var body: some View { Text(result).task { await run() } }
 
-    @MainActor private func run() async throws {
+    @MainActor private func run() async {
         let fm = FileManager.default, downloader = Downloader.shared
         let a = Self.episode("a"), b = Self.episode("b"), c = Self.episode("c"), d = Self.episode("d")
         let other = Self.episode("other", item: "removal-other")
@@ -39,8 +35,9 @@ struct DownloadRemovalFixture: View {
             assert(app.downloaded(card(b)) && !app.downloaded(card(a)) && !app.downloaded(card(c)))
             assert(app.url(b.item, b.tracks[0]) == file(b), "Offline playback must still resolve to saved B")
             assert(app.queued(d) && app.dlq.count == 1 && app.dlRetry[rel(d)]?.attempts == 2)
-            assert(try! Data(contentsOf: app.resumeFile(rel(d))) == Data("resume-d".utf8))
-            await downloader.restore() // fake transfer is gone; durable retry/partial must survive reconciliation
+            // Foreground transfers and unsafe resume archives are never adopted across launches.
+            assert(app.transfers.isEmpty && app.inflight.isEmpty)
+            assert(!fm.fileExists(atPath: app.resumeFile(rel(d)).path))
             await app.resumeQueue() // future deadline prevents requests, even offline
             assert(app.queued(d) && app.inflight.isEmpty && content(d) == "par")
             app.removeAll(a.item)
@@ -57,9 +54,10 @@ struct DownloadRemovalFixture: View {
         }
 
         app.logout()
-        URLProtocol.registerClass(RemovalProtocol.self)
-        defer { URLProtocol.unregisterClass(RemovalProtocol.self) }
-        try await app.login("http://removal-fixture.invalid", "fixture", "fixture", main: true)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [RemovalLoginProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        try! await app.login("http://removal-fixture.invalid", "fixture", "fixture", main: true)
         app.offline = true
         app.removeAll(a.item); app.removeAll(other.item)
         let episodes: [[String: Any]] = [a, b, c, d].map { n in
@@ -69,12 +67,8 @@ struct DownloadRemovalFixture: View {
         let item: [String: Any] = ["id": a.item, "mediaType": "podcast",
             "media": ["metadata": ["title": "Fixture"], "episodes": episodes]]
         let path = "/api/items/\(a.item)?expanded=1"
-        RemovalProtocol.item.withLock { $0 = try! JSONSerialization.data(withJSONObject: item) }
-        _ = try await app.get(path)
-        // Retained metadata, not the private session cache, must also resolve the episodes.
-        try fm.removeItem(at: app.cacheDir)
-        try fm.createDirectory(at: app.cacheDir, withIntermediateDirectories: true)
-        assert(app.cached(path) != nil)
+        let name = String(path.map { $0.isLetter || $0.isNumber ? $0 : "_" })
+        try! JSONSerialization.data(withJSONObject: item).write(to: app.cacheDir.appending(path: name))
         put(a, "saved-a"); put(b, "saved-b"); put(c, "par"); put(d, "par"); put(other, "outside")
         app.dlq = [c, d]
         let deadline = Date().addingTimeInterval(3600)
@@ -113,34 +107,33 @@ struct DownloadRemovalFixture: View {
         absent(c)
         assert(content(b) == "saved-b" && content(d) == "par" && app.inflight.contains(rel(d)))
         let restored = Abs()
-        assert(restored.dlq.map(\.key) == [d.key] && restored.transfers[rel(d)] == sibling.taskDescription)
+        assert(restored.dlq.map(\.key) == [d.key] && restored.transfers.isEmpty)
+        assert(restored.dlRetry[rel(d)]?.attempts == 2 && restored.dlRetry[rel(d)]?.next == deadline)
+        assert(!fm.fileExists(atPath: app.resumeFile(rel(d)).path))
+        assert(app.transfers[rel(d)] == sibling.taskDescription && app.inflight.contains(rel(d)))
         assert(restored.downloaded(card(b)) && restored.url(b.item, b.tracks[0]).isFileURL)
         result = "Removal seed passed"
     }
 }
 
-private final class RemovalTask: URLSessionDownloadTask, @unchecked Sendable {
-    var reply: URLResponse?
-    override var response: URLResponse? { reply }
-}
-private final class RemovalProtocol: URLProtocol, @unchecked Sendable {
-    static let item = OSAllocatedUnfairLock(initialState: Data())
+private final class RemovalLoginProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "removal-fixture.invalid" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
-        let body: Data
-        if request.url?.path == "/login" {
-            body = Data(#"{"user":{"username":"fixture","accessToken":"fixture"}}"#.utf8)
-        } else if request.url?.path == "/api/items/removal-podcast", request.url?.query == "expanded=1" {
-            body = Self.item.withLock { $0 }
-        } else {
+        guard request.url?.path == "/login" else {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
             return
         }
+        let body = Data(#"{"user":{"id":"removal-fixture-user","username":"fixture","accessToken":"fixture","refreshToken":"refresh-fixture"}}"#.utf8)
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: body)
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+}
+
+private final class RemovalTask: URLSessionDownloadTask, @unchecked Sendable {
+    var reply: URLResponse?
+    override var response: URLResponse? { reply }
 }
 #endif

@@ -34,28 +34,29 @@ struct BookSkipFixture: View {
         }
     }
 
-    private func seed() async throws {
-        // Authenticate the synthetic server through production scope selection.
-        URLProtocol.registerClass(BookSkipProtocol.self)
+    @MainActor private func seed() async throws {
+        // Authenticate through production scope binding using only a synthetic transport.
         app.logout()
-        try await app.login("http://book-skip-fixture.invalid", "fixture", "fixture", main: true)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [BookSkipLoginProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        try await app.login("https://book-skip-fixture.invalid", "skip-fixture", "fixture", main: true)
         app.offline = true
         let id = "book-skip-fixture"
+        let dir = app.file(id, Track(ino: "0", ext: ".wav", size: 0, duration: 100, start: 0)).deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         // Seed artwork on disk so FullPlayer/start never ask a server for a cover.
-        let covers = URL.cachesDirectory.appending(path: "covers")
+        let covers = URL.cachesDirectory.appending(path: "account-covers/" + app.mediaScope)
         try FileManager.default.createDirectory(at: covers, withIntermediateDirectories: true)
         let image = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { ctx in
             UIColor.blue.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
         }
-        try image.pngData()!.write(to: covers.appending(path: id))
+        try image.pngData()!.write(to: covers.appending(path: id.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!))
         var tracks: [Track] = []
         for (i, seconds) in [100, 50].enumerated() {
-            var track = Track(ino: String(i), ext: ".wav", size: 0, duration: Double(seconds), start: i == 0 ? 0 : 100)
-            let url = app.file(id, track)
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let url = dir.appending(path: "\(i).wav")
             try writeAudio(url, seconds: seconds)
-            track.size = app.size(url)
-            tracks.append(track)
+            tracks.append(Track(ino: String(i), ext: ".wav", size: app.size(url), duration: Double(seconds), start: i == 0 ? 0 : 100))
         }
         player.setSpeed(1.5)
         player.start(Now(item: id, ep: nil, title: "Skip parity: 100 + 50 seconds", author: "Local synthetic audio", tracks: tracks), 110, play: false, generation: app.playbackGeneration)
@@ -82,16 +83,15 @@ struct BookSkipFixture: View {
                       item?.status == .readyToPlay ? "yes" : "no", url?.isFileURL == true ? "yes" : "no", remoteStatus)
     }
 }
-
-private final class BookSkipProtocol: URLProtocol, @unchecked Sendable {
+private final class BookSkipLoginProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "book-skip-fixture.invalid" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
-        guard ["/login", "/auth/refresh"].contains(request.url?.path ?? "") else {
+        guard request.url?.path == "/login" else {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
             return
         }
-        let body = Data(#"{"user":{"username":"fixture","accessToken":"fixture"}}"#.utf8)
+        let body = Data(#"{"user":{"id":"skip-fixture-user","username":"skip-fixture","accessToken":"fixture","refreshToken":"refresh-fixture"}}"#.utf8)
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: body)
         client?.urlProtocolDidFinishLoading(self)

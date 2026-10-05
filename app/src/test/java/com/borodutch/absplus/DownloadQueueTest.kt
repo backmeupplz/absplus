@@ -17,19 +17,10 @@ class DownloadQueueTest {
     @Test fun transientFileFailurePreservesSiblingAndQueueAcrossReload() {
         val c = RuntimeEnvironment.getApplication()
         Abs.init(c)
-        Abs.logout()
+        Abs.p.edit().clear().commit()
+        Dl.clear()
         val n = Now("retry-fixture", null, "Fixture", "", listOf(
             Track("one", ".mp3", 7, 60.0, 0.0), Track("two", ".mp3", 7, 60.0, 60.0)))
-        val login = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        login.createContext("/login") { x ->
-            val body = """{"user":{"username":"fixture","accessToken":"fixture"}}""".toByteArray()
-            x.sendResponseHeaders(200, body.size.toLong())
-            x.responseBody.use { it.write(body) }
-        }
-        login.start()
-        try { Abs.login("http://127.0.0.1:${login.address.port}", "fixture", "fixture", true) }
-        finally { login.stop(0) }
-        assertNotEquals("locked", Abs.mediaDir.name)
         val first = Abs.file(n.item, n.tracks[0]).apply { parentFile!!.mkdirs(); writeText("fixture") }
         val second = Abs.file(n.item, n.tracks[1])
         val part = File(second.path + ".part").apply { writeText("fix") }
@@ -63,6 +54,6 @@ class DownloadQueueTest {
             Dl.jobs.clear(); Dl.load()
             assertNull(Dl.job(n.key))
             assertFalse(first.exists())
-        } finally { server.stop(0); Abs.logout(); first.parentFile!!.deleteRecursively() }
+        } finally { server.stop(0); Dl.clear(); first.parentFile!!.deleteRecursively() }
     }
 }

@@ -3,14 +3,15 @@ import SwiftUI
 
 /// Exercises the real series route and detail removal using disposable fixture files.
 struct OfflineSeriesFixture: View {
-    private static var seeded = false
-    init() {
-        guard !Self.seeded else { return }
-        Self.seeded = true
+    @State private var seeded = false
+    @State private var failure: String?
+    private func seed() async throws {
         URLProtocol.registerClass(OfflineSeriesProtocol.self)
-        app.d.set("http://abs-series-fixture.invalid", forKey: "server")
-        app.accts["series-fixture"] = Tok(a: "fixture", r: "")
-        app.me = "series-fixture"
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [OfflineSeriesProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        app.logout()
+        try await app.login("http://abs-series-fixture.invalid", "series-fixture", "fixture", main: true)
         app.offline = true
         app.dlq = []
         let books: [[String: Any]] = (0..<300).map { i in
@@ -43,6 +44,13 @@ struct OfflineSeriesFixture: View {
     }
 
     var body: some View {
+        Group {
+            if seeded { fixture } else { Text(failure ?? "Preparing offline Series").task {
+                do { try await seed(); seeded = true } catch { failure = error.localizedDescription }
+            } }
+        }
+    }
+    private var fixture: some View {
         Stack { SeriesView() }
             .safeAreaInset(edge: .bottom) {
                 VStack {
@@ -68,7 +76,16 @@ struct OfflineSeriesFixture: View {
 final class OfflineSeriesProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "abs-series-fixture.invalid" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func startLoading() { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)) }
+    override func startLoading() {
+        guard request.url?.path == "/login" else {
+            // The buttons own connectivity in this fixture. Authenticated cover/API
+            // reads must not undo their state while newly visible cards load.
+            client?.urlProtocol(self, didFailWithError: URLError(.cancelled)); return
+        }
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(#"{"user":{"id":"series-fixture-id","username":"series-fixture","accessToken":"fixture"}}"#.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
     override func stopLoading() {}
 }
 #endif

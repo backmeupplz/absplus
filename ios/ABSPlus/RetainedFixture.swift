@@ -15,6 +15,9 @@ struct RetainedFixture: View {
     @MainActor private func run() async throws {
         func check(_ ok: Bool, _ message: String) throws { if !ok { throw Msg(errorDescription: message) } }
         URLProtocol.registerClass(RetainedProtocol.self)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [RetainedProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
         app.logout()
         let fm = FileManager.default
         // Fixture owns only the two synthetic server scopes.
@@ -36,7 +39,7 @@ struct RetainedFixture: View {
         let oldEpoch = app.mediaEpoch
         let track = try await app.item("book").media.tracks![0].track()
         let rel = app.rel("late", track)
-        let late = URLSession.shared.downloadTask(with: URL(string: a + "/late")!)
+        let late = RetainedDownloadTask()
         Downloader.shared.bind(late, rel)
         app.dlq = [Now(item: "late", ep: nil, title: "Late", author: "Fixture", tracks: [track])]
         app.inflight.insert(rel)
@@ -64,8 +67,8 @@ struct RetainedFixture: View {
         // Cancel/requeue within one login: an old transfer cannot touch its replacement.
         let n = Now(item: "replacement", ep: nil, title: "Replacement", author: "Fixture", tracks: [track])
         let replacementRel = app.rel(n.item, track)
-        let old = URLSession.shared.downloadTask(with: URL(string: a + "/old")!)
-        let replacement = RetainedTask()
+        let old = RetainedDownloadTask()
+        let replacement = RetainedDownloadTask()
         app.dlq = [n]
         Downloader.shared.bind(old, replacementRel)
         app.remove(n)
@@ -111,7 +114,7 @@ struct RetainedFixture: View {
         // Exercise production AVQueuePlayer construction as well as the native decoder.
         let book = try await app.item("book")
         let now = Now(item: book.id, ep: nil, title: book.card.title, author: book.card.sub, tracks: book.media.tracks!.map { $0.track() })
-        player.start(now, 0, play: false, generation: app.playbackGeneration)
+        player.start(now, 0, play: false)
         for _ in 0..<40 where player.p.currentItem == nil { try await Task.sleep(for: .milliseconds(50)) }
         guard let asset = player.p.currentItem?.asset as? AVURLAsset else { throw Msg(errorDescription: "production playback queue empty") }
         try check(asset.url == app.url(now.item, now.tracks[0]), "production player did not resolve retained audio")
@@ -128,7 +131,8 @@ struct RetainedFixture: View {
     @MainActor private func cancellationChecks(_ track: Track, _ server: String) async throws {
         func check(_ ok: Bool, _ message: String) throws { if !ok { throw Msg(errorDescription: message) } }
         func expireToken() {
-            app.accts["fixture"] = Tok(a: "fixture.eyJleHAiOjB9.signature", r: "fixture")
+            app.accts["fixture"]!.a = "fixture.eyJleHAiOjB9.signature"
+            app.accts["fixture"]!.r = "fixture"
         }
         func waitForRefresh(_ stage: String) async throws {
             for _ in 0..<500 {
@@ -165,7 +169,7 @@ struct RetainedFixture: View {
         let rr = app.rel(retry.item, track)
         let failure = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost, userInfo: ["NSURLSessionDownloadTaskResumeData": Data([0])])
         func failTransfer() {
-            let task = URLSession.shared.downloadTask(with: URL(string: server + "/retry")!)
+            let task = RetainedDownloadTask()
             Downloader.shared.bind(task, rr)
             Downloader.shared.urlSession(URLSession.shared, task: task, didCompleteWithError: failure)
         }
@@ -190,13 +194,14 @@ struct RetainedFixture: View {
         expireToken()
         RetainedProtocol.refresh.withLock { $0 = (true, nil) }
         failTransfer()
+        app.dlRetry[rr]!.next = .distantPast
+        let pendingRetry = Task { await app.resumeQueue() }
         try await waitForRefresh("retry cancellation")
         app.remove(retry)
         app.dlq.append(retry)
         releaseRefresh()
         // Join the refresh, rather than guessing when its token write has completed.
-        _ = try await app.token(fresh: .greatestFiniteMagnitude)
-        for _ in 0..<20 { await Task.yield() }
+        await pendingRetry.value
         try check(app.transfers[rr] == nil && !app.inflight.contains(rr), "retry resumed after cancellation during authentication")
         app.remove(retry)
 
@@ -206,19 +211,23 @@ struct RetainedFixture: View {
             expireToken()
             RetainedProtocol.refresh.withLock { $0 = (true, nil) }
             failTransfer()
-            try check(app.queued(retry), "relogin inherited retry budget")
+            try check(app.queued(retry) && app.dlRetry[rr]?.attempts == 1, "relogin inherited retry budget")
+            app.dlRetry[rr]!.next = .distantPast
+            let pendingRetry = Task { await app.resumeQueue() }
             try await waitForRefresh("same-host replacement")
             try await app.login(server, "fixture", "fixture", main: true)
             releaseRefresh()
-            _ = try await app.token(fresh: .greatestFiniteMagnitude)
-            for _ in 0..<20 { await Task.yield() }
+            await pendingRetry.value
             try check(app.dlq.isEmpty && app.transfers.isEmpty && !app.inflight.contains(rr), "relogin revived old retry")
         }
     }
 }
 
-private final class RetainedTask: URLSessionDownloadTask, @unchecked Sendable {
-    override var response: URLResponse? { HTTPURLResponse(url: URL(string: "http://retained-a.invalid/replacement")!, statusCode: 200, httpVersion: nil, headerFields: nil) }
+/// Delegate fixtures need a successful response, like a real completed download.
+private final class RetainedDownloadTask: URLSessionDownloadTask, @unchecked Sendable {
+    override var response: URLResponse? {
+        HTTPURLResponse(url: URL(string: "http://retained-a.invalid/audio")!, statusCode: 200, httpVersion: nil, headerFields: nil)
+    }
 }
 
 final class RetainedProtocol: URLProtocol, @unchecked Sendable {
@@ -252,7 +261,7 @@ final class RetainedProtocol: URLProtocol, @unchecked Sendable {
         let media: [String: Any] = pod
             ? ["metadata": ["title": "Fixture Podcast", "author": "Author"], "episodes": [["id": "ep", "title": "Episode", "audioFile": audio]]]
             : ["metadata": ["title": "Fixture Book", "authorName": "Author"], "tracks": [audio]]
-        let body: [String: Any] = login ? ["user": ["username": "fixture", "accessToken": "fixture"]]
+        let body: [String: Any] = login ? ["user": ["id": "retained-fixture-id", "username": "fixture", "accessToken": "fixture"]]
             : ["id": pod ? "pod" : "book", "mediaType": pod ? "podcast" : "book", "media": media, "token": "secret"]
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: flags.0 ? 401 : 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: body))

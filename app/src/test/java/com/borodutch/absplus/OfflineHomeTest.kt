@@ -17,6 +17,8 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -36,6 +38,17 @@ class OfflineHomeTest {
         .put("metadata", JSONObject().put("ext", ".mp3").put("size", size))
     private fun episode(id: String) = JSONObject().put("id", id).put("title", "Episode $id").put("audioFile", audio(id))
     private fun seed(): Pair<List<Card>, JSONObject> {
+        Abs.logout()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/login") { x ->
+            x.requestBody.close()
+            val data = """{"user":{"id":"fixture-id","username":"fixture","accessToken":"fixture"}}""".toByteArray()
+            x.sendResponseHeaders(200, data.size.toLong())
+            x.responseBody.use { it.write(data) }
+        }
+        server.start()
+        try { Abs.login("http://127.0.0.1:" + server.address.port, "fixture", "fixture", true) }
+        finally { server.stop(0) }
         for (id in listOf("podcast", "book")) File(Abs.mediaDir, "audio/$id").deleteRecursively()
         val eps = JSONArray().put(episode("saved")).put(episode("recent"))
             .put(JSONObject().put("id", "missingAudio")).put(episode("zero").put("audioFile", audio("zero", 0)))
@@ -80,7 +93,7 @@ class OfflineHomeTest {
             Abs.remove(listOf(File(Abs.mediaDir, "audio/book/two.mp3")))
             Abs.dlChanged()
             assertFalse(Abs.downloaded(cards[2]))
-        } finally { controller.destroy() }
+        } finally { Abs.logout(); controller.destroy() }
     }
 
     @Test fun realHomeFiltersBothSectionsAndRefreshesRetainedPage() {
@@ -91,9 +104,7 @@ class OfflineHomeTest {
             val (cards, progress) = seed()
             cache("/api/me/items-in-progress?limit=20", progress)
             cache("/api/me", JSONObject().put("mediaProgress", JSONArray()).put("bookmarks", JSONArray()))
-            Abs.p.edit().putString("server", "http://127.0.0.1:1").putString("me", "fixture")
-                .putString("acct:fixture", "{\"a\":\"fixture\",\"r\":\"\"}")
-                .putString("hist", JSONArray(cards.map { it.json().put("at", 1) }).toString()).commit()
+            Abs.p.edit().putString("hist", JSONArray(cards.map { it.json().put("at", 1) }).toString()).commit()
             Abs.offline = true
             a.call("tab", 0)
             val content = Main::class.java.getDeclaredField("content").apply { isAccessible = true }.get(a) as FrameLayout

@@ -25,9 +25,11 @@ internal class ProgressSync(
     private fun entries(j: JSONObject) = j.keys().asSequence().map { it to j.getJSONObject(it) }.toList()
     private fun owner() = prefs.getString("me", null)
     private fun server() = prefs.getString("server", "")
+    private fun identity(name: String?) = name?.let { JSONObject(prefs.getString("acct:$it", "{}")!!).str("mediaIdentity") }.orEmpty()
     private fun valid(e: JSONObject): Boolean {
         val name = e.getString("name")
         return e.getString("server") == server() && e.getString("owner") == owner() &&
+            e.str("ownerIdentity").isNotEmpty() && e.str("ownerIdentity") == identity(owner()) && e.str("recipientIdentity") == identity(name) &&
             prefs.contains("acct:$name") && (name == owner() || name in prefs.getStringSet("share:" + e.getString("item"), emptySet())!!)
     }
     private fun store(j: JSONObject) {
@@ -70,6 +72,7 @@ internal class ProgressSync(
             val id = org.json.JSONArray(listOf(server(), me, name, n.key)).toString()
             val previous = j.optJSONObject(id)
             val e = JSONObject().put("server", server()).put("owner", me).put("name", name)
+                .put("ownerIdentity", identity(me)).put("recipientIdentity", identity(name))
                 .put("item", n.item).put("key", n.key).put("value", value).put("dirty", true)
                 .put("tries", previous?.optInt("tries") ?: 0).put("next", previous?.optLong("next") ?: 0)
             previous?.optJSONObject("sent")?.let { e.put("sent", it) }
@@ -109,6 +112,7 @@ internal class ProgressSync(
             // server clock, including after relaunch and before any local playback.
             val id = org.json.JSONArray(listOf(server(), me, me, key)).toString()
             j.put(id, JSONObject().put("server", server()).put("owner", me).put("name", me)
+                .put("ownerIdentity", identity(me)).put("recipientIdentity", identity(me))
                 .put("item", key.substringBefore('/')).put("key", key).put("value", value).put("dirty", false))
             store(j)
         }

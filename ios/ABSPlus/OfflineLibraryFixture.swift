@@ -3,14 +3,15 @@ import SwiftUI
 
 /// Disposable simulator only: real Library/Storage views with synthetic local files.
 struct OfflineLibraryFixture: View {
-    private static var seeded = false
-    init() {
-        guard !Self.seeded else { return }; Self.seeded = true
+    @State private var seeded = false
+    @State private var failure: String?
+    private func seed() async throws {
         URLProtocol.registerClass(OfflineHomeProtocol.self)
-        app.d.set("http://abs-home-fixture.invalid", forKey: "server")
-        app.d.set("", forKey: "lib")
-        app.accts["library-fixture"] = Tok(a: "fixture", r: "")
-        app.me = "library-fixture"
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [OfflineHomeProtocol.self]
+        app.network = URLSession(configuration: config, delegate: NoRedirects.shared, delegateQueue: nil)
+        app.logout()
+        try await app.login("http://abs-home-fixture.invalid", "home-fixture", "fixture", main: true)
         app.offline = true
         app.dlq = []
         for id in ["partial", "complete", "zero", "podcast", "podcast-zero", "empty", "missing-zero"] {
@@ -43,6 +44,13 @@ struct OfflineLibraryFixture: View {
         try! Data(bytes.utf8).write(to: app.mediaDir.appending(path: "audio/\(id)/\(ino).mp3"))
     }
     var body: some View {
+        Group {
+            if seeded { fixture } else { Text(failure ?? "Preparing offline Library").task {
+                do { try await seed(); seeded = true } catch { failure = error.localizedDescription }
+            } }
+        }
+    }
+    private var fixture: some View {
         Stack { LibraryView() }
             .safeAreaInset(edge: .top) {
                 HStack {

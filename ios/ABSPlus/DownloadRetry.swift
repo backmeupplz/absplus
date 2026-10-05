@@ -26,7 +26,8 @@ struct DownloadRetry: Codable {
     }
 
     mutating func fail(_ cause: Error?, code: Int, retryAfter: String?, now: Date = Date()) {
-        let reason = code >= 400 ? "HTTP \(code)" : cause?.localizedDescription ?? "Incomplete file"
+        // Error descriptions can contain request URLs or authorization data. Persist only fixed messages.
+        let reason = code >= 300 ? "HTTP \(code)" : cause is Expired ? "Sign in again" : "Transfer interrupted or file unavailable"
         if Self.transient(cause, code: code), attempts < 5 {
             attempts += 1
             next = now.addingTimeInterval(max(min(60, pow(2, Double(attempts))), Self.retryAfter(retryAfter, now: now)))

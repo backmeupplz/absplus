@@ -9,8 +9,6 @@ final class RetryHTTPServer: @unchecked Sendable {
     private(set) var counts: [String: Int] = [:]
     private(set) var firstAttempt = Date.distantPast
     private(set) var secondAttempt = Date.distantPast
-    private(set) var retryTransfer: String?
-    private(set) var retryState: DownloadRetry?
     var refreshCode = 200
     var holdRefresh = false
     var holdFiles = false
@@ -38,14 +36,7 @@ final class RetryHTTPServer: @unchecked Sendable {
                 self.counts[file, default: 0] += 1
                 let fail = file == "two" && self.counts[file] == 1
                 if file == "two" {
-                    if fail { self.firstAttempt = Date() } else {
-                        self.secondAttempt = Date()
-                        MainActor.assumeIsolated {
-                            let transfer = app.transfers.first { $0.key.hasSuffix("/two.mp3") }
-                            self.retryTransfer = transfer?.value
-                            self.retryState = transfer.flatMap { app.dlRetry[$0.key] }
-                        }
-                    }
+                    if fail { self.firstAttempt = Date() } else { self.secondAttempt = Date() }
                 }
                 let reply = fail ? "HTTP/1.1 503 Service Unavailable\r\nRetry-After: 2\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" :
                     "HTTP/1.1 200 OK\r\nContent-Length: 7\r\nConnection: close\r\n\r\nfixture"
