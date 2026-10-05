@@ -30,46 +30,67 @@ object Covers {
     private val pool = Executors.newFixedThreadPool(4)
     private val missing = java.util.Collections.synchronizedSet(HashSet<String>()) // no cover on the server (this run only)
 
+    private val pending = HashMap<String, MutableList<Pair<java.lang.ref.WeakReference<ImageView>, Any>>>()
+
     private data class Binding(val epoch: Long, val id: String)
     fun isBound(iv: ImageView, id: String) = iv.tag == Binding(Abs.mediaEpoch, id)
 
     fun load(iv: ImageView, id: String) {
         val epoch = Abs.mediaEpoch
-        // Capture the authenticated owner atomically; usernames can be reused or canonicalized.
-        val (base, owner) = Abs.inSession(epoch) { Abs.server to Abs.mediaDir.path }
-        val key = "$owner|$id"
-        val binding = Binding(epoch, id)
-        iv.tag = binding
-        mem.get(key)?.let { iv.setImageBitmap(it); return }
-        iv.setImageDrawable(null)
-        if (key in missing) return
-        val dir = File(iv.context.cacheDir, "account-covers/" + java.security.MessageDigest.getInstance("SHA-256").digest(owner.toByteArray()).joinToString("") { "%02x".format(it) })
+        val (server, owner) = Abs.inSession(epoch) { Abs.server to Abs.mediaDir.path }
+        iv.tag = Binding(epoch, id)
+        // A distinct bind token also protects against A → B → A reuse and server switches.
+        val binding = Any()
+        iv.setTag(R.id.cover_request, binding)
+        if (server.isBlank() || id.isBlank()) { iv.setImageResource(R.drawable.i_auto_stories); iv.contentDescription = "No cover available"; return }
+        val key = "$epoch|$owner|$id"
+        mem.get(key)?.let { iv.setImageBitmap(it); iv.contentDescription = "Cover"; return }
+        iv.setImageResource(R.drawable.i_auto_stories)
+        iv.contentDescription = "Loading cover"
+        if (key in missing) { iv.contentDescription = "No cover available"; return }
+        synchronized(pending) {
+            val waiting = pending[key]
+            if (waiting != null) { waiting += java.lang.ref.WeakReference(iv) to binding; return }
+            pending[key] = mutableListOf(java.lang.ref.WeakReference(iv) to binding)
+        }
+        val dir = File(iv.context.cacheDir, "account-covers/" + java.security.MessageDigest.getInstance("SHA-256")
+            .digest(owner.toByteArray()).joinToString("") { "%02x".format(it) })
         pool.execute {
+            val active = synchronized(pending) { pending[key]?.any { (ref, token) -> ref.get()?.let { it.getTag(R.id.cover_request) === token } == true } == true }
+            if (!active || epoch != Abs.mediaEpoch) { synchronized(pending) { pending.remove(key) }; return@execute }
             val b = runCatching {
                 val f = File(dir, id)
-                if (f.length() == 0L) { // also drops empty "no cover" markers written by older versions
-                    f.delete()
+                var bitmap = if (f.length() > 0L) BitmapFactory.decodeFile(f.path) else null
+                if (bitmap == null) {
                     dir.mkdirs()
-                    val tmp = File.createTempFile("cover-", ".tmp", dir)
-                    val c = URL("${base}/api/items/$id/cover?width=400&format=webp").openConnection() as HttpURLConnection
+                    val tmp = File.createTempFile("cover", ".tmp", dir)
+                    val c = URL("$server/api/items/$id/cover?width=400&format=webp").openConnection() as HttpURLConnection
                     try {
                         Abs.checkSession(epoch)
                         c.instanceFollowRedirects = false
-                        c.connectTimeout = 10_000
-                        c.readTimeout = 30_000
+                        c.connectTimeout = 10_000; c.readTimeout = 15_000
                         if (c.responseCode == 200) {
                             c.inputStream.use { i -> tmp.outputStream().use { i.copyTo(it) } }
-                            Abs.inSession(epoch) { tmp.renameTo(f) }
+                            bitmap = BitmapFactory.decodeFile(tmp.path)
+                            if (bitmap != null) Abs.inSession(epoch) { tmp.renameTo(f) }
                         } else if (c.responseCode == 404) Abs.inSession(epoch) { missing += key }
                     } finally { c.disconnect(); tmp.delete() }
                 }
-                val bitmap = BitmapFactory.decodeFile(f.path)
-                Abs.inSession(epoch) { if (bitmap != null) mem.put(key, bitmap) }
                 bitmap
             }.getOrNull()
-            iv.post { if (epoch == Abs.mediaEpoch && iv.tag == binding && b != null) iv.setImageBitmap(b) }
+            if (b != null) runCatching { Abs.inSession(epoch) { mem.put(key, b) } }
+            val targets = synchronized(pending) { pending.remove(key).orEmpty() }
+            targets.forEach { (ref, token) -> ref.get()?.let { target ->
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    if (epoch == Abs.mediaEpoch && target.tag == Binding(epoch, id) && target.getTag(R.id.cover_request) === token) {
+                        if (b != null) { target.setImageBitmap(b); target.contentDescription = "Cover" }
+                        else target.contentDescription = if (key in missing) "No cover available" else "Cover unavailable"
+                    }
+                }
+            } }
         }
     }
+
 }
 
 /** Rounded cover image; height = width * ratio (ratio 0 = natural size). */

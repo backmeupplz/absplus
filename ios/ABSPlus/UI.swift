@@ -72,7 +72,11 @@ struct Cover: View {
             .clipShape(.rect(cornerRadius: radius))
             .task(id: id) {
                 img = Covers.mem(id)
-                if img == nil { img = await Covers.get(id) }
+                if img == nil {
+                    let image = await Covers.get(id)
+                    guard !Task.isCancelled else { return }
+                    img = image
+                }
             }
     }
 }
@@ -89,7 +93,12 @@ struct BigCover: View {
         }
         .frame(maxHeight: 300)
         .shadow(color: .black.opacity(0.25), radius: 16, y: 8)
-        .task(id: id) { img = await Covers.get(id) }
+        .task(id: id) {
+            img = Covers.mem(id)
+            let image = await Covers.get(id)
+            guard !Task.isCancelled else { return }
+            img = image
+        }
     }
 }
 
@@ -110,7 +119,7 @@ struct Tile: View {
                     }
                 }
             ProgressView(value: min(p, 1)).opacity(p > 0 ? 1 : 0)
-            Text(card.title).font(.footnote.weight(.semibold)).lineLimit(2)
+            Text(card.title.isEmpty ? "Loading title…" : card.title).font(.footnote.weight(.semibold)).lineLimit(2)
             Text(card.sub).font(.caption).foregroundStyle(.secondary).lineLimit(1)
         }
         .contentShape(.rect)
@@ -155,11 +164,15 @@ extension Row where A == EmptyView {
 }
 
 struct PlayButton: View {
-    let action: () async -> Void
+    let busy: Bool
+    let action: () -> Void
     var body: some View {
-        Button { Task { await action() } } label: { Image(systemName: "play.fill") }
-            .buttonStyle(.bordered).buttonBorderShape(.circle)
-            .accessibilityLabel("Play")
+        Button(action: action) {
+            if busy { ProgressView() } else { Image(systemName: "play.fill") }
+        }
+        .disabled(busy)
+        .buttonStyle(.bordered).buttonBorderShape(.circle)
+        .accessibilityLabel("Play")
     }
 }
 

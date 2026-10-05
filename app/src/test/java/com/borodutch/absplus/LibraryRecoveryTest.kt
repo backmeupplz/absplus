@@ -313,6 +313,50 @@ class LibraryRecoveryTest {
         }
     }
 
+    @Test fun mountedReconnectRevalidatesMembershipBeforeRevokedTitlesAndClearsEmptyContext() {
+        Fixture().use { f ->
+            f.open()
+            await("A loaded") { f.a.grid().adapter!!.itemCount == 500 }
+            val page = f.a.content().getChildAt(0)
+            val oldGrid = f.a.grid()
+            f.a.search().setText("A Title 3")
+            Abs.offline = true
+            f.a.call("refreshConnection")
+            f.membership = libraries("B")
+            val gate = CountDownLatch(1)
+            f.membershipGate = gate
+            val memberships = f.requests.count { it == "/api/libraries" }
+            val aRequests = f.requests.count { it == "/api/libraries/A/items" }
+            Abs.offline = false
+            f.a.call("refreshConnection")
+            await("fresh membership pending") { f.requests.count { it == "/api/libraries" } > memberships }
+            assertSame(page, f.a.content().getChildAt(0))
+            assertSame(oldGrid, f.a.grid())
+            assertEquals("A Title 3", f.a.search().text.toString())
+            assertFalse("no B titles before authorization", "/api/libraries/B/items" in f.requests)
+            assertEquals(aRequests, f.requests.count { it == "/api/libraries/A/items" })
+            gate.countDown()
+            await("reconnect selects B") { Abs.p.getString("lib", null) == "B" && f.a.grid().adapter!!.itemCount == 500 }
+            assertSame(page, f.a.content().getChildAt(0))
+            assertNotSame(oldGrid, f.a.grid())
+            assertEquals("", f.a.search().text.toString())
+            layout(f.a.content())
+            assertEquals(0, (f.a.grid().layoutManager as GridLayoutManager).findFirstVisibleItemPosition())
+            assertEquals(aRequests, f.requests.count { it == "/api/libraries/A/items" })
+            Abs.offline = true
+            f.a.call("refreshConnection")
+            f.membership = libraries()
+            val itemRequests = f.requests.count { it.endsWith("/items") }
+            Abs.offline = false
+            f.a.call("refreshConnection")
+            await("empty reconnect clears selection") { !Abs.p.contains("lib") }
+            assertSame(page, f.a.content().getChildAt(0))
+            assertEquals(0, f.a.grid().adapter!!.itemCount)
+            assertTrue(views(page).filterIsInstance<TextView>().any { it.text == "No libraries available." && it.visibility == View.VISIBLE })
+            assertEquals(itemRequests, f.requests.count { it.endsWith("/items") })
+        }
+    }
+
     @Test fun selectedChipRemainsSelectedOnRepeatedTapWithoutResettingContext() {
         Fixture().use { f ->
             f.open()

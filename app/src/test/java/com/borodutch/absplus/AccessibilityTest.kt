@@ -91,8 +91,17 @@ class AccessibilityTest {
         layout(rv)
         val favorite = named(rv, "Add to favorites")
         favorite.performClick()
+        assertFalse(favorite.isEnabled)
         assertEquals("Remove from favorites", favorite.contentDescription)
         assertTrue(Abs.isFav("fixture-book"))
+        // The local sync fails against the closed loopback port. The actual UI
+        // callback must restore the same button before another action is allowed.
+        val until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(8)
+        while (!favorite.isEnabled && System.nanoTime() < until) {
+            Thread.sleep(15)
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+        assertTrue("Favorite action must recover after sync failure", favorite.isEnabled)
         favorite.performClick()
         assertEquals("Add to favorites", favorite.contentDescription)
         assertFalse(Abs.isFav("fixture-book"))

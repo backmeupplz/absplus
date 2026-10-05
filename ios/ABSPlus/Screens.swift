@@ -4,43 +4,58 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var items: [Card] = []
+    @State private var playback = PlaybackRequest()
+    @State private var loading = Loading()
     @Environment(Nav.self) private var nav
 
     var body: some View {
         let cont = avail(items)
         let hist = app.hist.filter { !app.offline || app.downloaded($0.card) }
-        List {
-            if !cont.isEmpty {
-                Section("Continue listening") {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 20) {
+                if !cont.isEmpty {
+                    Text("Continue listening").font(.headline).padding(.horizontal, 20)
+                    // Outside a List cell, each tile owns its native context menu.
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(alignment: .top, spacing: 12) {
                             ForEach(cont, id: \.key) { c in
-                                Button { Task { await player.playCard(c) } } label: { Tile(card: c).frame(width: 116) }
+                                Button { playback.play(c) } label: { Tile(card: c).frame(width: 116) }
                                     .buttonStyle(.plain)
+                                    .accessibilityIdentifier("continue.\(c.key)")
+                                    .overlay { if player.preparing == c.key { ProgressView("Preparing…").padding(8).background(.regularMaterial) } }
+                                    .disabled(player.preparing == c.key)
                                     .contextMenu {
-                                        Button("Play", systemImage: "play.fill") { Task { await player.playCard(c) } }
+                                        Text(c.title)
+                                        Button("Play", systemImage: "play.fill") { playback.play(c) }
+                                            .accessibilityIdentifier("context.play.\(c.key)")
                                         Button("Details", systemImage: "info.circle") { nav.open(.item(c.id)) }
+                                    } preview: {
+                                        Tile(card: c).frame(width: 116).padding()
                                     }
                             }
                         }
                         .padding(.horizontal, 20)
                     }
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
                 }
-            }
-            Section("Recently played") {
-                if hist.isEmpty { Text("Nothing played on this device yet.").foregroundStyle(.secondary) }
-                ForEach(hist, id: \.card.key) { h in
-                    NavigationLink(value: Route.item(h.card.id)) {
-                        Row(card: h.card, meta: Date(timeIntervalSince1970: h.at / 1000).formatted(.relative(presentation: .named))) {
-                            PlayButton { await player.playCard(h.card) }
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Recently played").font(.headline)
+                    if hist.isEmpty && loading.finished && !cont.isEmpty { Text("Nothing played on this device yet.").foregroundStyle(.secondary) }
+                    ForEach(hist, id: \.card.key) { h in
+                        NavigationLink(value: Route.item(h.card.id)) {
+                            Row(card: h.card, meta: Date(timeIntervalSince1970: h.at / 1000).formatted(.relative(presentation: .named))) {
+                                PlayButton(busy: player.preparing == h.card.key) { playback.play(h.card) }
+                            }
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("history-" + h.card.key)
                     }
-                    .accessibilityIdentifier("history-" + h.card.key)
                 }
+                .padding(.horizontal, 20)
             }
+            .padding(.vertical, 16)
         }
+        .loadingFeedback(state: loading, empty: cont.isEmpty && hist.isEmpty, title: "Nothing played yet", retry: reload)
+        .onDisappear { loading.cancel(); playback.cancel() }
         .navigationTitle("Home")
         .settingsButton()
         .refreshable { await reload() }
@@ -49,14 +64,17 @@ struct HomeView: View {
 
     private func reload() async {
         let epoch = app.mediaEpoch
-        await app.load("/api/me/items-in-progress?limit=20") { (r: InProgress) in
-            items = r.libraryItems.map { li in
-                let c = li.card
-                return li.recentEpisode.map { Card(id: c.id, title: $0.title ?? "", sub: c.title, ep: $0.id) } ?? c
+        await loading.run {
+            let error = await app.load("/api/me/items-in-progress?limit=20") { (r: InProgress) in
+                items = r.libraryItems.map { li in
+                    let c = li.card
+                    return li.recentEpisode.map { Card(id: c.id, title: $0.title ?? "", sub: c.title, ep: $0.id) } ?? c
+                }
             }
+            guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
+            let meError = await app.load("/api/me") { (m: Me) in app.setMe(m) }
+            return error ?? meError
         }
-        guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
-        await app.load("/api/me") { (m: Me) in app.setMe(m) }
     }
 }
 
@@ -67,10 +85,27 @@ struct LibraryView: View {
     @State private var all: [Card] = []
     @State private var q = ""
     @State private var loadedLibrary = ""
+    @State private var loading = Loading()
+    @State private var librariesLoading = Loading()
     @State private var visibleTitle: String?
     @AppStorage("lib") private var sel = ""
 
     var body: some View {
+        VStack(spacing: 0) { libraryContent }
+            .onDisappear { loading.cancel(); librariesLoading.cancel() }
+        .task { await loadLibraries() }
+        .task(id: sel) {
+            if loadedLibrary != sel {
+                loading.reset()
+                loadedLibrary = sel
+                all = []
+                q = ""
+            }
+            await reload()
+        }
+    }
+
+    @ViewBuilder private var libraryContent: some View {
         let cards = app.offline ? avail(app.downloads().map { app.cachedCard($0.id) }) : all
         let query = q.trimmingCharacters(in: .whitespaces)
         let shown = query.isEmpty ? cards : cards.filter { $0.title.localizedCaseInsensitiveContains(query) || $0.sub.localizedCaseInsensitiveContains(query) }
@@ -93,36 +128,41 @@ struct LibraryView: View {
         }
         .searchable(text: $q, prompt: "Titles & authors")
         .settingsButton()
-        .refreshable { await reload() }
-        .task {
+        .loadingFeedback(state: librariesLoading.error != nil || libs.isEmpty && !librariesLoading.finished ? librariesLoading : loading, empty: shown.isEmpty, title: app.offline ? "No downloads" : query.isEmpty ? "No titles" : "No matches", retry: retry)
+
+        .refreshable { await retry() }
+
+    }
+
+    private func retry() async {
+        await loadLibraries()
+        await reload()
+    }
+
+    private func loadLibraries() async {
+        await librariesLoading.run {
             await app.load("/api/libraries") { (r: Libraries) in
                 libs = r.libraries
                 for l in libs { UserDefaults.standard.set(l.settings?.coverAspectRatio == 0 ? 1.6 : 1, forKey: "ratio:\(l.id)") }
                 if !libs.contains(where: { $0.id == sel }) { sel = libs.first?.id ?? "" }
             }
         }
-        .task(id: sel) {
-            // SwiftUI restarts this task after popping details, even with the same id.
-            // Emptying the grid then collapses its content and clamps the scroll to zero.
-            if loadedLibrary != sel {
-                loadedLibrary = sel
-                all = []
-                q = ""
-            }
-            await reload()
-        }
+        if sel.isEmpty && librariesLoading.finished { loading.finished = true }
     }
 
     private func reload() async {
         let epoch = app.mediaEpoch
         let library = sel
-        guard !library.isEmpty else { return }
-        await app.load("/api/libraries/\(library)/items?minified=1&sort=media.metadata.title") { (r: Results<Item>) in
-            guard !Task.isCancelled, sel == library else { return }
-            all = r.results.map(\.card)
+        guard !library.isEmpty else { loading.finished = librariesLoading.finished; return }
+        await loading.run {
+            let error = await app.load("/api/libraries/\(library)/items?minified=1&sort=media.metadata.title") { (r: Results<Item>) in
+                guard !Task.isCancelled, sel == library else { return }
+                all = r.results.map(\.card)
+            }
+            guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
+            let meError = await app.load("/api/me") { (m: Me) in app.setMe(m) }
+            return error ?? meError
         }
-        guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
-        await app.load("/api/me") { (m: Me) in app.setMe(m) }
     }
 }
 
@@ -131,16 +171,16 @@ struct LibraryView: View {
 struct SeriesView: View {
     @State private var libs: [Library] = []
     @State private var series: [String: [Series]] = [:]
-    @State private var loaded = false
+    @State private var loading = Loading()
 
     var body: some View {
         List {
             ForEach(libs, id: \.id) { l in
-                if let ss = series[l.id], !ss.isEmpty {
+                if let ss = series[l.id]?.filter({ !app.offline || !avail($0.books.map(\.card)).isEmpty }), !ss.isEmpty {
                     Section {
                         ForEach(ss, id: \.id) { s in
-                            let cards = s.books.map(\.card)
-                            NavigationLink(value: Route.shelf(s.name, cards, ratio(l.id))) {
+                            let cards = avail(s.books.map(\.card))
+                            NavigationLink(value: Route.shelf(s.name, s.books.map(\.card), ratio(l.id))) {
                                 Row(card: Card(id: cards.first?.id ?? "", title: s.name, sub: ""), meta: "\(cards.count) book\(cards.count == 1 ? "" : "s")")
                             }
                         }
@@ -150,11 +190,8 @@ struct SeriesView: View {
                 }
             }
         }
-        .overlay {
-            if loaded && series.values.allSatisfy(\.isEmpty) {
-                ContentUnavailableView("No series", systemImage: "square.stack", description: Text("No series on the server yet."))
-            }
-        }
+        .loadingFeedback(state: loading, empty: series.values.flatMap { $0 }.allSatisfy { app.offline ? avail($0.books.map(\.card)).isEmpty : false }, title: app.offline ? "No downloaded series" : "No series", retry: reload)
+        .onDisappear { loading.cancel() }
         .navigationTitle("Series")
         .settingsButton()
         .refreshable { await reload() }
@@ -163,33 +200,52 @@ struct SeriesView: View {
 
     private func reload() async {
         let epoch = app.mediaEpoch
-        await app.load("/api/libraries") { (r: Libraries) in libs = r.libraries.filter { $0.mediaType == "book" } }
-        for l in libs {
-            guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
-            await app.load("/api/libraries/\(l.id)/series?limit=1000&sort=name") { (r: Results<Series>) in series[l.id] = r.results }
+        await loading.run {
+            var error = await app.load("/api/libraries") { (r: Libraries) in
+                libs = r.libraries.filter { $0.mediaType == "book" }
+                series = series.filter { key, _ in libs.contains { $0.id == key } }
+            }
+            for l in libs {
+                guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
+                let failure = await app.load("/api/libraries/\(l.id)/series?limit=1000&sort=name") { (r: Results<Series>) in series[l.id] = r.results }
+                error = error ?? failure
+            }
+            return error
         }
-        guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
-        loaded = true
     }
 }
 
 // --- favorites (synced via the server, see Abs.fav)
 
 struct FavoritesView: View {
+    @State private var loading = Loading()
+    @State private var failedMetadata = Set<String>()
+
     var body: some View {
         ScrollView { CardGrid(cards: avail(app.fav)) }
-            .overlay {
-                if app.fav.isEmpty {
-                    ContentUnavailableView("No favorites", systemImage: "heart", description: Text("Tap ♡ on a book or podcast to keep it here."))
-                }
-            }
+            .loadingFeedback(state: loading, empty: avail(app.fav).isEmpty, title: app.offline ? "No downloaded favorites" : "No favorites", detail: "Tap ♡ on a book or podcast to keep it here.", retry: reload)
             .navigationTitle("Favorites")
             .settingsButton()
-            .task {
-                let epoch = app.mediaEpoch
-                await app.load("/api/me") { (m: Me) in app.setMe(m) }
-                for c in app.fav where c.title.isEmpty { guard epoch == app.mediaEpoch, !Task.isCancelled else { return }; await app.fillFav(c.id) }
+            .refreshable { await reload() }
+            .task { await reload() }
+            .onDisappear { loading.cancel() }
+    }
+
+    private func reload() async {
+        let epoch = app.mediaEpoch
+        await loading.run {
+            var error = await app.load("/api/me") { (m: Me) in app.setMe(m) }
+            // Populated cards need no serial metadata refresh. Retry only an actual
+            // failure, including when load rendered its cached title before failing.
+            for c in app.fav where c.title.isEmpty || failedMetadata.contains(c.id) {
+                guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
+                let failure = await app.fillFav(c.id)
+                guard epoch == app.mediaEpoch, !Task.isCancelled else { return nil }
+                if failure == nil { failedMetadata.remove(c.id) } else { failedMetadata.insert(c.id) }
+                error = error ?? failure
             }
+            return error
+        }
     }
 }
 
@@ -264,8 +320,8 @@ struct LinkAccount: View {
     @State private var user = ""
     @State private var pass = ""
     @State private var busy = false
-    @State private var loginTask: Task<Void, Never>?
     @State private var err: String?
+    @State private var request: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -282,18 +338,22 @@ struct LinkAccount: View {
             .navigationTitle("Link another account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { loginTask?.cancel(); dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Link") { link() }.disabled(user.isEmpty || busy) }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { request?.cancel(); dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button { link() } label: {
+                    if busy { ProgressView("Linking…").accessibilityLabel("Linking account") } else { Text("Link") }
+                }.disabled(user.isEmpty || busy) }
             }
         }
         .presentationDetents([.medium])
-        .onDisappear { loginTask?.cancel(); loginTask = nil }
+        .onDisappear { request?.cancel(); request = nil; busy = false }
     }
 
     private func link() {
+        guard !busy else { return }
         busy = true
         let epoch = app.mediaEpoch
-        loginTask = Task {
+        err = nil
+        request = Task {
             defer { busy = false }
             do {
                 let n = try await app.login(app.server, user, pass, main: false)
@@ -390,6 +450,8 @@ struct ItemView: View {
     @State private var desc = ""
     @State private var more = false
     @State private var sharing = false
+    @State private var playback = PlaybackRequest()
+    @State private var loading = Loading()
 
     var body: some View {
         List {
@@ -397,13 +459,20 @@ struct ItemView: View {
         }
         .listStyle(.plain)
         .navigationBarTitleDisplayMode(.inline)
-        .task {
+        .loadingFeedback(state: loading, empty: it == nil, title: "Item unavailable", retry: reload)
+        .refreshable { await reload() }
+        .task(id: id) { await reload() }
+        .onDisappear { loading.cancel(); playback.cancel() }
+        .sheet(isPresented: $sharing) { if let it { ShareSheet(id: id, name: it.card.title) } }
+    }
+
+    private func reload() async {
+        await loading.run {
             await app.load("/api/items/\(id)?expanded=1") { (i: Item) in
                 it = i
                 desc = plain(i.media.metadata.description ?? "")
             }
         }
-        .sheet(isPresented: $sharing) { if let it { ShareSheet(id: id, name: it.card.title) } }
     }
 
     @ViewBuilder private func content(_ it: Item) -> some View {
@@ -421,11 +490,14 @@ struct ItemView: View {
                             p >= 1 ? "Finished" : p > 0 ? "\(Int(p * 100))% done" : nil].compactMap { $0 }
                 Text(meta.joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
                 HStack(spacing: 12) {
-                    Button { Task { await player.play(n) } } label: {
-                        Label(p > 0 && p < 1 ? "Resume" : "Play", systemImage: "play.fill").frame(minWidth: 96)
+                    Button { playback.play(n) } label: {
+                        Group {
+                            if player.preparing == n.key { ProgressView("Preparing…") }
+                            else { Label(p > 0 && p < 1 ? "Resume" : "Play", systemImage: "play.fill") }
+                        }.frame(minWidth: 96)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(n.tracks.isEmpty)
+                    .disabled(n.tracks.isEmpty || player.preparing == n.key)
                     DlButton(n: n).buttonStyle(.bordered).buttonBorderShape(.circle)
                     actions(c)
                 }
@@ -448,7 +520,7 @@ struct ItemView: View {
 
         if !book {
             Section("Episodes") {
-                ForEach(eps, id: \.0.key) { n, date in EpisodeRow(n: n, date: date) }
+                ForEach(eps, id: \.0.key) { n, date in EpisodeRow(n: n, date: date, playback: playback) }
             }
         }
     }
@@ -479,6 +551,7 @@ struct ItemView: View {
 struct EpisodeRow: View {
     let n: Now
     let date: String?
+    let playback: PlaybackRequest
 
     var body: some View {
         let p = app.pct(n.key)
@@ -490,10 +563,11 @@ struct EpisodeRow: View {
             }
             Spacer(minLength: 0)
             DlButton(n: n).buttonStyle(.borderless)
-            PlayButton { await player.play(n) }
+            PlayButton(busy: player.preparing == n.key) { playback.play(n) }
         }
         .contentShape(.rect)
-        .onTapGesture { Task { await player.play(n) } }
+        .onTapGesture { playback.play(n) }
+        .overlay(alignment: .trailing) { if player.preparing == n.key { ProgressView("Preparing…").padding(8).background(.regularMaterial) } }
     }
 }
 

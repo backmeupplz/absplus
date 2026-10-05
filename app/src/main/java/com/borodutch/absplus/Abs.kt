@@ -407,9 +407,11 @@ object Abs {
             ?: if (mediaServer == server && me != null && expanded(path)) retainedFile(path).takeIf { it.exists() }?.readText() else null
     }
 
-    fun get(path: String, captured: Scope = scope()): String {
+    fun get(path: String, captured: Scope = scope(), validate: (String) -> Unit = {}): String {
         val request = inScope(captured) { scope() }
         val data = api("GET", path, captured = request)
+        validateCachedResponse(path, JSONObject(data))
+        validate(data)
         inScope(request) {
             cacheFile(path).writeText(data)
             if (mediaServer == server && me != null && expanded(path)) {
@@ -435,6 +437,53 @@ object Abs {
             for (i in 0 until a.length()) { val e = a.getJSONObject(i); put(pick(e, "id", "title", "publishedAt").apply { e.optJSONObject("audioFile")?.let { put("audioFile", audio(it)) } }) }
         }) }
         return pick(j, "id", "mediaType").put("media", safe)
+    }
+
+    /** Validate every field required by cached-response consumers before replacing a good snapshot.
+     * Keep this side-effect-free: UI rendering and setMe mutate view/preferences on the main thread.
+     */
+    internal fun validateCachedResponse(path: String, j: JSONObject) {
+        fun objects(a: JSONArray, check: (JSONObject) -> Unit) {
+            for (i in 0 until a.length()) check(a.getJSONObject(i))
+        }
+        fun card(item: JSONObject) { Card.item(item) }
+        val route = path.substringBefore('?')
+        when {
+            route == "/api/me" -> {
+                objects(j.getJSONArray("mediaProgress")) {
+                    it.getString("libraryItemId")
+                    if (!it.isNull("episodeId")) it.getString("episodeId")
+                }
+                objects(j.optJSONArray("bookmarks") ?: JSONArray()) {
+                    if (it.str("title") == FAV) it.getString("libraryItemId")
+                }
+            }
+            route == "/api/me/items-in-progress" -> objects(j.getJSONArray("libraryItems")) {
+                card(it)
+                it.optJSONObject("recentEpisode")?.getString("id")
+            }
+            route == "/api/libraries" -> objects(j.getJSONArray("libraries")) {
+                it.getString("id"); it.getString("name")
+            }
+            route.startsWith("/api/libraries/") && route.endsWith("/items") -> objects(j.getJSONArray("results"), ::card)
+            route.startsWith("/api/libraries/") && route.endsWith("/series") -> objects(j.getJSONArray("results")) {
+                it.getString("name"); objects(it.getJSONArray("books"), ::card)
+            }
+            route.startsWith("/api/items/") -> {
+                card(j)
+                if (path.substringAfter('?', "").split('&').contains("expanded=1")) {
+                    val media = j.getJSONObject("media")
+                    when (j.getString("mediaType")) {
+                        "book" -> tracks(media.getJSONArray("tracks"))
+                        "podcast" -> objects(media.getJSONArray("episodes")) {
+                            if (it.has("audioFile")) { it.getString("id"); track(it.getJSONObject("audioFile"), 0.0) }
+                        }
+                        else -> error("Unsupported media type")
+                    }
+                }
+            }
+            else -> error("No cached response schema for $route")
+        }
     }
 
     // --- tracks & downloads
@@ -538,9 +587,9 @@ object Abs {
         val saved = inScope(request) { progressSync.local()[n.key] }
         val local = saved?.let { Pos("You", if (it.optBoolean("isFinished")) 0.0 else it.optDouble("currentTime"), it.optLong("lastUpdate")) }
             ?: p.getString("pos:${n.key}", null)?.split(',')?.let { Pos("You", it[0].toDouble(), it[1].toLong()) }
-        val mine = listOfNotNull(local, me?.let { remote(it, n.key, request) }?.let { Pos("You", it.time, it.at) })
+        val mine = listOfNotNull(local, me?.takeUnless { offline }?.let { remote(it, n.key, request) }?.let { Pos("You", it.time, it.at) })
             .maxByOrNull { it.at } ?: Pos("You", 0.0, 0)
-        val result = listOf(mine) + inScope(request) { shares(n.item) }.mapNotNull { remote(it, n.key, request) }
+        val result = listOf(mine) + inScope(request) { if (offline) emptySet() else shares(n.item) }.mapNotNull { remote(it, n.key, request) }
             .filter { it.at > mine.at && abs(it.time - mine.time) > 30 }
         return inScope(request) { result }
     }
@@ -617,12 +666,14 @@ object Abs {
 
     /** title/author for a favorite added on another device; call off the main thread */
     fun fillFav(id: String) {
-        val epoch = expectedEpoch()
-        val c = Card.item(JSONObject(get("/api/items/$id")))
-        inSession(epoch) {
-            val o = JSONObject(p.getString("fav", "{}"))
-            if (o.has(id)) p.edit().putString("fav", o.put(id, c.json()).toString()).apply()
-        }
+        val captured = scope()
+        fillFavCard(Card.item(JSONObject(get("/api/items/$id", captured))), captured)
+    }
+
+    fun fillFavCard(c: Card, captured: Scope = scope()) = inScope(captured) {
+        val id = c.id
+        val o = JSONObject(p.getString("fav", "{}"))
+        if (o.has(id)) p.edit().putString("fav", o.put(id, c.json()).toString()).apply()
     }
 
     fun history(): List<Pair<Card, Long>> = JSONArray(p.getString("hist", "[]")).let { a ->

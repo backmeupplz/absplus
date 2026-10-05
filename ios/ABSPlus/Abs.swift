@@ -309,7 +309,13 @@ let resumeDir: URL = {
         }
     }
 
-    func ping() async { if (try? await http("GET", "/ping", base: server, epoch: mediaEpoch)) != nil { startProgressReplay() } }
+    var pinging = false
+    func ping() async {
+        guard !pinging, !Task.isCancelled else { return }
+        pinging = true
+        defer { pinging = false }
+        if (try? await http("GET", "/ping", base: server, epoch: mediaEpoch)) != nil { startProgressReplay() }
+    }
 
     // --- accounts
 
@@ -490,26 +496,47 @@ let resumeDir: URL = {
     }
 
     /// Renders cached JSON instantly, then refreshes from the server.
-    func load<T: Decodable>(_ path: String, _ render: (T) -> Void) async {
+    @discardableResult
+    func load<T: Decodable>(_ path: String, _ render: (T) -> Void) async -> String? {
+        guard !Task.isCancelled else { return nil }
         let epoch = mediaEpoch
-        guard !Task.isCancelled else { return }
         let old = cached(path)
         if let old, let v = try? JSONDecoder().decode(T.self, from: old) { render(v) }
         do {
-            let new = try await get(path)
+            let new = try await api("GET", path)
             try checkSession(epoch)
-            if new != old { render(try JSONDecoder().decode(T.self, from: new)) }
+            let value = try JSONDecoder().decode(T.self, from: new)
+            // Validate before committing; malformed responses must not poison retries.
+            try? new.write(to: cacheFile(path), options: .atomic)
+            if mediaServer == server, me != nil, expanded(path), let item = value as? Item {
+                let dst = retainedFile(path)
+                try? FileManager.default.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? JSONEncoder().encode(item).write(to: dst, options: .atomic)
+            }
+            if new != old { render(value) }
+            return nil
         } catch {
-            guard epoch == mediaEpoch, !Task.isCancelled else { return }
-            if (old == nil && !offline) || error is Expired { say(error) }
+            guard epoch == mediaEpoch, !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return nil }
+            if error is Expired { say(error) }
+            return error.localizedDescription
         }
     }
 
     func item(_ id: String) async throws -> Item {
         let path = "/api/items/\(id)?expanded=1"
-        let data: Data
-        if let c = cached(path) { data = c } else { data = try await get(path) }
-        return try JSONDecoder().decode(Item.self, from: data)
+        try Task.checkCancellation()
+        if let data = cached(path), let item = try? JSONDecoder().decode(Item.self, from: data) { return item }
+        let epoch = mediaEpoch
+        let data = try await api("GET", path)
+        try checkSession(epoch)
+        let item = try JSONDecoder().decode(Item.self, from: data)
+        try? data.write(to: cacheFile(path), options: .atomic)
+        if mediaServer == server, me != nil {
+            let dst = retainedFile(path)
+            try? FileManager.default.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? JSONEncoder().encode(item).write(to: dst, options: .atomic)
+        }
+        return item
     }
 
     // --- tracks & downloads
@@ -814,10 +841,12 @@ let resumeDir: URL = {
     }
 
     /// title/author for a favorite added on another device
-    func fillFav(_ id: String) async {
-        guard let data = try? await get("/api/items/\(id)?expanded=1"), let c = try? JSONDecoder().decode(Item.self, from: data).card,
-              let i = fav.firstIndex(where: { $0.id == id }) else { return }
-        fav[i] = c
+    @discardableResult
+    func fillFav(_ id: String) async -> String? {
+        await load("/api/items/\(id)?expanded=1") { (item: Item) in
+            guard let i = fav.firstIndex(where: { $0.id == id }) else { return }
+            fav[i] = item.card
+        }
     }
 
     func addHistory(_ n: Now) {
@@ -831,7 +860,7 @@ let resumeDir: URL = {
 
     private static func kcRead() -> [String: Tok] {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(where: { ["--book-skip-test", "--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--book-skip-test", "--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test", "--loading-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
             return UserDefaults.standard.data(forKey: "fixture-accounts").flatMap { try? JSONDecoder().decode([String: Tok].self, from: $0) } ?? [:]
         }
 #endif
@@ -844,7 +873,7 @@ let resumeDir: URL = {
 
     private func kcWrite(_ v: [String: Tok]) {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(where: { ["--book-skip-test", "--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--book-skip-test", "--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test", "--loading-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
             d.set(try? JSONEncoder().encode(v), forKey: "fixture-accounts")
             return
         }

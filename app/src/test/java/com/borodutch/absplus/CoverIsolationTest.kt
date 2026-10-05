@@ -25,8 +25,17 @@ class CoverIsolationTest {
     // Observe completion of the real Covers.load worker, without replacing its disk/network path.
     private class Image : ImageView(RuntimeEnvironment.getApplication()) {
         val completed = CountDownLatch(1)
-        override fun post(action: Runnable): Boolean { completed.countDown(); return true }
-        fun finish() { assertTrue("cover worker did not finish", completed.await(5, TimeUnit.SECONDS)) }
+        override fun setContentDescription(description: CharSequence?) {
+            super.setContentDescription(description)
+            if (description == "Cover" || description == "Cover unavailable" || description == "No cover available") completed.countDown()
+        }
+        fun finish() {
+            val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (completed.count > 0 && System.nanoTime() < until) {
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle(); Thread.sleep(10)
+            }
+            assertEquals("cover worker did not finish", 0L, completed.count)
+        }
     }
     private class Host : AutoCloseable {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
@@ -100,8 +109,16 @@ class CoverIsolationTest {
             val stale = load("late")
             assertTrue(h.entered.await(5, TimeUnit.SECONDS))
             h.login()
-            h.release.countDown(); stale.finish()
-            assertNull(stale.drawable)
+            val placeholder = stale.drawable
+            h.release.countDown()
+            val pool = Covers::class.java.getDeclaredField("pool").apply { isAccessible = true }.get(Covers) as java.util.concurrent.ExecutorService
+            // Drain every queued worker before checking stale publication.
+            val drained = CountDownLatch(4)
+            repeat(4) { pool.execute { drained.countDown(); drained.await(5, TimeUnit.SECONDS) } }
+            assertTrue(drained.await(5, TimeUnit.SECONDS))
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertSame(placeholder, stale.drawable)
+            assertEquals("Loading cover", stale.contentDescription)
             h.hold = false; h.code = 200
             load("late").finish()
             assertEquals("late success/404 must not seed disk, memory or missing caches", 2, h.reads.get())

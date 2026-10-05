@@ -50,6 +50,7 @@ class SessionIsolationTest {
                         user(j.getString("username"))
                     }
                     "/auth/refresh" -> { if (rejectRefresh) code = 401; user(refresh?.substringAfter("-refresh-") ?: "same") }
+                    "/api/me" -> """{"mediaProgress":[],"bookmarks":[]}"""
                     "/redirect" -> { code = 307; x.responseHeaders.add("Location", redirect); "{}" }
                     else -> "{}"
                 }.toByteArray()

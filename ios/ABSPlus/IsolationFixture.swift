@@ -185,8 +185,10 @@ struct IsolationFixture: View {
         }
         try await app.login(server, "account-b", "fixture", main: true)
         var rendered = false
-        await app.load(path) { (_: Item) in rendered = true }
-        try check(!rendered && app.cached(path) == nil && app.toast?.contains("403") == true, "B rendered A metadata despite 403")
+        let loading = Loading()
+        await loading.run { await app.load(path) { (_: Item) in rendered = true } }
+        try check(!rendered && app.cached(path) == nil, "B rendered A metadata despite 403")
+        try check(loading.finished && !loading.busy && loading.error?.contains("403") == true, "B denial did not reach page loading feedback")
         do { _ = try await app.item("restricted"); throw Msg(errorDescription: "B item lookup bypassed 403") }
         catch let e as HttpErr where e.code == 403 {}
         try check(app.downloads().isEmpty && !app.downloaded("restricted") && !app.done("restricted", track) && !app.url("restricted", track).isFileURL, "B resolved A local audio")
