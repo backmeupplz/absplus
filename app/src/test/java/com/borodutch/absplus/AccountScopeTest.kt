@@ -286,6 +286,22 @@ class AccountScopeTest {
         }
     }
 
+    @Test fun libraryRejectsQueuedMembershipAfterAccountGenerationChanges() {
+        repeat(3) { mode ->
+            login("A")
+            Abs.p.edit().putString("lib", "original").commit()
+            val g = hold("/api/libraries")
+            call("tab", 1)
+            entered(g)
+            release(g, deliver = false) // HTTP/cache succeeded; UI delivery is still queued.
+            switch(mode)
+            Abs.p.edit().putString("lib", "original").commit()
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals("original", Abs.p.getString("lib", null))
+            assertNull(Abs.cached("/api/libraries"))
+        }
+    }
+
     @Test fun successfulSameAccountReauthInvalidatesRequestsNotPlaybackIdentity() {
         val playback = Abs.scope(playback = true)
         val request = Abs.scope()
