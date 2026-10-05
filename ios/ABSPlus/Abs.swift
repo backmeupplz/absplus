@@ -65,7 +65,7 @@ struct Libraries: Decodable { var libraries: [Library] }
 struct Results<T: Decodable>: Decodable { var results: [T] }
 struct Series: Decodable { var id: String, name: String, books: [Item] }
 struct InProgress: Decodable { var libraryItems: [Item] }
-struct Prog: Decodable { var libraryItemId: String, episodeId: String?, progress: Double?, currentTime: Double?, isFinished: Bool?, lastUpdate: Double? }
+struct Prog: Codable { var libraryItemId: String, episodeId: String?, progress: Double?, currentTime: Double?, isFinished: Bool?, lastUpdate: Double? }
 struct Bookmark: Decodable { var libraryItemId: String, title: String? }
 struct Me: Decodable { var mediaProgress: [Prog], bookmarks: [Bookmark]? }
 struct LoginResp: Decodable {
@@ -117,7 +117,17 @@ let resumeDir: URL = {
 
 /// Server API, accounts, downloads, progress. Settings live in UserDefaults, login tokens in the Keychain.
 @MainActor @Observable final class Abs {
-    @ObservationIgnored let d = UserDefaults.standard
+    @ObservationIgnored let d: UserDefaults
+    @ObservationIgnored let progressFile: URL
+    @ObservationIgnored let usesKeychain: Bool
+    @ObservationIgnored var progressDisk = ProgressDisk()
+    @ObservationIgnored var progressReady = false
+    @ObservationIgnored var progressTask: Task<Void, Never>?
+    @ObservationIgnored var progressWorker = UUID()
+    @ObservationIgnored var replayingProgress = false
+    @ObservationIgnored var accountGeneration = UUID()
+    // Credentials may rotate without revoking an already-playing title.
+    @ObservationIgnored var playbackGeneration = UUID()
     // General JSON belongs to a persisted login, not the stable retained-media owner.
     // Legacy json/ and account-json/ remain quarantined even if cleanup fails.
     var cacheDir: URL {
@@ -129,8 +139,8 @@ let resumeDir: URL = {
     var offline = false
     var expired = false
     var toast: String?
-    var me: String? = UserDefaults.standard.string(forKey: "me") { didSet { d.set(me, forKey: "me") } }
-    var accts: [String: Tok] = [:] { didSet { kcWrite(accts) } }
+    var me: String? { didSet { d.set(me, forKey: "me") } }
+    var accts: [String: Tok] = [:] { didSet { if usesKeychain { kcWrite(accts) }; pruneProgress() } }
     /// latest known progress per key, from /api/me plus our own pushes
     var progress: [String: Prog] = [:]
     /// favorites, newest first; favq = {id: on/off} changes not yet on the server
@@ -138,7 +148,7 @@ let resumeDir: URL = {
     var favq: [String: Bool] = [:] { didSet { store("favq", favq) } }
     var hist: [Hist] = [] { didSet { store("hist", hist) } }
     /// item id -> linked usernames whose progress follows ours
-    var shares: [String: [String]] = [:] { didSet { store("shares", shares) } }
+    var shares: [String: [String]] = [:] { didSet { store("shares", shares); pruneProgress() } }
     /// download paths ("item/inoext") still transferring; dlv bumps when downloads change
     var inflight = Set<String>()
     var dlv = 0
@@ -194,12 +204,17 @@ let resumeDir: URL = {
 
     var server: String { d.string(forKey: "server") ?? "" }
 
-    init() {
+    init(defaults: UserDefaults = .standard, progressFile: URL = URL.applicationSupportDirectory.appending(path: "progress.json"), accounts: [String: Tok]? = nil) {
+        d = defaults
+        self.progressFile = progressFile
+        usesKeychain = accounts == nil
+        me = defaults.string(forKey: "me")
+        mediaEpoch = defaults.string(forKey: "mediaEpoch") ?? UUID().uuidString
         // (property observers don't run in init)
         // Unbound legacy credentials cannot safely be migrated by guessing their host.
-        accts = Abs.kcRead().filter { $0.value.host == UserDefaults.standard.string(forKey: "server") && $0.value.host != nil }
+        accts = (accounts ?? Abs.kcRead()).filter { $0.value.host == defaults.string(forKey: "server") && $0.value.host != nil }
         if let name = me, accts[name] == nil { me = nil; d.removeObject(forKey: "me") }
-        kcWrite(accts)
+        if usesKeychain { kcWrite(accts) }
         fav = load("fav") ?? []
         favq = load("favq") ?? [:]
         hist = load("hist") ?? []
@@ -216,14 +231,14 @@ let resumeDir: URL = {
         }
         if me == nil && !accts.isEmpty { // the Keychain outlives a reinstall
             accts = [:]
-            kcWrite([:])
+            if usesKeychain { kcWrite([:]) }
         }
         if let name = me, var tok = accts[name], !server.isEmpty {
             if tok.mediaID == nil {
                 // Legacy caches have no proven account binding. Preserve, but never adopt.
                 tok.mediaID = tok.userID.map { "user:" + $0 } ?? "login:" + UUID().uuidString
                 accts[name] = tok
-                kcWrite(accts) // init property observers are not a persistence guarantee
+                if usesKeychain { kcWrite(accts) } // init property observers are not a persistence guarantee
             }
             mediaServer = server; mediaAccount = tok.mediaID
             d.set(mediaEpoch, forKey: "mediaEpoch")
@@ -240,6 +255,8 @@ let resumeDir: URL = {
         try? FileManager.default.removeItem(at: resumeDir)
         try? FileManager.default.createDirectory(at: resumeDir, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        progressReady = true
+        restoreProgress()
     }
 
     private struct DownloadQueue: Codable {
@@ -264,7 +281,7 @@ let resumeDir: URL = {
 
     // --- http
 
-    private func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:], base: String, epoch: String, account: (String, String)? = nil, report: Bool = true) async throws -> Data {
+    func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:], base: String, epoch: String, account: (String, String)? = nil, report: Bool = true) async throws -> Data {
         try checkSession(epoch)
         if let (name, id) = account { guard accts[name]?.id == id else { throw CancellationError() } }
         guard path.hasPrefix("/"), let url = URL(string: base + path), url.host == URL(string: base)?.host, url.scheme == URL(string: base)?.scheme, url.port == URL(string: base)?.port else { throw Msg(errorDescription: "Invalid server URL") }
@@ -291,7 +308,7 @@ let resumeDir: URL = {
         }
     }
 
-    func ping() async { _ = try? await http("GET", "/ping", base: server, epoch: mediaEpoch) }
+    func ping() async { if (try? await http("GET", "/ping", base: server, epoch: mediaEpoch)) != nil { startProgressReplay() } }
 
     // --- accounts
 
@@ -329,7 +346,9 @@ let resumeDir: URL = {
         try checkSession(epoch)
         guard main ? loginAttempt == attempt : linkedAttempts[name] == attempt else { throw CancellationError() }
         if main {
-            resetSession()
+            let old = me.flatMap { accts[$0] }
+            let same = s == server && actual == me && tok.userID != nil && tok.userID == old?.userID
+            resetSession(preservePlayback: same)
             d.set(s, forKey: "server")
             selectMedia(s, tok)
             accts = [actual: tok]
@@ -340,6 +359,10 @@ let resumeDir: URL = {
             refreshing.removeValue(forKey: actual)?.cancel()
             accts[actual] = tok
         }
+        progressReady = true
+        pruneProgress()
+        progress = progressDisk.local
+        startProgressReplay()
         return actual
     }
 
@@ -359,19 +382,23 @@ let resumeDir: URL = {
 
     var accounts: [String] { accts.keys.filter { $0 != me }.sorted() }
 
-    private func resetSession() {
+    private func resetSession(preservePlayback: Bool = false) {
+        accountGeneration = UUID()
+        progressReady = false
+        progressTask?.cancel(); progressTask = nil; progressWorker = UUID()
+        if !preservePlayback { playbackGeneration = UUID(); clearProgress() }
         cancel(Set(transfers.keys).union(dlRetry.keys)) // completed media is retained
         retryWake?.cancel(); retryWake = nil; fetching = []
         refreshing.values.forEach { $0.cancel() }; refreshing = [:]
         loginAttempt = UUID(); linkedAttempts = [:]
-        player.clear(); Covers.clear()
+        if !preservePlayback { player.clear() }; Covers.clear()
         dlq = []; dlRetry = [:]; inflight = []; got = [:]; transfers = [:]
         d.removeObject(forKey: "downloadQueue")
         try? FileManager.default.removeItem(at: resumeDir) // archives contain old credentials
         try? FileManager.default.createDirectory(at: resumeDir, withIntermediateDirectories: true)
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-        for key in d.dictionaryRepresentation().keys where key.hasPrefix("pos:") || key.hasPrefix("ratio:") || ["now", "lib"].contains(key) { d.removeObject(forKey: key) }
+        for key in d.dictionaryRepresentation().keys where key.hasPrefix("pos:") || key.hasPrefix("ratio:") || ["now", "lib"].contains(key) { if !preservePlayback || key != "now" { d.removeObject(forKey: key) } }
         accts = [:]; progress = [:]; fav = []; favq = [:]; hist = []; shares = [:]
         pushingFavs = false; offline = false; expired = false; toast = nil; me = nil
     }
@@ -380,6 +407,8 @@ let resumeDir: URL = {
         resetSession()
         d.removeObject(forKey: "server")
         selectMedia(nil)
+        progressReady = true
+        pruneProgress()
     }
 
     private func exp(_ t: String) -> Double {
@@ -691,51 +720,51 @@ let resumeDir: URL = {
 
     // --- progress. Shared items get every update pushed to those linked accounts too.
 
-    private func remote(_ name: String, _ key: String) async -> Pos? {
+    private func remote(_ name: String, _ key: String) async -> Prog? {
         guard let data = try? await api("GET", "/api/me/progress/\(key)", name: name),
               let p = try? JSONDecoder().decode(Prog.self, from: data) else { return nil }
-        return Pos(who: name, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+        return p
     }
 
     /// First = where this account should resume; the rest = linked accounts that listened more recently elsewhere.
     func positions(_ n: Now) async -> [Pos] {
-        let epoch = mediaEpoch
+        let generation = accountGeneration
         var mine = Pos(who: "You", time: 0, at: 0)
         if let s = d.string(forKey: "pos:\(n.key)")?.split(separator: ","), s.count == 2, let t = Double(s[0]), let at = Double(s[1]) {
             mine = Pos(who: "You", time: t, at: at)
         }
-        if let me, let r = await remote(me, n.key), r.at > mine.at { mine = Pos(who: "You", time: r.time, at: r.at) }
-        var out = [mine]
-        guard epoch == mediaEpoch, !Task.isCancelled else { return [] }
-        for a in shares[n.item] ?? [] {
-            guard epoch == mediaEpoch, !Task.isCancelled else { return [] }
-            if let r = await remote(a, n.key), r.at > mine.at, abs(r.time - mine.time) > 30 { out.append(r) }
+        if let p = progressDisk.local[n.key] { mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0) }
+        if let me, let r = await remote(me, n.key) {
+            guard generation == accountGeneration else { return [] }
+            mergeProgress(r, key: n.key)
+            persistProgress()
+            if let p = progressDisk.local[n.key], (p.lastUpdate ?? 0) >= mine.at {
+                mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+            }
         }
-        return epoch == mediaEpoch && !Task.isCancelled ? out : []
+        guard generation == accountGeneration else { return [] }
+        var out = [mine]
+        for a in shares[n.item] ?? [] {
+            if let p = await remote(a, n.key) {
+                guard generation == accountGeneration else { return [] }
+                let r = Pos(who: a, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+                if r.at > mine.at, abs(r.time - mine.time) > 30 { out.append(r) }
+            }
+        }
+        return generation == accountGeneration ? out : []
     }
 
     func setMe(_ m: Me) {
-        progress = Dictionary(m.mediaProgress.map { p in (p.episodeId.map { "\(p.libraryItemId)/\($0)" } ?? p.libraryItemId, p) }) { _, b in b }
+        for p in m.mediaProgress {
+            mergeProgress(p, key: p.episodeId.map { "\(p.libraryItemId)/\($0)" } ?? p.libraryItemId)
+        }
+        progress = progressDisk.local
+        persistProgress()
         syncFavs(m.bookmarks ?? [])
     }
 
     /// 0...1, or nil if never started
     func pct(_ key: String) -> Double? { progress[key].map { $0.isFinished == true ? 1 : $0.progress ?? 0 } }
-
-    func push(_ n: Now, _ pos: Double, finished: Bool) async {
-        let epoch = mediaEpoch
-        guard me != nil, !Task.isCancelled else { return }
-        let p = n.duration > 0 ? min(1, pos / n.duration) : 0
-        progress[n.key] = Prog(libraryItemId: n.item, episodeId: n.ep, progress: finished ? 1 : p, currentTime: pos, isFinished: finished, lastUpdate: ms())
-        d.set("\(pos),\(ms())", forKey: "pos:\(n.key)")
-        var b: [String: Any] = ["currentTime": pos, "duration": n.duration, "progress": p]
-        // only send isFinished=true: the server ignores "progress" when isFinished is present, and false would un-finish
-        if finished { b["isFinished"] = true }
-        for a in [me].compactMap({ $0 }) + (shares[n.item] ?? []) {
-            guard epoch == mediaEpoch, !Task.isCancelled else { return }
-            _ = try? await api("PATCH", "/api/me/progress/\(n.key)", b, name: a)
-        }
-    }
 
     // --- favorites: a per-user bookmark titled FAV on the item, so they sync across devices and work for podcasts too.
 

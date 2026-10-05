@@ -6,9 +6,12 @@ import UniformTypeIdentifiers
 @MainActor final class MediaLoader: NSObject, AVAssetResourceLoaderDelegate {
     let asset: AVURLAsset
     private let url: URL, token: String, epoch: String
+    private let source: Abs
+    private let playback: UUID?
     private var tasks: [ObjectIdentifier: Task<Void, Never>] = [:]
 
-    init(url: URL, token: String, epoch: String) {
+    init(url: URL, token: String, epoch: String, source: Abs = app, playback: UUID? = nil) {
+        self.source = source; self.playback = playback
         self.url = url; self.token = token; self.epoch = epoch
         var parts = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         parts.scheme = "abs-media"
@@ -28,23 +31,29 @@ import UniformTypeIdentifiers
         MainActor.assumeIsolated { tasks.removeValue(forKey: ObjectIdentifier(request))?.cancel() }
     }
 
+    private func check() throws {
+        try Task.checkCancellation()
+        if let playback { guard playback == source.playbackGeneration else { throw CancellationError() } }
+        else { try source.checkSession(epoch) }
+    }
+
     private func start(_ loading: AVAssetResourceLoadingRequest) {
         let id = ObjectIdentifier(loading)
         tasks[id] = Task {
             defer { tasks[id] = nil }
             do {
-                try app.checkSession(epoch)
+                try check()
                 let requested = loading.dataRequest
                 var offset = requested.map { max($0.requestedOffset, $0.currentOffset) } ?? 0
                 let end = requested.map { $0.requestedOffset + Int64($0.requestedLength) } ?? 2
                 repeat {
-                    try app.checkSession(epoch)
+                    try check()
                     let upper = requested?.requestsAllDataToEndOfResource == true ? offset + 262143 : min(offset + 262143, max(offset, end - 1))
                     var request = URLRequest(url: url)
                     request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
                     request.setValue("bytes=\(offset)-\(upper)", forHTTPHeaderField: "Range")
-                    let (data, response) = try await app.network.data(for: request)
-                    try app.checkSession(epoch)
+                    let (data, response) = try await source.network.data(for: request)
+                    try check()
                     guard let http = response as? HTTPURLResponse, http.statusCode == 206 else {
                         throw Msg(errorDescription: "Server must support byte-range streaming")
                     }

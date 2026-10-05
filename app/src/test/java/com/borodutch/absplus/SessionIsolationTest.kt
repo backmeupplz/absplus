@@ -204,7 +204,7 @@ class SessionIsolationTest {
         setup()
         Host("A").use { a -> Host("B").use { b ->
             login(a)
-            val epoch = Abs.mediaEpoch
+            val epoch = Abs.scope(playback = true).generation
             fun spec(url: String) = androidx.media3.datasource.DataSpec.Builder().setUri(url).setKey(epoch.toString()).build()
             val media = SessionDataSource()
             assertEquals(2L, media.open(spec(a.url + "/api/audio")))
@@ -246,6 +246,30 @@ class SessionIsolationTest {
             assertNotEquals(epoch, Abs.mediaEpoch)
             assertTrue(Abs.accounts().isEmpty()); assertTrue(Abs.favs().isEmpty()); assertTrue(Abs.shares("book").isEmpty())
             assertTrue(runCatching { Abs.streamToken(Uri.parse(a.url + "/api/audio"), epoch) }.exceptionOrNull() is StaleSession)
+        }
+    }
+
+    @Test fun sameAccountJournalAndPlaybackSurviveReauthButReusedUsernameDoesNot() {
+        setup()
+        Host("A").use { host ->
+            login(host)
+            Abs.startProgress(false)
+            val n = Now("book", null, "Book", "", listOf(Track("1", ".wav", 4, 100.0, 0.0)))
+            val playing = Abs.scope(playback = true)
+            val request = Abs.scope()
+            Abs.bindPlayback(n, playing)
+            Abs.push(n, 31.0, false)
+            login(host)
+            Abs.startProgress(false)
+            assertEquals(playing, Abs.nowScope)
+            assertNotEquals(request, Abs.scope())
+            assertEquals(31.0, Abs.progressSync.local()[n.key]!!.getDouble("currentTime"), 0.0)
+            host.idOverride = "different-immutable-account"
+            login(host)
+            Abs.startProgress(false)
+            assertNull(Abs.nowScope)
+            assertTrue(Abs.progressSync.local().isEmpty())
+            assertNotEquals(playing, Abs.scope(playback = true))
         }
     }
 

@@ -68,3 +68,39 @@ The retry policy is integrated with foreground redirect-rejecting transport, not
 Validation uses the isolated ABS33-RetryMerge simulator (15AF3FFE-0214-4830-AB2D-4D5B24F60756). Android testDebugUnitTest/assembleDebug/assembleRelease passed with 34 tests, zero failures (/tmp/abs33-retry-android.log). The unsigned iOS Release simulator build passed (/tmp/abs33-retry-release.log). The first focused four-test run passed (/tmp/abs33-retry-focused.xcresult). The union run passed 12/13 tests; the existing playback fixture raced AVQueuePlayer discarding its failed synthetic item. The fixture now holds that media response while inspecting the production player, preserving all isolation assertions; focused recovery results follow below.
 
 Recovery passed all four retry/retained/isolation tests with zero failures/skips; xcodebuild exited 0 and the finalized bundle reports Passed (/tmp/abs33-retry-recovered.xcresult, /tmp/abs33-retry-recovered.log). The other nine tests passed in the union run (/tmp/abs33-retry-union.xcresult); no claim is made of a second full-union green run. Owned post-test simctl diagnostic children stalled and were terminated only after XCTest completed, allowing normal result finalization. Some read/staging command wrappers reported cleanup deadlines after printing complete output; actual staged state and native terminal results were checked. Existing AVAudioSession warnings remain. git diff --check passed. No publishing or board actions were performed.
+
+## Offline progress integration (#34)
+
+Integrated origin/main 389b53b. Request/login generation still changes on every successful
+main login; playback generation survives only a provably identical host, username and
+immutable server user ID. Missing IDs never establish continuity. Same-account reauth
+keeps the main-account durable progress journal and ongoing player, while rotating JSON
+namespace and clearing linked authorization, shares, favorites/history and active downloads.
+Identity changes/logout clear playback and journal; retained media remains account-partitioned.
+Pending play/restore/resume choices keep their initiating request and playback scopes.
+
+Android cache commit and session mutation share one lock. Replay checks its journal lock
+outside the account lock and performs network requests without holding either journal lock;
+validated login/logout replace the replay worker, never candidate authentication. Journals
+record immutable owner/recipient identities, not credentials. Swift replay uses the guarded
+immutable-host/account transport, and cancellation cleanup cannot erase a replacement worker.
+Foreground no-redirect downloads and resource-loader streaming remain in place. CI retains
+all nine iOS suites, including ProgressReplay, and the full Android suite.
+
+Integration validation: Android full testDebugUnitTest + assembleDebug + assembleRelease
+exited 0 with 80 tests, zero failures/errors/skips (/tmp/abs33-f169-android.log).
+All nine iOS suites were executed: 14/15 passed in /tmp/abs33-f169-final-tests.xcresult;
+the Accessibility About test runner terminated with SIGTERM, not an assertion failure.
+Exact final-source recovery passed all four selected tests (About, both ProgressReplay,
+SessionIsolation), zero failures/skips, exit 0, finalized Passed bundle
+/tmp/abs33-f169-final-recovery.xcresult. The final one-line mirror-publication correction
+was covered by that recovery. No claim of a single 15/15 green union invocation.
+Latest unsigned Release simulator build and Debug build-for-testing exited 0
+(/tmp/abs33-f169-release.log, /tmp/abs33-f169-buildtests.log). Dedicated simulator
+9A662338-0141-4E3B-A181-94FCADEAC675 and /tmp/abs33-f169-final-derived only.
+Owned stalled post-test simctl diagnostic children were stopped after XCTest completed;
+Xcode finalized normally. Existing AVAudioSession warnings remain.
+Initial fixture failures were repaired through production synthetic login, explicit
+URLProtocol installation on reconstructed ephemeral sessions, and per-account audio
+seeding; original isolation assertions remain, with credential-byte equality separated
+from intentionally fresh login identity. No real credentials, personal devices or publish.

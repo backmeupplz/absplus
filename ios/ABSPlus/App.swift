@@ -7,7 +7,9 @@ struct ABSPlusApp: App {
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
+            if ProcessInfo.processInfo.arguments.contains("--progress-test") {
+                ProgressFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
                 DownloadRetryFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
                 AccessibilityFixture()
@@ -78,6 +80,7 @@ struct RootView: View {
                 .sheet(isPresented: $full) { FullPlayer() }
                 .task(id: app.mediaEpoch) {
                     let epoch = app.mediaEpoch
+                    app.startProgressReplay()
                     await player.restore()
                     guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
                     await app.resumeQueue()
@@ -85,7 +88,7 @@ struct RootView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await app.resumeQueue() } }
+            if phase == .active { app.startProgressReplay(); Task { await app.resumeQueue() } }
         }
         .onChange(of: app.mediaEpoch) { full = false; tab = 0 }
         .overlay(alignment: .top) {
@@ -112,10 +115,10 @@ struct RootView: View {
                 await app.ping()
             }
         }
-        .confirmationDialog("Resume “\(player.choices?.0.title ?? "")” from", isPresented: Bindable(player).choices.some(), titleVisibility: .visible) {
+        .confirmationDialog("Resume “\(player.choices?.title.title ?? "")” from", isPresented: Bindable(player).choices.some(), titleVisibility: .visible) {
             if let c = player.choices {
-                ForEach(c.1.indices, id: \.self) { i in
-                    Button("\(c.1[i].who) — \(fmt(c.1[i].time))") { player.start(c.0, c.1[i].time) }
+                ForEach(c.positions.indices, id: \.self) { i in
+                    Button("\(c.positions[i].who) — \(fmt(c.positions[i].time))") { player.resume(c, at: i) }
                 }
             }
         }

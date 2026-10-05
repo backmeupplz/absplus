@@ -236,7 +236,7 @@ class AccountPlayerIsolationTest {
             }
             try {
                 connect()
-                activity.get().call("start", now, 0.0, false)
+                activity.get().call("start", now, 0.0, false, Abs.scope(playback = true))
                 drainUntil { player.mediaItemCount == 1 }
                 assertEquals("file", player.currentMediaItem!!.localConfiguration!!.uri.scheme)
                 drainUntil { player.playbackState == Player.STATE_READY || player.playerError != null }
@@ -249,7 +249,7 @@ class AccountPlayerIsolationTest {
                 assertTrue(host.entered.await(5, TimeUnit.SECONDS))
                 activity.pause().stop().start().resume(); connect()
                 activity.get().call("restore")
-                activity.get().call("start", now, 0.0, true)
+                activity.get().call("start", now, 0.0, true, Abs.scope(playback = true))
                 shadowOf(Looper.getMainLooper()).idle()
                 assertEquals(0, player.mediaItemCount)
                 activity.pause().stop().destroy()
