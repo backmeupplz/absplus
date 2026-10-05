@@ -57,7 +57,7 @@ class LoadingTest {
         val executor = Executors.newCachedThreadPool()
         server.executor = executor
         Abs.offline = false
-        Abs.now = null
+        Abs.clearPlayback()
         (Abs::class.java.getDeclaredField("cacheDir").apply { isAccessible = true }.get(Abs) as File).listFiles()?.forEach { it.delete() }
         Abs.p.edit().clear().putString("server", "http://127.0.0.1:" + server.address.port).putString("me", "fixture")
             .putString("acct:fixture", """{"a":"fixture","r":""}""").putString("favq", """{}""").commit()
@@ -191,7 +191,7 @@ class LoadingTest {
         s.route("/api/me/progress/audio") { calls.incrementAndGet(); release.await(5, TimeUnit.SECONDS); """{"currentTime":12}""" }; s.start()
         a.call("push", { a.call("shelf", "Audio", emptyList<Card>(), 1f) })
         val n = Now("audio", null, "Audio", "", listOf(Track("1", ".mp3", 10, 60.0, 0.0)))
-        repeat(3) { a.call("play", n) }; assertTrue(a.has("Loading audio…"))
+        repeat(3) { a.call("play", n, Abs.scope(playback = true)) }; assertTrue(a.has("Loading audio…"))
         await { calls.get() == 1 }; a.onBackPressedDispatcher.onBackPressed(); release.countDown()
         await { Main::class.java.getDeclaredField("pendingPlay").apply { isAccessible = true }.get(a) == null }
         assertFalse(a.has("Loading audio…")); assertNull(Abs.now); assertEquals(1, calls.get())
@@ -287,8 +287,8 @@ class LoadingTest {
         s.route("/api/me/progress/new") { newCalls.incrementAndGet(); newRelease.await(5, TimeUnit.SECONDS); "{}" }; s.start()
         a.call("push", { a.call("shelf", "Play", emptyList<Card>(), 1f) })
         fun now(id: String) = Now(id, null, id, "", listOf(Track("audio", ".mp3", 10, 60.0, 0.0)))
-        a.call("play", now("old")); await { oldCalls.get() == 1 }
-        a.call("play", now("new")); a.call("play", now("new")); await { newCalls.get() == 1 }
+        a.call("play", now("old"), Abs.scope(playback = true)); await { oldCalls.get() == 1 }
+        a.call("play", now("new"), Abs.scope(playback = true)); a.call("play", now("new"), Abs.scope(playback = true)); await { newCalls.get() == 1 }
         oldRelease.countDown()
         val pending = Main::class.java.getDeclaredField("pendingPlay").apply { isAccessible = true }
         await { views(a.content()).filterIsInstance<TextView>().count { it.text == "Loading audio…" && visible(it) } == 1 }

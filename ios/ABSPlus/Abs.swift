@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import Security
 
 struct Track: Codable, Hashable {
@@ -63,7 +64,7 @@ struct Libraries: Decodable { var libraries: [Library] }
 struct Results<T: Decodable>: Decodable { var results: [T] }
 struct Series: Decodable { var id: String, name: String, books: [Item] }
 struct InProgress: Decodable { var libraryItems: [Item] }
-struct Prog: Decodable { var libraryItemId: String, episodeId: String?, progress: Double?, currentTime: Double?, isFinished: Bool?, lastUpdate: Double? }
+struct Prog: Codable { var libraryItemId: String, episodeId: String?, progress: Double?, currentTime: Double?, isFinished: Bool?, lastUpdate: Double? }
 struct Bookmark: Decodable { var libraryItemId: String, title: String? }
 struct Me: Decodable { var mediaProgress: [Prog], bookmarks: [Bookmark]? }
 struct LoginResp: Decodable {
@@ -109,15 +110,25 @@ let resumeDir: URL = {
 
 /// Server API, accounts, downloads, progress. Settings live in UserDefaults, login tokens in the Keychain.
 @MainActor @Observable final class Abs {
-    @ObservationIgnored let d = UserDefaults.standard
+    @ObservationIgnored let d: UserDefaults
+    @ObservationIgnored let progressFile: URL
+    @ObservationIgnored let usesKeychain: Bool
+    @ObservationIgnored var progressDisk = ProgressDisk()
+    @ObservationIgnored var progressReady = false
+    @ObservationIgnored var progressTask: Task<Void, Never>?
+    @ObservationIgnored var replayingProgress = false
+    @ObservationIgnored var accountGeneration = UUID()
+    // Credentials may rotate without revoking an already-playing title.
+    @ObservationIgnored var playbackGeneration = UUID()
+    @ObservationIgnored private var loginAttempt = UUID()
     @ObservationIgnored let cacheDir = URL.applicationSupportDirectory.appending(path: "json")
 
     /// set when the server can't be reached; cleared by the next successful request
     var offline = false
     var expired = false
     var toast: String?
-    var me: String? = UserDefaults.standard.string(forKey: "me") { didSet { d.set(me, forKey: "me") } }
-    var accts: [String: Tok] = [:] { didSet { kcWrite(accts) } }
+    var me: String? { didSet { d.set(me, forKey: "me"); if oldValue != me { accountGeneration = UUID(); playbackGeneration = UUID(); pruneProgress() } } }
+    var accts: [String: Tok] = [:] { didSet { if usesKeychain { kcWrite(accts) }; pruneProgress() } }
     /// latest known progress per key, from /api/me plus our own pushes
     var progress: [String: Prog] = [:]
     /// favorites, newest first; favq = {id: on/off} changes not yet on the server
@@ -125,7 +136,7 @@ let resumeDir: URL = {
     var favq: [String: Bool] = [:] { didSet { store("favq", favq) } }
     var hist: [Hist] = [] { didSet { store("hist", hist) } }
     /// item id -> linked usernames whose progress follows ours
-    var shares: [String: [String]] = [:] { didSet { store("shares", shares) } }
+    var shares: [String: [String]] = [:] { didSet { store("shares", shares); pruneProgress() } }
     /// download paths ("item/inoext") still transferring; dlv bumps when downloads change
     var inflight = Set<String>()
     var dlv = 0
@@ -152,9 +163,13 @@ let resumeDir: URL = {
 
     var server: String { d.string(forKey: "server") ?? "" }
 
-    init() {
-        // (property observers don't run in init)
-        accts = Abs.kcRead()
+    init(defaults: UserDefaults = .standard, progressFile: URL = URL.applicationSupportDirectory.appending(path: "progress.json"), accounts: [String: Tok]? = nil) {
+        self.d = defaults
+        self.progressFile = progressFile
+        self.usesKeychain = accounts == nil
+        me = defaults.string(forKey: "me")
+        // Keep outbox pruning disabled until accounts and shares are restored.
+        accts = accounts ?? Abs.kcRead()
         fav = load("fav") ?? []
         favq = load("favq") ?? [:]
         hist = load("hist") ?? []
@@ -165,9 +180,11 @@ let resumeDir: URL = {
         transfers = load("transfers") ?? [:]
         if me == nil && !accts.isEmpty { // the Keychain outlives a reinstall
             accts = [:]
-            kcWrite([:])
+            if usesKeychain { kcWrite([:]) }
         }
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        progressReady = true
+        restoreProgress()
     }
 
     private func load<T: Decodable>(_ k: String) -> T? { d.data(forKey: k).flatMap { try? JSONDecoder().decode(T.self, from: $0) } }
@@ -181,10 +198,11 @@ let resumeDir: URL = {
 
     // --- http
 
-    private func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:]) async throws -> Data {
+    func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:], endpoint: String? = nil) async throws -> Data {
         let context = server
         let account = me
-        guard let url = URL(string: context + path) else { throw Msg(errorDescription: "Invalid server URL") }
+        let generation = accountGeneration
+        guard let url = URL(string: (endpoint ?? context) + path) else { throw Msg(errorDescription: "Invalid server URL") }
         var r = URLRequest(url: url, timeoutInterval: 20)
         r.httpMethod = method
         hdr.forEach { r.setValue($1, forHTTPHeaderField: $0) }
@@ -195,13 +213,13 @@ let resumeDir: URL = {
         do {
             let (data, resp) = try await URLSession.shared.data(for: r)
             try Task.checkCancellation()
-            guard server == context, me == account else { throw CancellationError() }
+            guard generation == accountGeneration, server == context, me == account else { throw CancellationError() }
             offline = false
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code >= 400 { throw HttpErr(code: code, retryAfter: (resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After")) }
             return data
         } catch let e as URLError where e.code != .cancelled {
-            guard server == context, me == account else { throw CancellationError() }
+            guard generation == accountGeneration, server == context, me == account else { throw CancellationError() }
             offline = true
             throw e
         }
@@ -212,7 +230,7 @@ let resumeDir: URL = {
         guard !pinging, !Task.isCancelled else { return }
         pinging = true
         defer { pinging = false }
-        _ = try? await http("GET", "/ping")
+        if (try? await http("GET", "/ping")) != nil { startProgressReplay() }
     }
 
     // --- accounts
@@ -225,25 +243,47 @@ let resumeDir: URL = {
 
     /// Logs in; main = the account this app runs as, otherwise a linked account for progress sharing.
     func login(_ url: String, _ user: String, _ pass: String, main: Bool) async throws -> String {
+        var endpoint = server
         if main {
             var s = url.trimmingCharacters(in: .whitespaces)
             while s.hasSuffix("/") { s.removeLast() }
-            d.set(s.contains("://") ? s : "https://" + s, forKey: "server")
+            endpoint = s.contains("://") ? s : "https://" + s
         }
+        let attempt = UUID(), generation = accountGeneration
+        loginAttempt = attempt
         let r: Data
         do {
-            r = try await http("POST", "/login", ["username": user.trimmingCharacters(in: .whitespaces), "password": pass], ["x-return-tokens": "true"])
+            r = try await http("POST", "/login", ["username": user.trimmingCharacters(in: .whitespaces), "password": pass], ["x-return-tokens": "true"], endpoint: endpoint)
         } catch let e as HttpErr where e.code == 401 {
             throw Msg(errorDescription: "Wrong username or password")
         }
-        try Task.checkCancellation()
+        let u = try JSONDecoder().decode(LoginResp.self, from: r).user
+        guard attempt == loginAttempt, generation == accountGeneration, !Task.isCancelled else { throw CancellationError() }
+        if main {
+            // Authenticate before changing the persisted scope. Even same-username
+            // server switches must invalidate old replay/refresh responses.
+            accountGeneration = UUID()
+            refreshing.values.forEach { $0.cancel() }
+            refreshing = [:]
+            if endpoint != server || u.username != me {
+                playbackGeneration = UUID()
+                clearAccountMirrors()
+                accts = [:]
+                shares = [:]
+            }
+            d.set(endpoint, forKey: "server")
+        }
         let name = try save(r)
         if main { me = name; expired = false }
+        pruneProgress()
+        startProgressReplay()
         return name
     }
 
     /// Forgets a linked account: its tokens, its shares, and its server session.
     func unlink(_ name: String) {
+        refreshing[name]?.cancel()
+        refreshing[name] = nil
         let tok = accts.removeValue(forKey: name)
         shares = shares.mapValues { $0.filter { $0 != name } }
         if let tok { Task { _ = try? await http("POST", "/logout", [:], ["x-refresh-token": tok.r]) } }
@@ -251,16 +291,31 @@ let resumeDir: URL = {
 
     var accounts: [String] { accts.keys.filter { $0 != me }.sorted() }
 
-    func logout() {
-        downloadEpoch = UUID()
-        refreshing.values.forEach { $0.cancel() }; refreshing = [:]
-        retryWake?.cancel(); retryWake = nil
-        cancel(Set(transfers.keys).union(dlRetry.keys)) // downloads stop, files stay
-        dlq = []
-        d.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
+    /// Unscoped account mirrors cannot survive a successful identity change.
+    /// Download files/queues are handled separately from these mirrors.
+    private func clearAccountMirrors() {
+        clearProgress()
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-        accts = [:]; progress = [:]; fav = []; favq = [:]; hist = []; shares = [:]
+        for key in d.dictionaryRepresentation().keys where key == "now" || key == "lib" || key.hasPrefix("pos:") || key.hasPrefix("ratio:") {
+            d.removeObject(forKey: key)
+        }
+        progress = [:]; fav = []; favq = [:]; hist = []; shares = [:]
+        dlMemo = [:]
+    }
+
+    func logout() {
+        accountGeneration = UUID()
+        playbackGeneration = UUID()
+        refreshing.values.forEach { $0.cancel() }
+        refreshing = [:]
+        clearAccountMirrors()
+        downloadEpoch = UUID()
+        retryWake?.cancel(); retryWake = nil
+        cancel(Set(transfers.keys).union(dlRetry.keys).union(inflight)) // downloads stop, files stay
+        dlq = []
+        d.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
+        accts = [:]
         me = nil
     }
 
@@ -279,14 +334,13 @@ let resumeDir: URL = {
         guard let name = name ?? me, let a = accts[name] else { throw Expired() }
         if !force && exp(a.a) - Date().timeIntervalSince1970 > fresh { return a.a }
         if let t = refreshing[name] { return try await t.value }
-        let epoch = downloadEpoch
-        let host = server
+        let generation = accountGeneration
+        let origin = server
         let t = Task {
-            defer { if epoch == downloadEpoch { refreshing[name] = nil } }
+            defer { if generation == accountGeneration { refreshing[name] = nil } }
             do {
                 let data = try await http("POST", "/auth/refresh", [:], ["x-refresh-token": a.r])
-                try Task.checkCancellation()
-                guard epoch == downloadEpoch, host == server, accts[name]?.r == a.r else { throw CancellationError() }
+                guard generation == accountGeneration, origin == server, accts[name]?.r == a.r, !Task.isCancelled else { throw CancellationError() }
                 try save(data)
                 return accts[name]?.a ?? ""
             } catch let e as HttpErr where e.code == 401 && name == me {
@@ -298,7 +352,14 @@ let resumeDir: URL = {
     }
 
     func api(_ method: String, _ path: String, _ body: [String: Any]? = nil, name: String? = nil) async throws -> Data {
-        try await http(method, path, body, ["Authorization": "Bearer " + (try await token(name))])
+        let generation = accountGeneration
+        let origin = server
+        let account = name ?? me
+        let auth = try await token(account)
+        guard generation == accountGeneration, origin == server, let account, accts[account] != nil, !Task.isCancelled else { throw CancellationError() }
+        let data = try await http(method, path, body, ["Authorization": "Bearer " + auth])
+        guard generation == accountGeneration, origin == server, accts[account] != nil else { throw CancellationError() }
+        return data
     }
 
     // --- json cache, so screens render instantly and work offline
@@ -308,15 +369,24 @@ let resumeDir: URL = {
     }
     func cached(_ path: String) -> Data? { try? Data(contentsOf: cacheFile(path)) }
 
+    func get(_ path: String) async throws -> Data {
+        let generation = accountGeneration
+        let data = try await api("GET", path)
+        guard generation == accountGeneration, !Task.isCancelled else { throw CancellationError() }
+        try? data.write(to: cacheFile(path))
+        return data
+    }
+
     /// Renders cached JSON instantly, then refreshes from the server.
     @discardableResult
     func load<T: Decodable>(_ path: String, _ render: (T) -> Void) async -> String? {
         guard !Task.isCancelled else { return nil }
+        let generation = accountGeneration
         let old = cached(path)
         if let old, let v = try? JSONDecoder().decode(T.self, from: old) { render(v) }
         do {
             let new = try await api("GET", path)
-            try Task.checkCancellation()
+            guard generation == accountGeneration, !Task.isCancelled else { return nil }
             let value = try JSONDecoder().decode(T.self, from: new)
             try? new.write(to: cacheFile(path))
             if new != old { render(value) }
@@ -516,7 +586,8 @@ let resumeDir: URL = {
         dlq.removeAll { $0.key == n.key }
         n.tracks.forEach { try? FileManager.default.removeItem(at: file(n.item, $0)) }
         let dir = dlDir.appending(path: n.item)
-        if (try? FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty) == true { try? FileManager.default.removeItem(at: dir) }
+        // Never recursively remove an episode's shared folder, even if a sibling arrives during cleanup.
+        _ = dir.withUnsafeFileSystemRepresentation { path in path.map { Darwin.rmdir($0) } }
         dlChanged()
     }
 
@@ -535,45 +606,51 @@ let resumeDir: URL = {
 
     // --- progress. Shared items get every update pushed to those linked accounts too.
 
-    private func remote(_ name: String, _ key: String) async -> Pos? {
+    private func remote(_ name: String, _ key: String) async -> Prog? {
         guard let data = try? await api("GET", "/api/me/progress/\(key)", name: name),
               let p = try? JSONDecoder().decode(Prog.self, from: data) else { return nil }
-        return Pos(who: name, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+        return p
     }
 
     /// First = where this account should resume; the rest = linked accounts that listened more recently elsewhere.
     func positions(_ n: Now) async -> [Pos] {
+        let generation = playbackGeneration
         var mine = Pos(who: "You", time: 0, at: 0)
         if let s = d.string(forKey: "pos:\(n.key)")?.split(separator: ","), s.count == 2, let t = Double(s[0]), let at = Double(s[1]) {
             mine = Pos(who: "You", time: t, at: at)
         }
-        if let me, let r = await remote(me, n.key), r.at > mine.at { mine = Pos(who: "You", time: r.time, at: r.at) }
+        if let p = progressDisk.local[n.key] { mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0) }
+        if let me, let r = await remote(me, n.key) {
+            guard generation == playbackGeneration else { return [] }
+            mergeProgress(r, key: n.key)
+            persistProgress()
+            if let p = progressDisk.local[n.key], (p.lastUpdate ?? 0) >= mine.at {
+                mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+            }
+        }
+        guard generation == playbackGeneration else { return [] }
         var out = [mine]
         for a in shares[n.item] ?? [] {
-            if let r = await remote(a, n.key), r.at > mine.at, abs(r.time - mine.time) > 30 { out.append(r) }
+            if let p = await remote(a, n.key) {
+                guard generation == playbackGeneration else { return [] }
+                let r = Pos(who: a, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+                if r.at > mine.at, abs(r.time - mine.time) > 30 { out.append(r) }
+            }
         }
-        return out
+        return generation == playbackGeneration ? out : []
     }
 
     func setMe(_ m: Me) {
-        progress = Dictionary(m.mediaProgress.map { p in (p.episodeId.map { "\(p.libraryItemId)/\($0)" } ?? p.libraryItemId, p) }) { _, b in b }
+        for p in m.mediaProgress {
+            mergeProgress(p, key: p.episodeId.map { "\(p.libraryItemId)/\($0)" } ?? p.libraryItemId)
+        }
+        progress = progressDisk.local
+        persistProgress()
         syncFavs(m.bookmarks ?? [])
     }
 
     /// 0...1, or nil if never started
     func pct(_ key: String) -> Double? { progress[key].map { $0.isFinished == true ? 1 : $0.progress ?? 0 } }
-
-    func push(_ n: Now, _ pos: Double, finished: Bool) async {
-        let p = n.duration > 0 ? min(1, pos / n.duration) : 0
-        progress[n.key] = Prog(libraryItemId: n.item, episodeId: n.ep, progress: finished ? 1 : p, currentTime: pos, isFinished: finished, lastUpdate: ms())
-        d.set("\(pos),\(ms())", forKey: "pos:\(n.key)")
-        var b: [String: Any] = ["currentTime": pos, "duration": n.duration, "progress": p]
-        // only send isFinished=true: the server ignores "progress" when isFinished is present, and false would un-finish
-        if finished { b["isFinished"] = true }
-        for a in [me].compactMap({ $0 }) + (shares[n.item] ?? []) {
-            _ = try? await api("PATCH", "/api/me/progress/\(n.key)", b, name: a)
-        }
-    }
 
     // --- favorites: a per-user bookmark titled FAV on the item, so they sync across devices and work for podcasts too.
 
@@ -595,13 +672,16 @@ let resumeDir: URL = {
         if pushingFavs { return }
         pushingFavs = true
         defer { pushingFavs = false }
+        let generation = playbackGeneration
         for (id, on) in favq {
+            guard generation == playbackGeneration else { return }
             var ok = true
             do {
                 if on { _ = try await api("POST", "/api/me/item/\(id)/bookmark", ["time": FAV_T, "title": FAV]) }
                 else { _ = try await api("DELETE", "/api/me/item/\(id)/bookmark/\(FAV_T)") }
             } catch let e as HttpErr where (400..<500).contains(e.code) { // e.g. already removed
             } catch { ok = false }
+            guard generation == playbackGeneration else { return }
             if ok && favq[id] == on { favq[id] = nil } // unless toggled again meanwhile
         }
     }

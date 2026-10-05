@@ -40,13 +40,13 @@ class AccessibilityTest {
         activity = controller.get()
         Abs.p.edit().clear().putString("server", "http://127.0.0.1:1").commit()
         Abs.offline = false
-        Abs.now = null
+        Abs.clearPlayback()
         Dl.jobs.clear()
     }
 
     @After fun tearDown() {
         ShadowDialog.getLatestDialog()?.dismiss()
-        Abs.now = null
+        Abs.clearPlayback()
         Dl.jobs.clear()
         Abs.file("pod", Track("two", ".mp3", 7, 60.0, 0.0)).delete()
         Abs.p.edit().clear().commit()
@@ -184,7 +184,7 @@ class AccessibilityTest {
         assertTrue(future.isDone)
         val media = future.get()
         field("ctl").set(activity, media)
-        Abs.now = Now("fixture-book", null, "A book", "Author", listOf(Track("audio", ".mp3", 0, 120.0, 0.0)))
+        Abs.bindPlayback(Now("fixture-book", null, "A book", "Author", listOf(Track("audio", ".mp3", 0, 120.0, 0.0))), Abs.scope(playback = true))
         try {
             call("updatePlayer")
             val mini = field("miniPlay").get(activity) as MaterialButton

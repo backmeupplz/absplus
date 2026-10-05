@@ -94,6 +94,7 @@ class Main : AppCompatActivity() {
     }
     private var playRequest = 0
     private var pendingPlay: String? = null
+    private var pendingPlayScope: Abs.Scope? = null
     private var playStatus: LoadStatus? = null
     private var pinging = false
     private var screen = 0 // visible page identity; retained pages still receive their own results
@@ -148,6 +149,7 @@ class Main : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        Abs.progressSync.wake()
         val f = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlayerService::class.java))).buildAsync()
         fut = f
         f.addListener({ if (fut === f && !isDestroyed) { ctl = runCatching { f.get() }.getOrNull(); restore() } }, mainExecutor)
@@ -424,7 +426,7 @@ class Main : AppCompatActivity() {
         onDl = onReturn
         show(page)
         refresh()
-        load("/api/me", retained = true, label = "progress") { Abs.setMe(it); cont.adapter?.notifyDataSetChanged() }
+        load("/api/me", retained = true, label = "progress") { cont.adapter?.notifyDataSetChanged() }
         load("/api/me/items-in-progress?limit=20", retained = true, label = "continue listening") { j ->
             val a = j.getJSONArray("libraryItems")
             loaded = true
@@ -455,8 +457,8 @@ class Main : AppCompatActivity() {
         var sel = Abs.p.getString("lib", null)
         val owner = screen
         val rows = loadRows
-        val account = Abs.server to Abs.me
-        fun ownsLibrary() = account == (Abs.server to Abs.me) && Abs.p.getString("lib", null) == sel &&
+        val captured = Abs.scope()
+        fun ownsLibrary() = captured == Abs.scope() && Abs.p.getString("lib", null) == sel &&
             (owner == screen || stack.any { it.generation == owner })
         var request = 0
         var g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
@@ -540,7 +542,7 @@ class Main : AppCompatActivity() {
                     filter()
                 }
             }
-            load("/api/me", retained = true, label = "progress") { Abs.setMe(it); g.adapter?.notifyDataSetChanged() }
+            load("/api/me", retained = true, label = "progress") { g.adapter?.notifyDataSetChanged() }
         }
         onReturn = {
             filter()
@@ -639,9 +641,8 @@ class Main : AppCompatActivity() {
         show(col(header("Favorites"), empty, g.lp(-1, 0, 1f)))
         refresh()
         empty.isVisible = false
-        load("/api/me", retained = true, label = "favorites") { me ->
+        load("/api/me", retained = true, label = "favorites") {
             membershipLoaded = true
-            Abs.setMe(me)
             refresh()
             favs.filter { it.title.isEmpty() }.forEach { c ->
                 load("/api/items/${c.id}", retained = true, label = "favorite details") { item ->
@@ -1117,7 +1118,7 @@ class Main : AppCompatActivity() {
 
     // --- playback
 
-    private fun playCard(c: Card) = preparePlay(c.key) {
+    private fun playCard(c: Card) = preparePlay(c.key, Abs.scope(playback = true)) { captured ->
         val path = "/api/items/${c.id}?expanded=1"
         fun decode(raw: String): Now {
             val j = JSONObject(raw)
@@ -1132,14 +1133,16 @@ class Main : AppCompatActivity() {
             check(n.tracks.isNotEmpty()) { "No audio" }
             return n
         }
-        runCatching { Abs.cached(path)?.let(::decode) }.getOrNull() ?: decode(Abs.get(path) { decode(it) })
+        runCatching { Abs.cached(path, captured)?.let(::decode) }.getOrNull() ?: decode(Abs.get(path, captured) { decode(it) })
     }
 
-    private fun play(n: Now) = preparePlay(n.key) { n }
+    private fun play(n: Now, captured: Abs.Scope = Abs.scope(playback = true)) = preparePlay(n.key, captured) { n }
 
-    private fun preparePlay(key: String, get: () -> Now) {
-        if (pendingPlay == key) return
+    private fun preparePlay(key: String, captured: Abs.Scope, get: (Abs.Scope) -> Now) {
+        if (captured != Abs.scope(playback = true)) return
+        if (pendingPlay == key && pendingPlayScope == captured) return
         pendingPlay = key
+        pendingPlayScope = captured
         val request = ++playRequest
         val gen = screen
         playStatus?.success()
@@ -1147,53 +1150,63 @@ class Main : AppCompatActivity() {
         playStatus = state
         state.loading(false)
         bg({
-            val n = get()
+            Abs.inScope(captured) {}
+            val n = get(captured)
             check(n.tracks.isNotEmpty()) { "No audio" }
-            n to Abs.positions(n)
+            n to Abs.positions(n, captured)
         }, { e ->
-            if (request != playRequest || gen != screen) state.success()
+            if (request != playRequest || gen != screen || captured != Abs.scope(playback = true) || e is StaleScope) {
+                state.success()
+                if (request == playRequest) pendingPlay = null
+                return@bg
+            }
             if (request == playRequest && gen == screen) {
                 pendingPlay = null
-                state.failed(false, e) { state.success(); preparePlay(key, get) }
+                state.failed(false, e) { state.success(); preparePlay(key, captured, get) }
             }
         }) { (n, ps) ->
-            if (request != playRequest || gen != screen) { state.success(); return@bg }
+            if (request != playRequest || gen != screen || captured != Abs.scope(playback = true)) {
+                state.success()
+                if (request == playRequest) pendingPlay = null
+                return@bg
+            }
             pendingPlay = null
             state.success()
-            if (ctl == null) { state.failed(false, IllegalStateException("Player not ready")) { state.success(); preparePlay(key, get) }; return@bg }
-            if (ps.size == 1) start(n, ps[0].time)
+            if (ctl == null) { state.failed(false, IllegalStateException("Player not ready")) { state.success(); preparePlay(key, captured, get) }; return@bg }
+            if (ps.size == 1) start(n, ps[0].time, captured = captured)
             else MaterialAlertDialogBuilder(this).setTitle("Resume “${n.title}” from")
                 .setItems(ps.map { "${it.who} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i ->
-                    if (request == playRequest && gen == screen) start(n, ps[i].time)
+                    if (request == playRequest && gen == screen) start(n, ps[i].time, captured = captured)
                 }.setNegativeButton("Cancel", null).show()
         }
     }
 
     /** After an app restart: put the last title back in the player, paused, at its latest position. */
     private fun restore() {
+        val captured = Abs.scope(playback = true)
         val c = ctl ?: return
         if (c.mediaItemCount > 0 || Abs.me == null) return
         val n = Abs.now ?: Abs.loadNow() ?: return
         val request = playRequest
-        bg({ Abs.positions(n).first().time }, {}) { t -> if (request == playRequest && pendingPlay == null && ctl === c && c.mediaItemCount == 0) start(n, t, play = false) }
+        bg({ Abs.positions(n, captured).first().time }, {}) { t -> if (request == playRequest && pendingPlay == null && ctl === c && c.mediaItemCount == 0) start(n, t, play = false, captured = captured) }
     }
 
-    private fun start(n: Now, t: Double, play: Boolean = true) {
-        val c = ctl ?: return toast("Player not ready")
-        Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0) Abs.pos(c, old).let { p -> thread { Abs.push(old, p, false) } } }
-        Abs.now = n
+    private fun start(n: Now, t: Double, play: Boolean = true, captured: Abs.Scope) = Abs.ifCurrent(captured) {
+        val c = ctl ?: return@ifCurrent toast("Player not ready")
+        Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0 && Abs.nowScope == captured) Abs.pos(c, old).let { p -> Abs.push(old, p, false) } }
+        Abs.bindPlayback(n, captured)
         Abs.saveNow(n)
         if (play) Abs.addHistory(n)
-        val art = "${Abs.server}/api/items/${n.item}/cover?width=400&format=webp"
+        val art = "${captured.server}/api/items/${n.item}/cover?width=400&format=webp"
         val items = n.tracks.mapIndexed { i, tr ->
-            MediaItem.Builder().setMediaId("${n.key}#$i").setUri(Abs.uri(n.item, tr))
+            MediaItem.Builder().setMediaId(Abs.mediaId(n, captured, i)).setCustomCacheKey(Abs.mediaId(n, captured, i)).setUri(Abs.uri(n.item, tr))
                 .setMediaMetadata(MediaMetadata.Builder().setTitle(n.title).setArtist(n.author).setArtworkUri(android.net.Uri.parse(art)).build()).build()
         }
         val (i, ms) = n.at(if (t > n.duration - 5) 0.0 else t)
         c.setMediaItems(items, i, ms)
         c.setPlaybackSpeed(Abs.p.getFloat("speed", 1f))
         c.prepare()
-        if (!play) return updatePlayer()
+        if (!play) return@ifCurrent updatePlayer()
         c.play()
         updatePlayer()
         if (stack.isEmpty() && nav.selectedItemId == 0) home()
@@ -1315,7 +1328,7 @@ class Main : AppCompatActivity() {
         cacheFirst: Boolean = true, valid: (() -> Boolean)? = null, render: (JSONObject) -> Unit) {
         val rows = loadRows
         val gen = rows.owner
-        val account = Abs.server to Abs.me
+        val captured = Abs.scope()
         val requestId = Any()
         rows.requests[path] = requestId
         rows.statuses.remove(path)?.let { (it.view.parent as? ViewGroup)?.removeView(it.view) }
@@ -1323,29 +1336,34 @@ class Main : AppCompatActivity() {
         rows.statuses[path] = state
         var rendered: String? = null
         var running = false
-        fun deliver(raw: String) {
+        fun deliver(raw: String) = Abs.ifCurrent(captured) {
             if (raw != rendered) {
                 val current = loadRows
                 loadRows = rows
-                try { render(JSONObject(raw)); rendered = raw } finally { if (loadRows === rows) loadRows = current }
+                try {
+                    val json = JSONObject(raw)
+                    Abs.validateCachedResponse(path, json)
+                    if (path == "/api/me") Abs.setMe(json, captured)
+                    render(json); rendered = raw
+                } finally { if (loadRows === rows) loadRows = current }
             }
         }
-        fun ownsRequest() = rows.requests[path] === requestId && account == (Abs.server to Abs.me) &&
+        fun ownsRequest() = rows.requests[path] === requestId && captured == Abs.scope() &&
             (valid?.invoke() ?: ownsPage(gen, retained))
         // Cache is a small local snapshot. Membership can explicitly require a fresh response.
-        if (cacheFirst && ownsRequest()) runCatching { Abs.cached(path)?.let(::deliver) }
+        if (cacheFirst && ownsRequest()) runCatching { Abs.cached(path, captured)?.let(::deliver) }
         fun request() {
             if (running || !ownsRequest()) return
             running = true
             state.loading(rendered != null)
-            bg({ Abs.get(path) }, { e ->
+            bg({ Abs.get(path, captured) }, { e ->
                 running = false
-                if (ownsRequest()) state.failed(rendered != null, e, ::request)
+                if (ownsRequest() && e !is StaleScope) state.failed(rendered != null, e, ::request) else state.success()
             }) { raw ->
                 running = false
                 if (ownsRequest()) {
                     runCatching { deliver(raw) }.fold({ state.success() }, { state.failed(rendered != null, it, ::request) })
-                }
+                } else state.success()
             }
         }
         request()
@@ -1357,6 +1375,7 @@ class Main : AppCompatActivity() {
     }
 
     private fun err(e: Throwable) {
+        if (e is StaleScope) return // a newer login replaced the request, not an expired session
         toast(e.message ?: e.toString())
         if (e is Expired) login()
     }
