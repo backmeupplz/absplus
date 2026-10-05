@@ -34,13 +34,16 @@ extension View {
     /// Failed refreshes must not cover the retained titles or intercept their taps.
     func loadingFeedback(state: Loading, empty: Bool, title: String, detail: String = "", retry: @escaping () async -> Void) -> some View {
         let retainedError = !empty && state.error != nil
-        return self
-            .overlay {
-                if !retainedError { LoadingFeedback(state: state, empty: empty, title: title, detail: detail, retry: retry) }
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if retainedError { LoadingFeedback(state: state, empty: false, title: title, detail: detail, retry: retry) }
-            }
+        // A safe-area inset moves the initial content but a ScrollView still
+        // draws and hit-tests scrolled rows underneath it. A real sibling keeps
+        // the error outside the scroll viewport, including after rows reflow.
+        return VStack(spacing: 0) {
+            if retainedError { LoadingFeedback(state: state, empty: false, title: title, detail: detail, retry: retry) }
+            self
+        }
+        .overlay {
+            if !retainedError { LoadingFeedback(state: state, empty: empty, title: title, detail: detail, retry: retry) }
+        }
     }
 }
 

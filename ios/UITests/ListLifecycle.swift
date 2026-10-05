@@ -20,8 +20,16 @@ final class ListLifecycle: XCTestCase {
             app.staticTexts[name].tap()
             XCTAssertTrue(app.staticTexts["Fixture details"].firstMatch.waitForExistence(timeout: 10))
             if gesture {
+                // CI recorded this fast drag starting then cancelling the pop,
+                // with its final move and lift sharing a timestamp. Use a slower
+                // edge drag and a distinct endpoint hold; still require a real pop.
                 app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
-                    .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+                    .press(forDuration: 0.1,
+                           thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)),
+                           withVelocity: .slow, thenHoldForDuration: 0.2)
+                let details = app.staticTexts["Fixture details"].firstMatch
+                let popped = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: details)
+                XCTAssertEqual(XCTWaiter.wait(for: [popped], timeout: 10), .completed, "Edge gesture did not pop details")
             } else {
                 app.navigationBars.buttons.element(boundBy: 0).tap()
             }

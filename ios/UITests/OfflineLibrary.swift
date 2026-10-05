@@ -53,18 +53,30 @@ final class OfflineLibrary: XCTestCase {
         app.launch()
         XCTAssertTrue(app.navigationBars["Downloaded"].waitForExistence(timeout: 15))
         let scroll = app.scrollViews.firstMatch
+        let retry = app.buttons["loading.retry"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 5))
+        XCTAssertLessThanOrEqual(retry.frame.maxY, scroll.frame.minY, "Retained error must sit outside the scroll viewport")
         for _ in 0..<5 { scroll.swipeUp() }
         let titles = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Fixture anchor-'"))
         let target = titles.allElementsBoundByIndex.first { $0.isHittable && $0.frame.minY > 180 && $0.frame.maxY < 650 }!
         let name = target.label, y = target.frame.minY
         app.buttons["Complete partial"].tap()
         XCTAssertEqual(app.staticTexts[name].frame.minY, y, accuracy: 3)
-        app.staticTexts[name].tap()
+        XCTAssertTrue(app.staticTexts[name].isHittable, "Live insertion must not hide the retained anchor behind refresh feedback")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Downloaded anchor after live insertion"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        // Tap the observed point: XCTest element.tap() may silently scroll an
+        // occluded title into view, invalidating the saved viewport baseline.
+        app.staticTexts[name].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(app.navigationBars.buttons["Downloaded"].waitForExistence(timeout: 5))
         app.buttons["Undo partial"].tap()
         app.navigationBars.buttons["Downloaded"].tap()
         XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts[name].isHittable)
+        XCTAssertEqual(app.staticTexts[name].frame.minY, y, accuracy: 3)
+        Thread.sleep(forTimeInterval: 0.5)
         XCTAssertEqual(app.staticTexts[name].frame.minY, y, accuracy: 3)
     }
 }

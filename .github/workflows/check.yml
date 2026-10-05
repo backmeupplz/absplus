@@ -45,4 +45,11 @@ jobs:
           xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
           -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
           -parallel-testing-enabled NO
+          -resultBundlePath ios-tests.xcresult
           ${{ matrix.tests }} test
+      - name: Preserve native failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ios-test-results-${{ matrix.group }}
+          path: ios-tests.xcresult
