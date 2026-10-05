@@ -7,7 +7,9 @@ struct ABSPlusApp: App {
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
+            if ProcessInfo.processInfo.arguments.contains("--book-skip-test") {
+                BookSkipFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
                 DownloadRetryFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
                 AccessibilityFixture()

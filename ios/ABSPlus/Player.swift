@@ -54,9 +54,9 @@ import UIKit
         c.pauseCommand.addTarget { [weak self] _ in self?.p.pause(); return .success }
         c.togglePlayPauseCommand.addTarget { [weak self] _ in self?.toggle(); return .success }
         c.skipForwardCommand.preferredIntervals = [30]
-        c.skipForwardCommand.addTarget { [weak self] _ in self?.skip(30); return .success }
+        c.skipForwardCommand.addTarget { [weak self] _ in self?.remoteSkipForward() ?? .commandFailed }
         c.skipBackwardCommand.preferredIntervals = [30]
-        c.skipBackwardCommand.addTarget { [weak self] _ in self?.skip(-30); return .success }
+        c.skipBackwardCommand.addTarget { [weak self] _ in self?.remoteSkipBackward() ?? .commandFailed }
         c.changePlaybackPositionCommand.addTarget { [weak self] e in
             self?.seek((e as! MPChangePlaybackPositionCommandEvent).positionTime)
             return .success
@@ -130,9 +130,13 @@ import UIKit
 
     func toggle() { playing ? p.pause() : play() }
 
+    // Shared by MPRemoteCommandCenter and the local regression fixture.
+    func remoteSkipForward() -> MPRemoteCommandHandlerStatus { skip(30); return .success }
+    func remoteSkipBackward() -> MPRemoteCommandHandlerStatus { skip(-30); return .success }
+
     func skip(_ s: Double) {
         guard let n = now else { return }
-        seek(min(max(0, pos + s), n.duration - 1))
+        seek(min(max(0, pos + s), n.duration))
     }
 
     func seek(_ t: Double) {

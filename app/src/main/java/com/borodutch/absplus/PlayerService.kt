@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -15,6 +16,24 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import kotlin.concurrent.thread
+
+/** Session commands (full player, notification and remote controllers) share book-relative skips.
+ * ExoPlayer's default seekBack/seekForward stop at the current media item's boundaries.
+ */
+internal class BookPlayer(player: Player) : ForwardingPlayer(player) {
+    override fun seekBack() = skip(-seekBackIncrement)
+    override fun seekForward() = skip(seekForwardIncrement)
+
+    private fun skip(deltaMs: Long) {
+        val n = Abs.now ?: return
+        // A title switch can update Now before its playlist reaches the service.
+        if (n.tracks.isEmpty() || mediaItemCount != n.tracks.size ||
+            currentMediaItem?.mediaId != "${n.key}#$currentMediaItemIndex") return
+        val target = (Abs.pos(this, n) + deltaMs / 1000.0).coerceIn(0.0, n.duration)
+        val (i, ms) = n.at(target)
+        seekTo(i, ms)
+    }
+}
 
 class PlayerService : MediaSessionService() {
     private var session: MediaSession? = null
@@ -49,7 +68,7 @@ class PlayerService : MediaSessionService() {
                 if (state == Player.STATE_ENDED) sync(player, true)
             }
         })
-        session = MediaSession.Builder(this, player)
+        session = MediaSession.Builder(this, BookPlayer(player))
             .setSessionActivity(PendingIntent.getActivity(this, 0, Intent(this, Main::class.java), PendingIntent.FLAG_IMMUTABLE))
             .build()
         h.post(tick)
