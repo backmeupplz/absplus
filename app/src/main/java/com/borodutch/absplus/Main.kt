@@ -919,7 +919,7 @@ class Main : AppCompatActivity() {
         val j = Dl.jobs.firstOrNull()
         dlBar.isVisible = j != null && Abs.me != null && nav.isVisible
         if (j != null) {
-            if (dlCover.tag != j.n.item) Covers.load(dlCover, j.n.item)
+            if (!Covers.isBound(dlCover, j.n.item)) Covers.load(dlCover, j.n.item)
             dlTitle.text = j.n.title
             dlSub.text = dlStatus(j) + (Dl.jobs.size - 1).let { if (it > 0) " · $it more" else "" }
             progress(dlProg, j)
@@ -1060,7 +1060,7 @@ class Main : AppCompatActivity() {
         if (c == null || n == null || c.mediaItemCount == 0) return
         val pos = Abs.pos(c, n)
         val playing = !Util.shouldShowPlayButton(c)
-        if (miniCover.tag != n.item) Covers.load(miniCover, n.item)
+        if (!Covers.isBound(miniCover, n.item)) Covers.load(miniCover, n.item)
         miniTitle.text = n.title
         miniSub.text = n.author
         miniPlay.icon = ContextCompat.getDrawable(this, if (playing) R.drawable.i_pause_fill else R.drawable.i_play_arrow_fill)

@@ -47,10 +47,13 @@ cache A, log in B, then inject surviving A scoped and unscoped cover files: B HT
 reads and reconstructed/cold-cache reads return nil. Cases include distinct usernames,
 the same username with different immutable IDs, missing IDs and different hosts. Memory
 and 404 negatives are exercised across simultaneous reconstructed ownership contexts.
-Sibling session JSON was inspected: `account-json/<mediaScope>` already uses the same
-authenticated server/account ownership, with legacy `json/` quarantined. The fixture
-injects A session JSON after cleanup and checks B/restart cannot read it; no analogous
-unscoped production JSON namespace remains. Unsafe resume archives
+General JSON uses `session-json/<Tok.id>`, a persisted per-login namespace preserved by
+refresh and process restart but replaced by every successful main login. Stable mediaScope
+is not sufficient for general JSON: cleanup is best-effort, so same-account reauthentication
+must not read surviving old progress/bookmarks. Legacy `json/` and `account-json/` remain
+quarantined. Fixtures inject leftover JSON after cleanup, check other accounts and same-account
+reauthentication cannot read it, and verify refresh/restart preserve current-login JSON while
+same-account retained audio and allowlisted metadata remain recoverable. Unsafe resume archives
 are also asserted. No real server or credentials are used. RetainedDownloads and ListLifecycle
 remain in the suite. Debug launch fixtures alone use a synthetic UserDefaults credential
 store so unsigned simulator persistence does not depend on Keychain entitlements; release

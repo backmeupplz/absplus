@@ -1,6 +1,6 @@
 # Transactional sessions (#33)
 
-Candidate login requests use only the explicitly entered host and credentials. No global host, account, offline state or retained media selection changes on failure/cancellation. A successful main login starts a new generation and clears linked tokens, shares, progress, favorites and pending favorite changes, history, active download queue, current playback and session JSON, including same-name/same-host reauthentication. Retained audio and allowlisted metadata remain under SHA-256 server and authenticated-account scopes. The server-returned immutable user ID permits same-account recovery after re-login; a missing ID gets a fresh per-login identity, never a username-based guess. Legacy unscoped and server-only bytes remain quarantined, never deleted or guessed into an account. General JSON uses a bound cache directory (Android persisted login identity; iOS server/account pair), so failed best-effort cleanup cannot expose another account’s cache. Android refresh preserves the login-established user ID when the refresh response omits it, but rejects an explicitly changed ID.
+Candidate login requests use only the explicitly entered host and credentials. No global host, account, offline state or retained media selection changes on failure/cancellation. A successful main login starts a new generation and clears linked tokens, shares, progress, favorites and pending favorite changes, history, active download queue, current playback and session JSON, including same-name/same-host reauthentication. Retained audio and allowlisted metadata remain under SHA-256 server and authenticated-account scopes. The server-returned immutable user ID permits same-account recovery after re-login; a missing ID gets a fresh per-login identity, never a username-based guess. Legacy unscoped and server-only bytes remain quarantined, never deleted or guessed into an account. General JSON uses a persisted per-login cache directory on both platforms, so failed best-effort cleanup cannot expose another account’s cache or stale progress/bookmarks after same-account reauthentication. Android refresh preserves the login-established user ID when the refresh response omits it, but rejects an explicitly changed ID.
 
 Account credentials persist their issuing host and login identity. Refresh/API/media requests capture that host and generation, not a later global host. Unlink revokes only at the stored issuing host. Session and account identity checks discard stale refresh/read/write callbacks and queued work. Login cancellation wins before commit; cancellation after an already completed commit does not undo a successful login. Legacy tokens without a provable host binding require signing in again; no token migration guesses. Main-login success deliberately resets account state rather than retaining stale linked authorization.
 
@@ -37,6 +37,29 @@ Only the five-file delta 3066888..8843a91 from the stopped duplicate owner was i
 - git diff --check passed. Independent integrated review and remote CI remain the parent's release gates.
 
 Source/build fixture verification only; no production credentials, store rollout, signing or personal-device claims.
+
+## Latest review corrections (#33)
+
+Persistent Android artwork bindings include the login generation and item ID. The real Activity
+regression keeps the same mini-player/download ImageViews across same-item account and host
+switches and checks server-provided red/blue/green pixels through updatePlayer/updateDl.
+The LibraryRecovery loopback fixture authenticates via production Abs.login; token validation
+is unchanged. iOS general JSON now uses persisted Tok.id, with leftover-cache reauthentication,
+refresh/restart and retained-media recovery assertions in SessionIsolation.
+
+Android full suite: 44 tests, zero failures/errors/skips, including all nine LibraryRecovery tests;
+debug/release APK builds exited 0 (/tmp/abs33-f169-android.log). The artwork fixture must attach
+the Activity window with visible() for View.post delivery; it uses the existing graphics mode
+(native-mode sandbox mixing was removed after a harness-only abort).
+
+iOS: all eight existing suites passed together (13 tests, zero failures/skips), including
+the new same-account JSON reauthentication regression inside SessionIsolation. Disposable
+ABS33-f169-ReviewFix (9A662338-0141-4E3B-A181-94FCADEAC675), isolated DerivedData
+/tmp/abs33-f169-derived; finalized Passed bundle /tmp/abs33-f169-tests.xcresult and log
+/tmp/abs33-f169-tests.log. Only its stalled post-test simctl diagnose child was terminated
+after all tests passed; Xcode finalized normally with exit 0. Unsigned Release simulator
+build exited 0 (/tmp/abs33-f169-release.log). Existing AVAudioSession warnings remain.
+No real credentials/library, physical devices, store publishing, or #34 scope changes.
 
 ## Retry recovery merge (#9 / 073a0df)
 

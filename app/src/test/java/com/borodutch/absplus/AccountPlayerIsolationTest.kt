@@ -3,6 +3,11 @@ package com.borodutch.absplus
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Looper
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.drawable.BitmapDrawable
+import android.widget.ImageView
+import java.io.ByteArrayOutputStream
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -38,6 +43,7 @@ class AccountPlayerIsolationTest {
         val pool = Executors.newCachedThreadPool()
         val url get() = "http://127.0.0.1:" + server.address.port
         @Volatile var delayLogin = false
+        @Volatile var coverColor = Color.RED
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
         @Volatile var denied = CountDownLatch(1)
@@ -46,6 +52,15 @@ class AccountPlayerIsolationTest {
             server.createContext("/") { x ->
                 val data = x.requestBody.bufferedReader().use { it.readText() }
                 var code = 200
+                if (x.requestURI.path.endsWith("/cover")) {
+                    val png = ByteArrayOutputStream().also { out ->
+                        Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888).apply { eraseColor(coverColor) }
+                            .compress(Bitmap.CompressFormat.PNG, 100, out)
+                    }.toByteArray()
+                    x.sendResponseHeaders(200, png.size.toLong())
+                    x.responseBody.use { it.write(png) }
+                    return@createContext
+                }
                 val body = when (x.requestURI.path) {
                     "/login" -> {
                         if (delayLogin) { entered.countDown(); release.await(10, TimeUnit.SECONDS) }
@@ -88,6 +103,43 @@ class AccountPlayerIsolationTest {
             .putShort(1).putShort(1).putInt(8000).putInt(16000).putShort(2).putShort(16)
             .put("data".toByteArray()).putInt(16000)
         return Abs.file("book", track).apply { parentFile!!.mkdirs(); writeBytes(wav.array()) }
+    }
+
+    @Test fun persistentDownloadAndMiniPlayerCoversRebindSameItemAcrossAccountsAndHosts() {
+        Abs.init(RuntimeEnvironment.getApplication()); Abs.logout()
+        Host().use { a -> Host().use { b ->
+            a.login("A")
+            val service = Robolectric.buildService(PlayerService::class.java).create()
+            val component = ComponentName(RuntimeEnvironment.getApplication(), PlayerService::class.java)
+            val binder = service.get().onBind(Intent("androidx.media3.session.MediaSessionService").setComponent(component))
+            shadowOf(RuntimeEnvironment.getApplication()).setComponentNameAndServiceForBindService(component, binder)
+            val session = PlayerService::class.java.getDeclaredField("session").apply { isAccessible = true }.get(service.get()) as MediaSession
+            val player = session.player as ExoPlayer
+            val activity = Robolectric.buildActivity(Main::class.java).create().start().resume().visible()
+            val main = activity.get()
+            fun cover(field: String) = Main::class.java.getDeclaredField(field).apply { isAccessible = true }.get(main) as ImageView
+            val mini = cover("miniCover"); val download = cover("dlCover")
+            fun color(v: ImageView) = (v.drawable as? BitmapDrawable)?.bitmap?.getPixel(0, 0)
+            fun render(expected: Int) {
+                drainUntil { Main::class.java.getDeclaredField("ctl").apply { isAccessible = true }.get(main) != null }
+                Abs.now = now
+                // Keep a real queue entry without preparing network playback.
+                player.setMediaItem(MediaItem.Builder().setUri("http://127.0.0.1/unused").setMediaId("book#0").build())
+                Dl.jobs.clear(); Dl.jobs += Dl.Job(now)
+                drainUntil { (Main::class.java.getDeclaredField("ctl").apply { isAccessible = true }.get(main) as MediaController).mediaItemCount == 1 }
+                main.call("updateDl"); main.call("updatePlayer")
+                try { drainUntil { color(mini) == expected && color(download) == expected } }
+                catch (e: AssertionError) { throw AssertionError("expected=$expected mini=${color(mini)} download=${color(download)} miniTag=${mini.tag} dlTag=${download.tag} now=${Abs.now}", e) }
+                assertSame(mini, cover("miniCover")); assertSame(download, cover("dlCover"))
+            }
+            try {
+                render(Color.RED)
+                a.coverColor = Color.BLUE; a.login("B")
+                render(Color.BLUE) // same host, different account, same item and persistent views
+                b.coverColor = Color.GREEN; b.login("B")
+                render(Color.GREEN) // different host, same account name and item
+            } finally { activity.pause().stop().destroy(); service.destroy(); Abs.logout() }
+        } }
     }
 
     @Test fun sameServerForbiddenAccountCannotRenderOrPlayRetainedOwnerBytes() {

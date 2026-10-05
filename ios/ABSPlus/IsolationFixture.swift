@@ -149,6 +149,7 @@ struct IsolationFixture: View {
         try check(!requests.contains { $0.url?.path == "/api/linked" }, "unlinked API sent")
         try await accountIsolation(a)
         try await coverIsolation(a, b)
+        try await sessionJSONIsolation(a)
         try await downloadRedirects()
         // API policy also rejects even a same-origin redirect.
         var redirected = true
@@ -232,6 +233,37 @@ struct IsolationFixture: View {
         let migrated = Abs(), migratedAgain = Abs()
         try check(migrated.mediaDir == migratedAgain.mediaDir && migrated.mediaDir != fallback && migrated.accts["no-id"]?.mediaID?.hasPrefix("login:") == true, "legacy login identity was not persisted")
         try check(migrated.cached(path) == nil && migrated.downloads().isEmpty, "upgrade adopted unscoped cache/media")
+    }
+
+    @MainActor private func sessionJSONIsolation(_ server: String) async throws {
+        func check(_ value: Bool, _ message: String) throws { if !value { throw Msg(errorDescription: message) } }
+        let fm = FileManager.default, path = "/api/me", itemPath = "/api/items/restricted?expanded=1"
+        try await app.login(server, "account-a", "fixture", main: true)
+        let oldDir = app.cacheDir, oldID = app.accts["account-a"]!.id, media = app.mediaDir
+        let stale = Data(#"{"mediaProgress":[{"libraryItemId":"restricted","currentTime":99}],"bookmarks":[{"libraryItemId":"restricted","title":"Old favorite"}]}"#.utf8)
+        try stale.write(to: oldDir.appending(path: "_api_me"))
+        let item = try await app.get(itemPath)
+        let track = try JSONDecoder().decode(Item.self, from: item).media.tracks![0].track()
+        let audio = app.file("restricted", track)
+        try fm.createDirectory(at: audio.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try RetainedProtocol.audio.write(to: audio)
+        try await app.login(server, "account-a", "fixture", main: true)
+        // Recreate cleanup leftovers, including the former stable-account JSON namespace.
+        let legacy = URL.applicationSupportDirectory.appending(path: "account-json/" + app.mediaScope)
+        for dir in [oldDir, legacy] {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try stale.write(to: dir.appending(path: "_api_me"))
+        }
+        try check(app.accts["account-a"]!.id != oldID && app.cacheDir != oldDir, "reauthentication reused login JSON namespace")
+        try check(app.cached(path) == nil && app.progress.isEmpty && app.fav.isEmpty, "reauthentication exposed stale progress/bookmarks")
+        try check(app.mediaDir == media && app.done("restricted", track) && app.cached(itemPath) != nil, "reauthentication lost retained media")
+        let fresh = try await app.get(path), currentDir = app.cacheDir
+        _ = try await app.token(force: true)
+        try check(app.cacheDir == currentDir && app.cached(path) == fresh, "refresh changed login JSON namespace")
+        let restarted = Abs(); restarted.network = app.network
+        try check(restarted.cacheDir == currentDir && restarted.cached(path) == fresh, "restart lost current login JSON")
+        try check(restarted.mediaDir == media && restarted.done("restricted", track), "restart lost retained media")
+        try check(try Data(contentsOf: oldDir.appending(path: "_api_me")) == stale, "test did not preserve leftover JSON")
     }
 
     @MainActor private func coverIsolation(_ server: String, _ otherServer: String) async throws {

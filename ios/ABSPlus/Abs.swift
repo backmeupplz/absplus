@@ -118,8 +118,12 @@ let resumeDir: URL = {
 /// Server API, accounts, downloads, progress. Settings live in UserDefaults, login tokens in the Keychain.
 @MainActor @Observable final class Abs {
     @ObservationIgnored let d = UserDefaults.standard
-    // Legacy json/ remains quarantined in place; even failed cleanup cannot expose another account.
-    var cacheDir: URL { URL.applicationSupportDirectory.appending(path: "account-json/" + mediaScope) }
+    // General JSON belongs to a persisted login, not the stable retained-media owner.
+    // Legacy json/ and account-json/ remain quarantined even if cleanup fails.
+    var cacheDir: URL {
+        let identity = me.flatMap { accts[$0] }.flatMap { $0.host == server ? $0.id : nil } ?? "locked"
+        return URL.applicationSupportDirectory.appending(path: "session-json/" + identity)
+    }
 
     /// set when the server can't be reached; cleared by the next successful request
     var offline = false
@@ -330,6 +334,7 @@ let resumeDir: URL = {
             selectMedia(s, tok)
             accts = [actual: tok]
             me = actual
+            try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
         } else {
             guard !expired, actual != me else { throw Msg(errorDescription: "That's you") }
             refreshing.removeValue(forKey: actual)?.cancel()
