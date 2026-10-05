@@ -43,6 +43,8 @@ class AccountPlayerIsolationTest {
         val pool = Executors.newCachedThreadPool()
         val url get() = "http://127.0.0.1:" + server.address.port
         @Volatile var delayLogin = false
+        @Volatile var rejectRefresh = false
+        @Volatile var idOverride: String? = null
         @Volatile var coverColor = Color.RED
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
@@ -65,8 +67,10 @@ class AccountPlayerIsolationTest {
                     "/login" -> {
                         if (delayLogin) { entered.countDown(); release.await(10, TimeUnit.SECONDS) }
                         val name = JSONObject(data).getString("username")
-                        JSONObject().put("user", JSONObject().put("id", "id-" + name).put("username", name).put("accessToken", name)).toString()
+                        if (JSONObject(data).optString("password") == "bad") code = 401
+                        JSONObject().put("user", JSONObject().put("id", idOverride ?: "id-" + name).put("username", name).put("accessToken", name)).toString()
                     }
+                    "/auth/refresh" -> { if (rejectRefresh) code = 401; "{}" }
                     "/api/items/book" -> {
                         if (x.requestHeaders.getFirst("Authorization") == "Bearer B") {
                             code = 403; denied.countDown(); "{}"
@@ -216,11 +220,84 @@ class AccountPlayerIsolationTest {
         }
     }
 
+    @Test fun expiredSessionUiKeepsAuthorizedPlaybackThroughFailureCancellationAndSameOwnerLogin() {
+        Abs.init(RuntimeEnvironment.getApplication()); Abs.logout()
+        Host().use { host ->
+            host.login("A"); seed(); Abs.startProgress(false)
+            val service = Robolectric.buildService(PlayerService::class.java).create()
+            val component = ComponentName(RuntimeEnvironment.getApplication(), PlayerService::class.java)
+            val binder = service.get().onBind(Intent("androidx.media3.session.MediaSessionService").setComponent(component))
+            shadowOf(RuntimeEnvironment.getApplication()).setComponentNameAndServiceForBindService(component, binder)
+            val session = PlayerService::class.java.getDeclaredField("session").apply { isAccessible = true }.get(service.get()) as MediaSession
+            val player = session.player as ExoPlayer
+            var activity = Robolectric.buildActivity(Main::class.java).create().start().resume().visible()
+            fun connect() = drainUntil { Main::class.java.getDeclaredField("ctl").apply { isAccessible = true }.get(activity.get()) != null }
+            fun signIn(password: String) {
+                val fields = views(activity.get().window.decorView).filterIsInstance<com.google.android.material.textfield.TextInputLayout>()
+                fields.single { it.hint == "Username" }.editText!!.setText("A")
+                fields.single { it.hint == "Password" }.editText!!.setText(password)
+                views(activity.get().window.decorView).filterIsInstance<TextView>().single { it.text == "Sign in" }.performClick()
+            }
+            try {
+                connect()
+                activity.get().call("start", now, 0.0, false, Abs.scope(playback = true))
+                drainUntil { player.playbackState == Player.STATE_READY || player.playerError != null }
+                assertNull(player.playerError)
+                val scope = Abs.nowScope!!
+                val media = player.currentMediaItem!!
+                player.seekTo(350)
+                // Real HTTP refresh expiry reaches Main.err through its normal async page request.
+                val stored = JSONObject(Abs.p.getString("acct:A", null)!!).put("a", "x.eyJleHAiOjF9.x")
+                Abs.p.edit().putString("acct:A", stored.toString()).commit()
+                host.rejectRefresh = true
+                activity.get().call("home")
+                drainUntil { Abs.loginPending }
+                assertTrue(views(activity.get().window.decorView).filterIsInstance<TextView>().any { it.text == "Sign in" })
+                assertEquals(media, player.currentMediaItem); assertEquals(350L, player.currentPosition)
+                PlayerService.invalidateSession()
+                assertEquals(1, player.mediaItemCount)
+                // Real player callbacks still checkpoint during authentication (not a direct Abs.push).
+                player.play()
+                drainUntil { player.isPlaying }
+                player.pause()
+                drainUntil { !player.isPlaying }
+                val checkpoint = Abs.pos(player, now)
+                assertEquals(checkpoint, Abs.progressSync.local()[now.key]!!.getDouble("currentTime"), 0.001)
+                activity.get().call("start", Now("other", null, "Other", "", now.tracks), 0.0, true, scope)
+                assertEquals(media, player.currentMediaItem)
+                signIn("bad")
+                drainUntil { views(activity.get().window.decorView).filterIsInstance<TextView>().any { it.text == "Sign in" && it.isEnabled } }
+                assertTrue(Abs.loginPending); assertEquals(scope, Abs.nowScope); assertEquals(media, player.currentMediaItem)
+                host.delayLogin = true
+                signIn("fixture")
+                assertTrue(host.entered.await(5, TimeUnit.SECONDS))
+                val attempt = Main::class.java.getDeclaredField("loginAttempt").apply { isAccessible = true }.get(activity.get()) as Abs.LoginAttempt
+                activity.pause().stop().destroy() // cancels the actual UI-owned attempt
+                assertTrue(attempt.cancelled)
+                activity = Robolectric.buildActivity(Main::class.java).create().start().resume().visible(); connect()
+                assertTrue(Abs.loginPending); assertEquals(media, player.currentMediaItem)
+                host.delayLogin = false; host.rejectRefresh = false; host.release.countDown()
+                signIn("fixture")
+                drainUntil { !Abs.loginPending }
+                Abs.startProgress(false)
+                assertEquals(scope, Abs.nowScope); assertEquals(media, player.currentMediaItem)
+                assertEquals(checkpoint, Abs.pos(player, now), 0.001)
+                assertEquals(checkpoint, Abs.progressSync.local()[now.key]!!.getDouble("currentTime"), 0.001)
+                // Same username is insufficient when the immutable identity was replaced.
+                activity.get().call("login"); host.idOverride = "replacement-owner"
+                signIn("fixture")
+                drainUntil { !Abs.loginPending && player.mediaItemCount == 0 }
+                assertNull(Abs.nowScope); assertTrue(Abs.progressSync.local().isEmpty())
+                assertFalse(player.isPlaying)
+            } finally { activity.pause().stop().destroy(); service.destroy(); Abs.logout() }
+        }
+    }
+
     @Test fun realServiceClearsLocalQueueOnCommitAndLoginSurvivesLifecycle() {
         Abs.init(RuntimeEnvironment.getApplication()); Abs.logout()
         Host().use { host ->
             host.login("A"); val bytes = seed()
-            val oldEpoch = Abs.mediaEpoch
+            val oldEpoch = Abs.scope(playback = true).generation
             val service = Robolectric.buildService(PlayerService::class.java).create()
             val component = ComponentName(RuntimeEnvironment.getApplication(), PlayerService::class.java)
             val binder = service.get().onBind(Intent("androidx.media3.session.MediaSessionService").setComponent(component))
@@ -242,6 +319,9 @@ class AccountPlayerIsolationTest {
                 drainUntil { player.playbackState == Player.STATE_READY || player.playerError != null }
                 assertNull(player.playerError)
                 activity.get().call("login")
+                assertEquals(1, player.mediaItemCount) // authorized queue survives authentication
+                // Explicitly empty it to retain the no-new/no-restore assertions below.
+                player.clearMediaItems()
                 drainUntil { player.mediaItemCount == 0 }
                 assertTrue(Abs.loginPending)
                 host.delayLogin = true

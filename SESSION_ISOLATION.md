@@ -104,3 +104,30 @@ Initial fixture failures were repaired through production synthetic login, expli
 URLProtocol installation on reconstructed ephemeral sessions, and per-account audio
 seeding; original isolation assertions remain, with credential-byte equality separated
 from intentionally fresh login identity. No real credentials, personal devices or publish.
+
+## Android lock ordering and expiry-UI review fixes
+
+All account-dependent download critical sections now take Abs.mediaLock before Dl:
+load/add/cancel, finish/persist and final file commit. Job captures epoch/host/directory
+atomically, including standalone callers. The remaining Dl-only sections (clear, worker
+launch, selection and reset) do not enter Abs locks or invoke callbacks; network and
+notification callbacks remain outside them. Audited callers include main-login/logout,
+Main queue controls/startup and Abs.removeAll. DownloadLockTest gates account mutation
+with latches while add/cancel/load/standalone capture wait, probes the Dl monitor before
+allowing login/logout to commit, and verifies captured ownership and stale queue rejection.
+
+An expired session now opens the Login UI without clearing an already-authorized queue.
+Service invalidation revokes playback only on identity-generation change/logout, and
+real playback callbacks continue durable checkpoints while authentication is pending.
+New controller additions and Main start/restore remain blocked during authentication.
+The real Activity + MediaSession + ExoPlayer regression exercises HTTP refresh 401 ->
+Login UI -> failed login -> lifecycle-cancelled login -> same-account UI login, preserving
+queue, position, scope and journal. A same-name/different-immutable-ID UI login revokes
+queue and journal. Existing empty-queue no-restore and delayed-controller rejection
+assertions remain; the stale-command fixture now uses the playback generation rather
+than the independently rotating media/request epoch.
+
+Full Android suite with real player callbacks passed: 82 tests across 15 suites, zero
+failures/errors/skips; debug/release APK tasks exited 0
+(/tmp/abs33-f169-lock-reauth-final-source.log). iOS source unchanged: prior integration results
+above remain applicable; no iOS rerun, credentials, personal data or publishing.

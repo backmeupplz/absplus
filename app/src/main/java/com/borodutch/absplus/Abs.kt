@@ -149,8 +149,9 @@ object Abs {
     // Persist UI reauthentication across recreation/process death without discarding old credentials.
     val loginPending get() = p.getBoolean("loginPending", false)
     fun requireLogin() = synchronized(mediaLock) {
+        // Authentication blocks new/restore commands, not the already-authorized queue.
+        // Only a committed identity change (or logout) revokes its playback scope.
         p.edit().putBoolean("loginPending", true).commit()
-        PlayerService.invalidateSession()
     }
 
     fun init(c: Context) {

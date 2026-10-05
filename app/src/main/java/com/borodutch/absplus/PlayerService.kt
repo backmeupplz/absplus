@@ -29,7 +29,7 @@ class PlayerService : MediaSessionService() {
     private var queueEpoch = -1L
     private fun checkQueue() {
         val player = session?.player ?: return
-        if (queueEpoch != Abs.scope(playback = true).generation || Abs.loginPending || Abs.me == null) {
+        if (queueEpoch != Abs.scope(playback = true).generation || Abs.me == null) {
             // Keep the old epoch while stop callbacks fire: never push the old queue as the new user.
             player.stop()
             player.clearMediaItems()
@@ -99,7 +99,7 @@ class PlayerService : MediaSessionService() {
     }
 
     private fun sync(p: Player, finished: Boolean = false, intentionalPlayback: Boolean = false) {
-        if (Abs.loginPending) return
+        // The bound scope remains authorized while reauthentication is pending.
         val captured = Abs.nowScope ?: return
         Abs.ifCurrent(captured) {
             val n = Abs.now ?: return@ifCurrent

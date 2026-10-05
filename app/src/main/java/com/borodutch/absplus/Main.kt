@@ -262,7 +262,6 @@ class Main : AppCompatActivity() {
     private fun login() {
         Abs.requireLogin()
         loginAttempt?.cancel()
-        ctl?.clearMediaItems()
         screen = ++generation
         retainPage = false
         onReturn = null

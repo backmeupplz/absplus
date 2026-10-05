@@ -29,9 +29,11 @@ import kotlin.math.min
  */
 object Dl {
     class Job(val n: Now) {
-        val epoch = Abs.mediaEpoch
-        val server = Abs.server
-        val dir = Abs.mediaDir
+        // Capture all ownership fields together, including callers outside the queue.
+        private val owner = synchronized(Abs.mediaLock) { Triple(Abs.mediaEpoch, Abs.server, Abs.mediaDir) }
+        val epoch = owner.first
+        val server = owner.second
+        val dir = owner.third
         fun file(t: Track) = Abs.mediaFile(dir, n.item, t)
         fun done(t: Track) = file(t).isFile && file(t).length() == t.size
         val total = n.tracks.sumOf { it.size }
@@ -49,16 +51,19 @@ object Dl {
     fun pct(j: Job) = if (j.total > 0) min(1.0, j.got.toDouble() / j.total) else 0.0
     val idle get() = worker == null
 
-    fun load() {
+    // Queue operations that touch account state always take mediaLock before Dl.
+    fun load() = synchronized(Abs.mediaLock) { synchronized(this) {
         if (jobs.isNotEmpty()) return
         val a = JSONArray(Abs.p.getString("dlq", "[]"))
         for (i in 0 until a.length()) jobs += Job(Now.of(a.getJSONObject(i))).also { measure(it) }
-    }
+    } }
 
     private fun save() = Abs.p.edit().putString("dlq", JSONArray().apply { jobs.forEach { put(it.n.json()) } }.toString()).apply()
 
     fun add(c: Context, n: Now) {
-        synchronized(this) { if (job(n.key) == null) { jobs += Job(n).also { measure(it) }; save() } }
+        synchronized(Abs.mediaLock) {
+            synchronized(this) { if (job(n.key) == null) { jobs += Job(n).also { measure(it) }; save() } }
+        }
         start(c)
     }
 
@@ -68,12 +73,14 @@ object Dl {
     }
 
     /** forgets a title's download and deletes whatever of it is on disk */
-    fun cancel(n: Now) = synchronized(this) {
+    fun cancel(n: Now) = synchronized(Abs.mediaLock) { synchronized(this) {
         jobs.removeAll { it.n.key == n.key }
         save()
         Abs.remove(n.tracks.map { Abs.file(n.item, it) })
-    }
+    } }
 
+    // Dl-only sections (clear, worker launch/selection/reset) never enter Abs or callbacks.
+    // Account-dependent load/add/cancel/finish/file commit take mediaLock first.
     /** on logout: stop downloading, keep the files */
     fun clear() = synchronized(this) { jobs.clear() }
 
@@ -118,10 +125,10 @@ object Dl {
     }
 
     private fun finish(j: Job, msg: String?) {
-        synchronized(this) {
+        synchronized(Abs.mediaLock) { synchronized(this) {
             if (j.epoch != Abs.mediaEpoch || !jobs.remove(j)) return
             save()
-        }
+        } }
         Abs.dlChanged()
         onChange?.invoke(msg)
     }
@@ -150,11 +157,11 @@ object Dl {
             j.got = base + have
             s.progress(j)
         }
-        synchronized(this) {
+        synchronized(Abs.mediaLock) { synchronized(this) {
             if (j.epoch != Abs.mediaEpoch || !jobs.contains(j)) throw Stop()
             if (t.size > 0 && p.length() != t.size) throw IOException("${f.name}: ${p.length()} of ${t.size} bytes")
             if (!p.renameTo(f)) throw IOException("Can't save ${f.name}")
-        }
+        } }
     }
 
     /** Continues [part] with the rest of [url] (Range from its size), starting over if the server ignores the range. */
