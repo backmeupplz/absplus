@@ -31,4 +31,5 @@ jobs:
           -only-testing:UITests/RetainedDownloads -only-testing:UITests/SessionIsolation
           -only-testing:UITests/OfflineHome -only-testing:UITests/OfflineLibrary
           -only-testing:UITests/OfflineSeries -only-testing:UITests/ProgressReplay
-          -only-testing:UITests/DownloadRetries -only-testing:UITests/DownloadRemoval test
+          -only-testing:UITests/DownloadRetries -only-testing:UITests/DownloadRemoval
+          -only-testing:UITests/BookSkips test

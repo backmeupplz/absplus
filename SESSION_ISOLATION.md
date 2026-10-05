@@ -156,3 +156,27 @@ Initial fixture integration attempts exposed the removed background restore API 
 missing DEBUG credential adapter; both were corrected without changing production
 isolation. The failed attempt’s owned stalled diagnostic child was stopped after
 XCTest finished; the final green run finalized normally. No push or board actions.
+
+
+## Book-boundary skip integration (#14)
+
+Merged main 1013039 without weakening the MediaSession onAddMediaItems account/playback-generation
+authorization or pending-login rejection. BookPlayer wraps the actual ExoPlayer and shares
+book-relative skip behavior between the full player and controllers; existing queue invalidation
+and real-player progress callbacks remain unchanged. All eleven iOS CI suites remain selected.
+Boundary fixtures now use production synthetic login and account-scoped audio/artwork paths,
+not an unbound identity. The stale-playlist test explicitly reinserts old items after logout
+clears the queue; its original rejection assertions remain. Added a pending-reauth boundary-skip
+regression. Existing ExoPlayer-specific fixtures unwrap BookPlayer rather than casting the wrapper;
+their lifecycle, controller, reauth and account-isolation assertions remain intact.
+
+Validation: Android full testDebugUnitTest plus assembleDebug/assembleRelease exited 0,
+91 tests across 17 suites, zero failures/errors/skips (/tmp/abs33-f169-skips-android.log).
+This project exposes no testReleaseUnitTest task; Release APK compilation/assembly was verified.
+Focused iOS BookSkips (three), DownloadRemoval, ProgressReplay (two) and SessionIsolation
+passed together: 7/7, zero failures/skips, finalized Passed bundle
+/tmp/abs33-f169-skips-tests.xcresult and log /tmp/abs33-f169-skips-tests.log.
+Unsigned Release simulator build exited 0 (/tmp/abs33-f169-skips-release.log).
+Only dedicated simulator 9A662338-0141-4E3B-A181-94FCADEAC675 was targeted.
+Xcode finalized normally; existing AVAudioSession warnings remain. git diff --check passed.
+No real credentials, personal device, push or board actions.

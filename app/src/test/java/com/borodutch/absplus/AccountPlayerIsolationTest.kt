@@ -118,7 +118,7 @@ class AccountPlayerIsolationTest {
             val binder = service.get().onBind(Intent("androidx.media3.session.MediaSessionService").setComponent(component))
             shadowOf(RuntimeEnvironment.getApplication()).setComponentNameAndServiceForBindService(component, binder)
             val session = PlayerService::class.java.getDeclaredField("session").apply { isAccessible = true }.get(service.get()) as MediaSession
-            val player = session.player as ExoPlayer
+            val player = (session.player as BookPlayer).wrappedPlayer as ExoPlayer
             val activity = Robolectric.buildActivity(Main::class.java).create().start().resume().visible()
             val main = activity.get()
             fun cover(field: String) = Main::class.java.getDeclaredField(field).apply { isAccessible = true }.get(main) as ImageView
@@ -229,7 +229,7 @@ class AccountPlayerIsolationTest {
             val binder = service.get().onBind(Intent("androidx.media3.session.MediaSessionService").setComponent(component))
             shadowOf(RuntimeEnvironment.getApplication()).setComponentNameAndServiceForBindService(component, binder)
             val session = PlayerService::class.java.getDeclaredField("session").apply { isAccessible = true }.get(service.get()) as MediaSession
-            val player = session.player as ExoPlayer
+            val player = (session.player as BookPlayer).wrappedPlayer as ExoPlayer
             var activity = Robolectric.buildActivity(Main::class.java).create().start().resume().visible()
             fun connect() = drainUntil { Main::class.java.getDeclaredField("ctl").apply { isAccessible = true }.get(activity.get()) != null }
             fun signIn(password: String) {
@@ -303,7 +303,7 @@ class AccountPlayerIsolationTest {
             val binder = service.get().onBind(Intent("androidx.media3.session.MediaSessionService").setComponent(component))
             shadowOf(RuntimeEnvironment.getApplication()).setComponentNameAndServiceForBindService(component, binder)
             val session = PlayerService::class.java.getDeclaredField("session").apply { isAccessible = true }.get(service.get()) as MediaSession
-            val player = session.player as ExoPlayer
+            val player = (session.player as BookPlayer).wrappedPlayer as ExoPlayer
             val future = MediaController.Builder(RuntimeEnvironment.getApplication(), session.token).buildAsync()
             drainUntil { future.isDone }
             val controller = future.get()

@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.common.MediaItem
 import com.google.common.util.concurrent.Futures
@@ -15,6 +16,27 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+
+/** Session commands (full player, notification and remote controllers) share book-relative skips.
+ * ExoPlayer's default seekBack/seekForward stop at the current media item's boundaries.
+ */
+internal class BookPlayer(player: Player) : ForwardingPlayer(player) {
+    override fun seekBack() = skip(-seekBackIncrement)
+    override fun seekForward() = skip(seekForwardIncrement)
+
+    private fun skip(deltaMs: Long) {
+        val captured = Abs.nowScope ?: return
+        Abs.ifCurrent(captured) {
+            val n = Abs.now ?: return@ifCurrent
+            // Reject a pending title/account switch until its scoped playlist arrives.
+            if (n.tracks.isEmpty() || mediaItemCount != n.tracks.size ||
+                currentMediaItem?.mediaId != Abs.mediaId(n, captured, currentMediaItemIndex)) return@ifCurrent
+            val target = (Abs.pos(this, n) + deltaMs / 1000.0).coerceIn(0.0, n.duration)
+            val (i, ms) = n.at(target)
+            seekTo(i, ms)
+        }
+    }
+}
 
 class PlayerService : MediaSessionService() {
     companion object {
@@ -73,7 +95,7 @@ class PlayerService : MediaSessionService() {
             .setSeekForwardIncrementMs(30_000)
             .build()
         player.addListener(progressListener(player))
-        session = MediaSession.Builder(this, player)
+        session = MediaSession.Builder(this, BookPlayer(player))
             .setCallback(object : MediaSession.Callback {
                 override fun onAddMediaItems(session: MediaSession, controller: MediaSession.ControllerInfo, items: List<MediaItem>) =
                     Futures.immediateFuture(if (Abs.me == null || Abs.loginPending) emptyList() else items.filter {
