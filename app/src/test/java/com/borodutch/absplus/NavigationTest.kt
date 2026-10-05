@@ -187,7 +187,7 @@ class NavigationTest {
         repeat(200) { i ->
             val id = "download$i"
             java.io.File(Abs.mediaDir, "audio/$id").mkdirs()
-            java.io.File(Abs.mediaDir, "audio/$id/audio").writeText("fixture")
+            java.io.File(Abs.mediaDir, "audio/$id/audio.mp3").writeText("fixture")
             val cache = Abs::class.java.getDeclaredMethod("cacheFile", String::class.java).apply { isAccessible = true }
                 .invoke(Abs, "/api/items/$id?expanded=1") as java.io.File
             cache.parentFile!!.mkdirs()

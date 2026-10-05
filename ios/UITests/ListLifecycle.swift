@@ -18,7 +18,7 @@ final class ListLifecycle: XCTestCase {
         let y = target.frame.minY
         for gesture in [false, true, false] {
             app.staticTexts[name].tap()
-            XCTAssertTrue(app.staticTexts["Fixture details"].firstMatch.waitForExistence(timeout: 10))
+            XCTAssertTrue(app.staticTexts["Fixture details"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
             if gesture {
                 app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
                     .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
