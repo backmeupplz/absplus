@@ -82,8 +82,8 @@ class LoadingTest {
         s.route("/api/libraries") { libs }; s.route("/api/me") { me }; s.start()
         Abs.p.edit().putString("lib", "books").commit()
         a.call("tab", 1)
-        assertTrue(a.has("Loading titles…")); assertFalse(a.has("No titles in this library."))
-        assertTrue(requested.await(5, TimeUnit.SECONDS)); release.countDown()
+        assertTrue(a.has("Loading libraries…")); assertFalse(a.has("No titles in this library."))
+        await { a.has("Loading titles…") && requested.count == 0L }; release.countDown()
         await { a.has("Couldn't load titles.") }
         s.removeContext("/api/libraries/books/items")
         val retryRelease = CountDownLatch(1)
@@ -94,6 +94,32 @@ class LoadingTest {
         assertFalse(a.has("Loading titles…")); assertEquals(2, calls.get())
     }
 
+    @Test fun failedFreshMembershipHasSingleFlightRetryAndNeverAuthorizesCachedTitles() = fixture { a, s ->
+        cache("/api/libraries", libs)
+        cache("/api/libraries/books/items?minified=1&sort=media.metadata.title", """{"results":[]}""")
+        val titleCalls = AtomicInteger(); val membershipCalls = AtomicInteger()
+        s.route("/api/libraries", 503) { membershipCalls.incrementAndGet(); "{}" }
+        s.route("/api/libraries/books/items") { titleCalls.incrementAndGet(); """{"results":[]}""" }
+        s.route("/api/me") { me }; s.start()
+        Abs.p.edit().putString("lib", "books").commit()
+        a.call("tab", 1)
+        val page = a.content().getChildAt(0)
+        await { a.has("Couldn't load libraries.") }
+        assertEquals(0, titleCalls.get())
+        assertFalse(a.has("No titles in this library."))
+        val release = CountDownLatch(1)
+        s.removeContext("/api/libraries")
+        s.route("/api/libraries") { membershipCalls.incrementAndGet(); release.await(5, TimeUnit.SECONDS); libs }
+        val retry = a.button("Retry")
+        retry.performClick(); retry.performClick()
+        assertTrue(a.has("Loading libraries…"))
+        assertEquals(0, titleCalls.get())
+        release.countDown()
+        await { a.has("No titles in this library.") && titleCalls.get() == 1 }
+        assertEquals(2, membershipCalls.get())
+        assertSame(page, a.content().getChildAt(0))
+    }
+
     @Test fun cachedLibraryRefreshFailureRetainsSearchAndBackThenRetriesWithoutReplacingView() = fixture { a, s ->
         cache("/api/libraries/books/items?minified=1&sort=media.metadata.title", org.json.JSONObject().put("results", org.json.JSONArray().put(org.json.JSONObject(book("cached")))).toString())
         val release = CountDownLatch(1)
@@ -101,7 +127,7 @@ class LoadingTest {
         s.route("/api/libraries") { libs }; s.route("/api/me") { me }; s.route("/api/items/detail", 500) { """{}""" }; s.start()
         Abs.p.edit().putString("lib", "books").commit()
         a.call("tab", 1); val page = a.content().getChildAt(0)
-        assertTrue(a.has("Updating titles…"))
+        await { a.has("Updating titles…") }
         val search = views(page).filterIsInstance<TextInputEditText>().single(); search.setText("cached")
         a.call("push", { a.call("item", "detail") }); release.countDown()
         a.onBackPressedDispatcher.onBackPressed(); layout(a.content())
@@ -117,9 +143,9 @@ class LoadingTest {
         val oldRelease = CountDownLatch(1); val oldRequested = CountDownLatch(1)
         s.route("/api/libraries/books/items") { oldRequested.countDown(); oldRelease.await(5, TimeUnit.SECONDS); org.json.JSONObject().put("results", org.json.JSONArray().put(org.json.JSONObject(book("old")))).toString() }
         s.route("/api/libraries/new/items") { """{"results":[]}""" }
-        s.route("/api/libraries") { libs }; s.route("/api/me") { me }; s.start()
+        s.route("/api/libraries") { """{"libraries":[{"id":"books","name":"Books"},{"id":"new","name":"New"}]}""" }; s.route("/api/me") { me }; s.start()
         Abs.p.edit().putString("lib", "books").commit(); a.call("tab", 1)
-        assertTrue(oldRequested.await(5, TimeUnit.SECONDS))
+        await { oldRequested.count == 0L }
         Abs.p.edit().putString("lib", "new").commit(); a.call("library")
         val page = a.content().getChildAt(0); await { a.has("No titles in this library.") }
         oldRelease.countDown(); await { Abs.cached("/api/libraries/books/items?minified=1&sort=media.metadata.title") != null }
@@ -399,11 +425,13 @@ class LoadingTest {
             val retry = views(banner).filterIsInstance<MaterialButton>().single()
             retry.performClick(); retry.performClick(); await { pingCalls.get() == 1 }
             assertFalse(retry.isEnabled); assertEquals("Connecting…", retry.text.toString())
-            pingRelease.countDown(); await { titleCalls.get() == 1 && libCalls.get() == 1 && progressCalls.get() == 1 }
-            titlesRelease.countDown(); await { grid.adapter!!.itemCount == 161 }
-            // Titles can finish before library discovery. Network entry counts are not UI delivery.
+            pingRelease.countDown(); await { libCalls.get() == 1 && progressCalls.get() == 1 }
+            // Fresh membership now authorizes titles; neither cache nor reconnect may bypass it.
+            assertEquals(0, titleCalls.get()); assertEquals(160, grid.adapter!!.itemCount)
             assertTrue(views(page).filterIsInstance<com.google.android.material.chip.Chip>().isEmpty())
             librariesRelease.countDown()
+            await { titleCalls.get() == 1 }
+            titlesRelease.countDown(); await { grid.adapter!!.itemCount == 161 }
             await {
                 views(page).filterIsInstance<com.google.android.material.chip.Chip>().singleOrNull()?.let {
                     it.isChecked && visible(it)

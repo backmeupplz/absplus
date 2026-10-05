@@ -441,7 +441,7 @@ class Main : AppCompatActivity() {
     private fun library() {
         begin()
         retainPage = true
-        val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true }
+        val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true; isSelectionRequired = true }
         val search = field("Search titles & authors").apply {
             startIconDrawable = ContextCompat.getDrawable(context, R.drawable.i_search)
             val r = dp(28).toFloat()
@@ -449,10 +449,17 @@ class Main : AppCompatActivity() {
         }
         val empty = text("", muted = true).pad(16, 4).apply { isVisible = false }
         var loaded = false
+        var membershipLoaded = false
         var online = if (Abs.offline) Abs.downloads().map { Abs.cachedCard(it.name) } else listOf<Card>()
         var shown = online
         var sel = Abs.p.getString("lib", null)
-        val g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
+        val owner = screen
+        val rows = loadRows
+        val account = Abs.server to Abs.me
+        fun ownsLibrary() = account == (Abs.server to Abs.me) && Abs.p.getString("lib", null) == sel &&
+            (owner == screen || stack.any { it.generation == owner })
+        var request = 0
+        var g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
         val heading = header("Library")
         val title = heading.getChildAt(0) as TextView
         val selector = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0)
@@ -466,8 +473,10 @@ class Main : AppCompatActivity() {
             shown = avail(if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.sub.contains(q, true) })
             title.text = if (Abs.offline) "Downloaded" else "Library"
             selector.isVisible = !Abs.offline
-            empty.text = if (q.isNotEmpty()) "No matching titles." else if (Abs.offline) "Nothing downloaded on this device." else "No titles in this library."
-            empty.isVisible = (loaded || Abs.offline) && shown.isEmpty()
+            empty.text = if (Abs.offline && q.isEmpty()) "Nothing downloaded on this device."
+                else if (!Abs.offline && membershipLoaded && sel == null) "No libraries available."
+                else if (q.isNotEmpty()) "No matching titles." else "No titles in this library."
+            empty.isVisible = (loaded || Abs.offline || membershipLoaded && sel == null) && shown.isEmpty()
             g.adapter?.notifyDataSetChanged()
             if (!preservePosition) lm.scrollToPositionWithOffset(0, 0)
             else if (key != null && offset != null) {
@@ -475,24 +484,32 @@ class Main : AppCompatActivity() {
                 if (at >= 0) lm.scrollToPositionWithOffset(at, offset)
             }
         }
-        fun titles() {
-            val id = sel ?: return
-            load("/api/libraries/$id/items?minified=1&sort=media.metadata.title", retained = true, label = "titles") { j ->
-                val r = j.getJSONArray("results")
-                loaded = true
-                online = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
-                filter()
+        search.editText!!.doAfterTextChanged { filter(preservePosition = false) }
+        val page = col(heading, selector, search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f))
+        show(page)
+        fun refresh() {
+            val current = ++request
+            // Supersede old title retries as soon as authoritative membership is requested.
+            rows.requests.keys.filter { it.startsWith("/api/libraries/") }.toList().forEach { path ->
+                rows.requests.remove(path)
+                rows.statuses.remove(path)?.let { (it.view.parent as? ViewGroup)?.removeView(it.view) }
             }
-        }
-        fun fetch() {
-            val selected = sel
-            load("/api/libraries", retained = true, label = "libraries") { j ->
+            fun valid() = ownsLibrary() && current == request
+            // Cached membership must never authorize requests to a revoked library.
+            load("/api/libraries", retained = true, label = "libraries", cacheFirst = false, valid = ::valid) membership@{ j ->
+                if (Abs.offline) return@membership
                 val libs = j.getJSONArray("libraries")
-                if (libs.length() == 0 && sel == null) { empty.text = "No libraries available."; empty.isVisible = !Abs.offline }
-                val selecting = sel == null && libs.length() > 0
-                if (selecting) {
-                    sel = libs.getJSONObject(0).getString("id")
-                    Abs.p.edit().putString("lib", sel).apply()
+                val available = (0 until libs.length()).map { libs.getJSONObject(it).getString("id") }
+                val selected = sel?.takeIf { it in available } ?: available.firstOrNull()
+                val changed = selected != sel
+                sel = selected
+                membershipLoaded = true
+                Abs.p.edit().putString("lib", selected).apply()
+                if (changed) {
+                    online = emptyList()
+                    loaded = false
+                    search.editText!!.setText("")
+                    filter(preservePosition = false)
                 }
                 chips.removeAllViews()
                 for (i in 0 until libs.length()) {
@@ -504,26 +521,38 @@ class Main : AppCompatActivity() {
                         text = l.getString("name")
                         isCheckable = true
                         isChecked = id == sel
-                        setOnClickListener { Abs.p.edit().putString("lib", id).apply(); library() }
+                        setOnClickListener { if (id != sel) { Abs.p.edit().putString("lib", id).apply(); library() } }
                     })
                 }
-                if (selecting) titles()
+                filter()
+                if (selected == null) return@membership
+                if (changed) {
+                    page.removeView(g)
+                    g = grid(Abs.p.getFloat("ratio:$selected", 1f)) { shown }
+                    page.addView(g.lp(-1, 0, 1f))
+                }
+                load("/api/libraries/$selected/items?minified=1&sort=media.metadata.title", retained = true,
+                    label = "titles", valid = { valid() && sel == selected }) titles@{ json ->
+                    if (Abs.offline) return@titles
+                    val r = json.getJSONArray("results")
+                    loaded = true
+                    online = (0 until r.length()).map { Card.item(r.getJSONObject(it)) }
+                    filter()
+                }
             }
-            if (selected != null) titles()
             load("/api/me", retained = true, label = "progress") { Abs.setMe(it); g.adapter?.notifyDataSetChanged() }
         }
-        search.editText!!.doAfterTextChanged { filter(preservePosition = false) }
-        show(col(heading, selector, search.lp(m = 0).pad(16, 4), empty, g.lp(-1, 0, 1f)))
-        var pageOffline = Abs.offline
         onReturn = {
-            val reconnect = pageOffline && !Abs.offline
-            pageOffline = Abs.offline
             filter()
-            if (reconnect) fetch()
+            if (!Abs.offline) refresh()
+            else {
+                request++
+                rows.statuses.values.forEach { it.success() }
+            }
         }
-        onDl = onReturn
+        onDl = { filter() }
         filter()
-        if (!Abs.offline) fetch()
+        if (!Abs.offline) refresh()
     }
 
     // --- series (from the server's book libraries)
@@ -1282,7 +1311,8 @@ class Main : AppCompatActivity() {
     }
 
     /** Cache-first rendering with a page-owned, retryable terminal state. */
-    private fun load(path: String, retained: Boolean = false, label: String = "content", render: (JSONObject) -> Unit) {
+    private fun load(path: String, retained: Boolean = false, label: String = "content",
+        cacheFirst: Boolean = true, valid: (() -> Boolean)? = null, render: (JSONObject) -> Unit) {
         val rows = loadRows
         val gen = rows.owner
         val account = Abs.server to Abs.me
@@ -1300,18 +1330,20 @@ class Main : AppCompatActivity() {
                 try { render(JSONObject(raw)); rendered = raw } finally { if (loadRows === rows) loadRows = current }
             }
         }
-        // Cache is a small local snapshot. A damaged snapshot must not prevent the network retry.
-        runCatching { Abs.cached(path)?.let(::deliver) }
+        fun ownsRequest() = rows.requests[path] === requestId && account == (Abs.server to Abs.me) &&
+            (valid?.invoke() ?: ownsPage(gen, retained))
+        // Cache is a small local snapshot. Membership can explicitly require a fresh response.
+        if (cacheFirst && ownsRequest()) runCatching { Abs.cached(path)?.let(::deliver) }
         fun request() {
-            if (running || rows.requests[path] !== requestId || account != (Abs.server to Abs.me) || !ownsPage(gen, retained)) return
+            if (running || !ownsRequest()) return
             running = true
             state.loading(rendered != null)
             bg({ Abs.get(path) }, { e ->
                 running = false
-                if (rows.requests[path] === requestId && account == (Abs.server to Abs.me) && ownsPage(gen, retained)) state.failed(rendered != null, e, ::request)
+                if (ownsRequest()) state.failed(rendered != null, e, ::request)
             }) { raw ->
                 running = false
-                if (rows.requests[path] === requestId && account == (Abs.server to Abs.me) && ownsPage(gen, retained)) {
+                if (ownsRequest()) {
                     runCatching { deliver(raw) }.fold({ state.success() }, { state.failed(rendered != null, it, ::request) })
                 }
             }
