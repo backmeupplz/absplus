@@ -14,12 +14,25 @@ final class LoadingLifecycle: XCTestCase {
         XCTAssertFalse(app.staticTexts["No favorites"].exists)
         XCTAssertFalse(app.staticTexts["No series"].exists)
     }
-    private func release(_ app: XCUIApplication) { app.buttons["Release fixture requests"].tap() }
+    private func release(_ app: XCUIApplication) {
+        let button = app.buttons["Release fixture requests"]
+        XCTAssertTrue(button.isHittable, app.debugDescription)
+        // Like tab selection, a highlighted 50ms touch is not an acknowledgment.
+        button.press(forDuration: 0.1)
+        let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "released"), object: button)
+        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: 4), .completed, app.debugDescription)
+    }
     private func retry(_ app: XCUIApplication) {
         XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 15))
         app.buttons["loading.retry"].tap()
     }
-    private func hold(_ app: XCUIApplication) { app.buttons["Hold fixture requests"].tap() }
+    private func hold(_ app: XCUIApplication) {
+        let button = app.buttons["Hold fixture requests"]
+        XCTAssertTrue(button.isHittable, app.debugDescription)
+        button.press(forDuration: 0.1)
+        let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "held"), object: button)
+        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: 4), .completed, app.debugDescription)
+    }
     private func tab(_ app: XCUIApplication, _ name: String) {
         let button = app.tabBars.buttons[name]
         XCTAssertTrue(button.isHittable, app.debugDescription)

@@ -5,6 +5,7 @@ import os
 /// Only a reserved .invalid host is intercepted. No credentials or real mutations.
 struct LoadingFixture: View {
     @State private var seeded = false
+    @State private var requestsReleased = false
     @State private var failure: String?
     @State private var positionCount = 0
     @State private var favoriteCount = -1
@@ -82,8 +83,10 @@ struct LoadingFixture: View {
         .overlay(alignment: .top) {
             VStack(spacing: 4) {
             HStack {
-                Button("Release fixture requests") { LoadingProtocol.released.withLock { $0 = true } }
-                Button("Hold fixture requests") { LoadingProtocol.released.withLock { $0 = false } }
+                Button("Release fixture requests") { LoadingProtocol.released.withLock { $0 = true }; requestsReleased = true }
+                    .accessibilityValue(requestsReleased ? "released" : "held")
+                Button("Hold fixture requests") { LoadingProtocol.released.withLock { $0 = false }; requestsReleased = false }
+                    .accessibilityValue(requestsReleased ? "released" : "held")
             }
             if ProcessInfo.processInfo.arguments.contains("--playback") {
                 HStack {
