@@ -368,11 +368,12 @@ class LoadingTest {
             File(Abs.dir, "$id/audio.mp3").apply { parentFile!!.mkdirs(); writeText("fixture") }
         }
         Abs.dlChanged()
+        val librariesRelease = CountDownLatch(1)
         try {
             val pingCalls = AtomicInteger(); val libCalls = AtomicInteger(); val titleCalls = AtomicInteger(); val progressCalls = AtomicInteger()
             val pingRelease = CountDownLatch(1); val titlesRelease = CountDownLatch(1)
             s.route("/ping") { pingCalls.incrementAndGet(); pingRelease.await(5, TimeUnit.SECONDS); "{}" }
-            s.route("/api/libraries") { libCalls.incrementAndGet(); libs }
+            s.route("/api/libraries") { libCalls.incrementAndGet(); librariesRelease.await(); libs }
             s.route("/api/libraries/books/items") {
                 titleCalls.incrementAndGet(); titlesRelease.await(5, TimeUnit.SECONDS)
                 org.json.JSONObject().put("results", org.json.JSONArray((ids + "reconnectRemote").map { org.json.JSONObject(book(it)) })).toString()
@@ -399,7 +400,16 @@ class LoadingTest {
             retry.performClick(); retry.performClick(); await { pingCalls.get() == 1 }
             assertFalse(retry.isEnabled); assertEquals("Connecting…", retry.text.toString())
             pingRelease.countDown(); await { titleCalls.get() == 1 && libCalls.get() == 1 && progressCalls.get() == 1 }
-            titlesRelease.countDown(); await { grid.adapter!!.itemCount == 161 }; layout(a.content())
+            titlesRelease.countDown(); await { grid.adapter!!.itemCount == 161 }
+            // Titles can finish before library discovery. Network entry counts are not UI delivery.
+            assertTrue(views(page).filterIsInstance<com.google.android.material.chip.Chip>().isEmpty())
+            librariesRelease.countDown()
+            await {
+                views(page).filterIsInstance<com.google.android.material.chip.Chip>().singleOrNull()?.let {
+                    it.isChecked && visible(it)
+                } == true && !a.has("Updating progress…") && !a.has("Loading progress…")
+            }
+            layout(a.content())
             assertSame(page, a.content().getChildAt(0)); assertSame(lm, grid.layoutManager)
             assertEquals("Title reconnect", search.text.toString()); assertEquals(key, key())
             assertEquals(offset, lm.getDecoratedTop(anchor()) - grid.paddingTop)
@@ -417,13 +427,17 @@ class LoadingTest {
             // Visible connectivity transitions also recompute membership without navigation.
             Abs.offline = false; a.connectivityTick()
             await { titleCalls.get() == 2 && libCalls.get() == 2 && progressCalls.get() == 2 }
-            await { !a.has("Updating titles…") }; layout(a.content())
+            await { !a.has("Updating titles…") && !a.has("Updating libraries…") && !a.has("Updating progress…") }
+            layout(a.content())
             assertEquals(161, grid.adapter!!.itemCount)
             Abs.offline = true; a.connectivityTick(); layout(a.content())
             assertEquals(160, grid.adapter!!.itemCount); assertEquals(key, key())
             assertEquals(offset, lm.getDecoratedTop(anchor()) - grid.paddingTop)
             assertEquals(1, pingCalls.get())
-        } finally { ids.forEach { File(Abs.dir, it).deleteRecursively() }; Abs.dlChanged() }
+        } finally {
+            librariesRelease.countDown() // Also release on failed assertions before fixture server/executor teardown.
+            ids.forEach { File(Abs.dir, it).deleteRecursively() }; Abs.dlChanged()
+        }
     }
 
     @Test fun homePlayRefetchesPoisonedExpandedCacheAndRetryReachesProgress() = fixture { a, s ->
