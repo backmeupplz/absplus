@@ -113,7 +113,17 @@ class PlayerService : MediaSessionService() {
     internal fun progressListener(player: Player) = object : Player.Listener {
         override fun onIsPlayingChanged(playing: Boolean) {
             if (playing) sync(player, intentionalPlayback = true)
-            else if (player.playbackState != Player.STATE_ENDED) sync(player)
+            else if (player.playbackState != Player.STATE_ENDED) {
+                sync(player)
+                // ExoPlayer reports pause from its masked state, whose position can trail what the
+                // playback thread rendered before applying it. Checkpoint again once it has.
+                (player as? ExoPlayer)?.let { exo ->
+                    val masked = exo.currentPosition
+                    exo.createMessage { _, _ ->
+                        if (!exo.isPlaying && exo.playbackState != Player.STATE_ENDED && exo.currentPosition != masked) sync(exo)
+                    }.setLooper(exo.applicationLooper).send()
+                }
+            }
         }
         override fun onPlaybackStateChanged(state: Int) {
             if (state == Player.STATE_ENDED) sync(player, true)
