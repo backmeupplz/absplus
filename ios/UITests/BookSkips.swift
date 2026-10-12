@@ -11,18 +11,28 @@ final class BookSkips: XCTestCase {
         at(110)
     }
 
-    private func values() -> [String: String] {
-        let label = app.staticTexts["skip-state"].label
-        return Dictionary(label.split(separator: ";").compactMap { part in
+    private func values(_ label: String) -> [String: String] {
+        Dictionary(label.split(separator: ";").compactMap { part in
             let pair = part.split(separator: "=", maxSplits: 1)
             return pair.count == 2 ? (String(pair[0]), String(pair[1])) : nil
         }, uniquingKeysWith: { _, last in last })
     }
 
-    private func wait(_ reason: String, _ condition: @escaping ([String: String]) -> Bool) {
-        let predicate = NSPredicate { [self] _, _ in condition(values()) }
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)], timeout: 10), .completed,
-                       "\(reason): \(app.staticTexts["skip-state"].label)")
+    private func values() -> [String: String] { values(app.staticTexts["skip-state"].label) }
+
+    // A stalled hosted simulator spent 10-19s on single skip-state reads after a
+    // relaunch. XCTWaiter's 10s budget then expired mid-read and discarded a read
+    // that already showed the target state. Judge every read that starts before
+    // the deadline, and allow several of them; the required state is unchanged.
+    private func wait(_ reason: String, timeout: TimeInterval = 30, _ condition: ([String: String]) -> Bool) {
+        let deadline = Date().addingTimeInterval(timeout)
+        var label: String
+        repeat {
+            label = app.staticTexts["skip-state"].label
+            if condition(values(label)) { return }
+            Thread.sleep(forTimeInterval: 0.1)
+        } while Date() < deadline
+        XCTFail("\(reason) not reached within \(Int(timeout))s; last read: \(label)")
     }
 
     /// Verify AVQueuePlayer's actual current item/time, not only the model's target position.
