@@ -259,7 +259,9 @@ class AccountPlayerIsolationTest {
                 assertEquals(1, player.mediaItemCount)
                 // Real player callbacks still checkpoint during authentication (not a direct Abs.push).
                 player.play()
-                drainUntil { player.isPlaying }
+                // Don't idle the app looper until paused: the playback thread renders past 350 ms
+                // meanwhile, so the masked pause callback below still sees the stale seek position.
+                assertTrue(player.isPlaying)
                 // ExoPlayer masks isPlaying synchronously, before its playback thread applies
                 // pause. Hold that thread to exercise this ordering instead of racing it.
                 val playbackHeld = CountDownLatch(1)
