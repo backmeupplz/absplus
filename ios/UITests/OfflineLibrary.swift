@@ -55,8 +55,10 @@ final class OfflineLibrary: XCTestCase {
         settle()
         // The loop stops as soon as the row peeks in, often at the bottom edge by
         // the home indicator. Center it with a held drag that leaves no momentum.
+        // A drag shorter than the scroll threshold would register as a tap and
+        // open a row's details, and a row near the middle is safe to swipe as is.
         let lift = row.frame.midY - app.windows.firstMatch.frame.midY
-        if lift > 0 {
+        if lift > 60 {
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
             start.press(forDuration: 0.1,
                         thenDragTo: start.withOffset(CGVector(dx: 0, dy: -lift)),
