@@ -1,6 +1,11 @@
 import XCTest
 
 final class LoadingLifecycle: XCTestCase {
+    // Hosted CI simulators can spend ~3s on one accessibility snapshot while the
+    // app is busy, so a 4s budget saw a single stale read of a gate that had
+    // already flipped. The waits still require the acknowledgment; they just
+    // allow several reads of it.
+    private let gateTimeout: TimeInterval = 15
     private func launch(_ flags: String...) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -20,7 +25,7 @@ final class LoadingLifecycle: XCTestCase {
         // Like tab selection, a highlighted 50ms touch is not an acknowledgment.
         button.press(forDuration: 0.1)
         let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "released"), object: button)
-        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: 4), .completed, app.debugDescription)
+        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: gateTimeout), .completed, app.debugDescription)
     }
     private func retry(_ app: XCUIApplication) {
         XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 15))
@@ -31,7 +36,7 @@ final class LoadingLifecycle: XCTestCase {
         XCTAssertTrue(button.isHittable, app.debugDescription)
         button.press(forDuration: 0.1)
         let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "held"), object: button)
-        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: 4), .completed, app.debugDescription)
+        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: gateTimeout), .completed, app.debugDescription)
     }
     private func tab(_ app: XCUIApplication, _ name: String) {
         let button = app.tabBars.buttons[name]
@@ -40,7 +45,7 @@ final class LoadingLifecycle: XCTestCase {
         // selection. Send one deliberate touch, then prove navigation before
         // attributing a missing loading state to the destination screen.
         button.press(forDuration: 0.1)
-        XCTAssertTrue(button.wait(for: \.isSelected, toEqual: true, timeout: 4), app.debugDescription)
+        XCTAssertTrue(button.wait(for: \.isSelected, toEqual: true, timeout: gateTimeout), app.debugDescription)
     }
 
     func testDelayedSuccessAllTabsAndDetailsBack() {
@@ -172,6 +177,10 @@ final class LoadingLifecycle: XCTestCase {
         let app = launch("--login", "--failure")
         app.textFields["Username"].tap()
         app.textFields["Username"].typeText("fixture-user")
+        // CI can still be committing the last keystrokes when typeText returns;
+        // tapping Sign in then ends editing and drops them ("fixture-us").
+        let typed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "fixture-user"), object: app.textFields["Username"])
+        XCTAssertEqual(XCTWaiter.wait(for: [typed], timeout: gateTimeout), .completed, app.debugDescription)
         let signIn = app.buttons["Sign in"]
         signIn.tap()
         XCTAssertTrue(app.descendants(matching: .any)["Signing in"].firstMatch.waitForExistence(timeout: 2))
