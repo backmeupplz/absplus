@@ -13,7 +13,7 @@ struct BookSkipFixture: View {
         VStack(spacing: 0) {
             FullPlayer()
             HStack {
-                ForEach([10, 60, 95, 110, 140], id: \.self) { t in
+                ForEach([10, 60, 80, 95, 110, 140], id: \.self) { t in
                     Button("At \(t)") { skips.reset(); player.seek(Double(t)) }
                 }
             }.font(.caption)
@@ -93,9 +93,9 @@ struct BookSkipFixture: View {
 }
 
 /// Latches where the first skip made during playback actually landed, so a slow UI test read
-/// still sees it after playback has moved on: `jump=from:fromRate:track:actual:rate:speed:after`,
-/// or `jump=missed:...` if playback never settled within 10s. It watches only the actual
-/// AVQueuePlayer: model position ticks briefly report a rebuilt queue's file start.
+/// still sees it after playback has moved on: `jump=from:fromRate:track:actual:rate:speed:after`.
+/// It watches only the actual AVQueuePlayer: model position ticks briefly report a rebuilt
+/// queue's file start.
 @MainActor private final class SkipLatch {
     private(set) var latched = "none"
     private var last: (track: String, global: Double, rate: Float, moving: Bool, at: Date)?
@@ -111,12 +111,14 @@ struct BookSkipFixture: View {
         defer { last = (track, global, rate, moving, now) }
         guard latched == "none", let last else { return }
         // Anything but continuous progress at the playing rate is a jump; file changes at
-        // 100s are continuous in book time.
-        let jumped = track != last.track && !(last.track == "0" && track == "1" && abs(global - 100) < 2) ||
-            !(abs(global - last.global - (last.moving ? Double(last.rate) : 0) * now.timeIntervalSince(last.at)) < 0.5)
+        // 100s are continuous in book time. NaN (no item) never counts as continuous.
+        let switched = track != last.track && !(last.track == "0" && track == "1" && abs(global - 100) < 2)
+        let drift = abs(global - last.global - (last.moving ? Double(last.rate) : 0) * now.timeIntervalSince(last.at))
+        let jumped = switched || !(drift < 0.5)
         if pending == nil {
-            // Seeds and skips while paused are covered by the exact paused checks.
-            guard jumped, last.moving, last.rate == player.speed else { return }
+            // Only a file switch or a 5s jump is a skip, not an audio hiccup. Seeds and skips
+            // while paused are covered by the exact paused checks.
+            guard switched || !(drift < 5), last.moving, last.rate == player.speed else { return }
             pending = (last.global, last.rate, last.at)
         }
         guard let skip = pending else { return }
@@ -124,12 +126,9 @@ struct BookSkipFixture: View {
         // jump for a full second. A seek in flight restarts the run.
         if jumped || !moving || player.p.currentItem?.status != .readyToPlay || rate != player.speed { run = nil }
         else if run == nil { run = (track, global, now) }
-        let elapsed = now.timeIntervalSince(skip.at)
         if let run, now.timeIntervalSince(run.at) >= 1 {
             latched = String(format: "%.3f:%.2f:%@:%.3f:%.2f:%.2f:%.3f", skip.from, skip.rate, run.track, run.global,
                              rate, player.speed, run.at.timeIntervalSince(skip.at))
-        } else if elapsed > 10 {
-            latched = String(format: "missed:%.3f:%.2f:%@:%.3f:%.2f:%.2f", skip.from, skip.rate, track, global, rate, player.speed)
         }
     }
 }
