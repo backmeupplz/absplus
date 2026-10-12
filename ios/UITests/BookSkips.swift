@@ -50,6 +50,29 @@ final class BookSkips: XCTestCase {
         add(attachment)
     }
 
+    /// A slow read can return long after a skip made during playback, so judge the landing the
+    /// fixture latched from the actual AVQueuePlayer (`jump=from:fromRate:track:actual:rate:speed:after`):
+    /// playing at 1.5x from `range`, the skip crossed into `track` and settled `by` seconds away,
+    /// allowing only for playback in the `after` seconds it took, still playing at 1.5x.
+    private func landed(_ direction: String, from range: Range<Double>, track: String, by delta: Double) {
+        wait("\(direction) cross-file playback retained") { $0["jump"] != "none" }
+        let jump = values()["jump"] ?? "", parts = jump.split(separator: ":").map(String.init)
+        let attachment = XCTAttachment(string: jump)
+        attachment.name = "Actual \(direction) skip landing during playback"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        guard parts.count == 7, let from = Double(parts[0]), let actual = Double(parts[3]), let after = Double(parts[6]) else {
+            return XCTFail("skip landing missed or malformed: \(jump)")
+        }
+        XCTAssertTrue(range.contains(from), "skip started outside the cross-file range: \(jump)")
+        XCTAssertEqual(parts[1], "1.50", "not playing at 1.5x before the skip: \(jump)")
+        XCTAssertEqual(parts[2], track, "skip did not cross files: \(jump)")
+        XCTAssertGreaterThan(actual, from + delta - 1.5, "skip landed short: \(jump)")
+        XCTAssertLessThan(actual, from + delta + 1.5 * after + 1.5, "skip landed too far: \(jump)")
+        XCTAssertEqual(parts[4], "1.50", "playback rate not retained: \(jump)")
+        XCTAssertEqual(parts[5], "1.50", "speed not retained: \(jump)")
+    }
+
     private func seed(_ seconds: Int) { app.buttons["At \(seconds)"].tap(); at(Double(seconds)) }
 
     private func exercise(back: String, forward: String) {
@@ -88,21 +111,14 @@ final class BookSkips: XCTestCase {
             app.buttons["Play"].tap()
             wait("playing at 1.5x") { $0["rate"] == "1.50" && $0["paused"] == "no" }
             app.buttons[route == "remote" ? "Remote back" : "Back 30 seconds"].tap()
-            wait("backward cross-file playback retained") { v in
-                v["track"] == "0" && v["ready"] == "yes" && v["rate"] == "1.50" &&
-                v["speed"] == "1.50" && (Double(v["actual"] ?? "") ?? 0) > 79
-            }
+            landed("backward", from: 109.9..<130, track: "0", by: -30)
             app.buttons["Pause"].tap()
             wait("paused") { $0["paused"] == "yes" }
             seed(95)
             app.buttons["Play"].tap()
             wait("playing") { $0["rate"] == "1.50" }
             app.buttons[route == "remote" ? "Remote forward" : "Forward 30 seconds"].tap()
-            wait("forward cross-file playback retained") { v in
-                let time = Double(v["actual"] ?? "") ?? 0
-                return v["track"] == "1" && v["ready"] == "yes" && v["rate"] == "1.50" &&
-                    v["speed"] == "1.50" && time >= 124 && time < 145
-            }
+            landed("forward", from: 94.9..<100, track: "1", by: 30)
             app.buttons["Pause"].tap()
             wait("paused") { $0["paused"] == "yes" }
         }

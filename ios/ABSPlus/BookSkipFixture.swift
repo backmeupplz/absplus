@@ -7,13 +7,14 @@ struct BookSkipFixture: View {
     @State private var prepared = false
     @State private var snapshot = "preparing"
     @State private var remoteStatus = "none"
+    @State private var skips = SkipLatch()
 
     var body: some View {
         VStack(spacing: 0) {
             FullPlayer()
             HStack {
                 ForEach([10, 60, 95, 110, 140], id: \.self) { t in
-                    Button("At \(t)") { player.seek(Double(t)) }
+                    Button("At \(t)") { skips.reset(); player.seek(Double(t)) }
                 }
             }.font(.caption)
             HStack {
@@ -28,6 +29,7 @@ struct BookSkipFixture: View {
             prepared = true
             do { try await seed() } catch { snapshot = "ERROR: \(error)"; return }
             while !Task.isCancelled {
+                skips.observe()
                 snapshot = state()
                 try? await Task.sleep(for: .milliseconds(50))
             }
@@ -72,15 +74,63 @@ struct BookSkipFixture: View {
     }
 
     private func state() -> String {
+        let (track, offset, global) = actual()
         let item = player.p.currentItem
-        let url = (item?.asset as? AVURLAsset)?.url
-        let track = url?.deletingPathExtension().lastPathComponent ?? "none"
-        let offset = player.p.currentTime().seconds
-        let global = offset + (track == "1" ? 100 : 0)
-        return String(format: "track=%@;offset=%.3f;actual=%.3f;pos=%.3f;rate=%.2f;speed=%.2f;default=%.2f;paused=%@;ready=%@;local=%@;remote=%@",
+        return String(format: "track=%@;offset=%.3f;actual=%.3f;pos=%.3f;rate=%.2f;speed=%.2f;default=%.2f;paused=%@;ready=%@;local=%@;remote=%@;jump=%@",
                       track, offset, global, player.pos, player.p.rate, player.speed, player.p.defaultRate,
                       player.p.timeControlStatus == .paused && !player.playing ? "yes" : "no",
-                      item?.status == .readyToPlay ? "yes" : "no", url?.isFileURL == true ? "yes" : "no", remoteStatus)
+                      item?.status == .readyToPlay ? "yes" : "no",
+                      (item?.asset as? AVURLAsset)?.url.isFileURL == true ? "yes" : "no", remoteStatus, skips.latched)
+    }
+}
+
+/// Actual AVQueuePlayer file ("0" is 0..<100s, "1" is 100..<150s) and time.
+@MainActor private func actual() -> (track: String, offset: Double, global: Double) {
+    let url = (player.p.currentItem?.asset as? AVURLAsset)?.url
+    let track = url?.deletingPathExtension().lastPathComponent ?? "none"
+    let offset = player.p.currentTime().seconds
+    return (track, offset, offset + (track == "1" ? 100 : 0))
+}
+
+/// Latches where the first skip made during playback actually landed, so a slow UI test read
+/// still sees it after playback has moved on: `jump=from:fromRate:track:actual:rate:speed:after`,
+/// or `jump=missed:...` if playback never settled within 10s. It watches only the actual
+/// AVQueuePlayer: model position ticks briefly report a rebuilt queue's file start.
+@MainActor private final class SkipLatch {
+    private(set) var latched = "none"
+    private var last: (track: String, global: Double, rate: Float, moving: Bool, at: Date)?
+    private var pending: (from: Double, rate: Float, at: Date)?
+    private var run: (track: String, global: Double, at: Date)?
+
+    /// Fixture seeds start a new step.
+    func reset() { latched = "none"; last = nil; pending = nil; run = nil }
+
+    func observe() {
+        let (track, _, global) = actual()
+        let rate = player.p.rate, moving = player.p.timeControlStatus == .playing, now = Date()
+        defer { last = (track, global, rate, moving, now) }
+        guard latched == "none", let last else { return }
+        // Anything but continuous progress at the playing rate is a jump; file changes at
+        // 100s are continuous in book time.
+        let jumped = track != last.track && !(last.track == "0" && track == "1" && abs(global - 100) < 2) ||
+            !(abs(global - last.global - (last.moving ? Double(last.rate) : 0) * now.timeIntervalSince(last.at)) < 0.5)
+        if pending == nil {
+            // Seeds and skips while paused are covered by the exact paused checks.
+            guard jumped, last.moving, last.rate == player.speed else { return }
+            pending = (last.global, last.rate, last.at)
+        }
+        guard let skip = pending else { return }
+        // Judge where playback settled: ready on a file, at speed, progressing without a
+        // jump for a full second. A seek in flight restarts the run.
+        if jumped || !moving || player.p.currentItem?.status != .readyToPlay || rate != player.speed { run = nil }
+        else if run == nil { run = (track, global, now) }
+        let elapsed = now.timeIntervalSince(skip.at)
+        if let run, now.timeIntervalSince(run.at) >= 1 {
+            latched = String(format: "%.3f:%.2f:%@:%.3f:%.2f:%.2f:%.3f", skip.from, skip.rate, run.track, run.global,
+                             rate, player.speed, run.at.timeIntervalSince(skip.at))
+        } else if elapsed > 10 {
+            latched = String(format: "missed:%.3f:%.2f:%@:%.3f:%.2f:%.2f", skip.from, skip.rate, track, global, rate, player.speed)
+        }
     }
 }
 private final class BookSkipLoginProtocol: URLProtocol, @unchecked Sendable {
