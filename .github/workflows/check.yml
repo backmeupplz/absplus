@@ -1,8 +1,11 @@
 name: Checks
+# Site (docs/) and Markdown changes don't touch the apps, so they skip the build and test runs.
 on:
   pull_request:
+    paths-ignore: ['docs/**', '**.md']
   push:
     branches: [main]
+    paths-ignore: ['docs/**', '**.md']
 permissions:
   contents: read
 jobs:
