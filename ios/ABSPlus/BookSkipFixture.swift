@@ -14,7 +14,7 @@ struct BookSkipFixture: View {
             FullPlayer()
             HStack {
                 ForEach([10, 60, 80, 95, 110, 140], id: \.self) { t in
-                    Button("At \(t)") { skips.reset(); player.seek(Double(t)) }
+                    Button("At \(t)") { reseed(Double(t)) }
                 }
             }.font(.caption)
             HStack {
@@ -62,6 +62,16 @@ struct BookSkipFixture: View {
         }
         player.setSpeed(1.5)
         player.start(Now(item: id, ep: nil, title: "Skip parity: 100 + 50 seconds", author: "Local synthetic audio", tracks: tracks), 110, play: false, generation: app.playbackGeneration)
+    }
+
+    /// A stalled UI test can let playback run to 150, which marks the book finished and makes
+    /// the next Play start over from 0. A seed is a new listen at `t`, so clear that first.
+    @MainActor private func reseed(_ t: Double) {
+        skips.reset()
+        if let n = player.now, app.progressDisk.local[n.key]?.isFinished == true {
+            app.push(n, t, finished: false, restarting: true)
+        }
+        player.seek(t)
     }
 
     private func writeAudio(_ url: URL, seconds: Int) throws {

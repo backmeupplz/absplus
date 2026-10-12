@@ -24,15 +24,19 @@ final class BookSkips: XCTestCase {
     // relaunch. XCTWaiter's 10s budget then expired mid-read and discarded a read
     // that already showed the target state. Judge every read that starts before
     // the deadline, and allow several of them; the required state is unchanged.
-    private func wait(_ reason: String, timeout: TimeInterval = 30, _ condition: ([String: String]) -> Bool) {
+    /// Returns the read that satisfied `condition`, so callers need no slow re-read.
+    @discardableResult
+    private func wait(_ reason: String, timeout: TimeInterval = 30, _ condition: ([String: String]) -> Bool) -> [String: String] {
         let deadline = Date().addingTimeInterval(timeout)
         var label: String
         repeat {
             label = app.staticTexts["skip-state"].label
-            if condition(values(label)) { return }
+            let read = values(label)
+            if condition(read) { return read }
             Thread.sleep(forTimeInterval: 0.1)
         } while Date() < deadline
         XCTFail("\(reason) not reached within \(Int(timeout))s; last read: \(label)")
+        return [:]
     }
 
     /// Verify AVQueuePlayer's actual current item/time, not only the model's target position.
@@ -56,13 +60,32 @@ final class BookSkips: XCTestCase {
     /// allowing only for playback in the `after` seconds it took, still playing at 1.5x.
     /// `from` is sampled when the queue is rebuilt, which can trail the tap, hence 5s below;
     /// a landing at the target file's start stays well outside that.
-    private func landed(_ direction: String, from range: Range<Double>, track: String, by delta: Double) {
-        wait("\(direction) cross-file playback retained") { $0["jump"] != "none" }
-        let jump = values()["jump"] ?? "", parts = jump.split(separator: ":").map(String.init)
-        let attachment = XCTAttachment(string: jump)
-        attachment.name = "Actual \(direction) skip landing during playback"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+    ///
+    /// 1.5x playback leaves `range` about 13s after Play, and a stalled simulator can spend that
+    /// on the Play read and skip tap alone. A skip that started outside `range` (including one
+    /// latched from the file-1 rebuild tick at 100) says nothing about crossing files, so it is
+    /// retried from a fresh seed; the last attempt still fails on it.
+    private func playingSkip(_ direction: String, _ button: String, seed start: Int, from range: Range<Double>,
+                             track: String, by delta: Double) {
+        for attempt in 1...3 {
+            seed(start)
+            app.buttons["Play"].tap()
+            wait("playing at 1.5x") { $0["rate"] == "1.50" && $0["paused"] == "no" }
+            app.buttons[button].tap()
+            let jump = wait("\(direction) cross-file playback retained") { $0["jump"] != "none" }["jump"] ?? ""
+            app.buttons["Pause"].tap()
+            wait("paused") { $0["paused"] == "yes" }
+            let parts = jump.split(separator: ":").map(String.init)
+            let attachment = XCTAttachment(string: jump)
+            attachment.name = "Actual \(direction) skip landing during playback (attempt \(attempt))"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            if attempt < 3, let from = Double(parts.first ?? ""), !range.contains(from) { continue }
+            return judge(jump, parts, from: range, track: track, by: delta)
+        }
+    }
+
+    private func judge(_ jump: String, _ parts: [String], from range: Range<Double>, track: String, by delta: Double) {
         guard parts.count == 7, let from = Double(parts[0]), let actual = Double(parts[3]), let after = Double(parts[6]) else {
             return XCTFail("skip landing malformed: \(jump)")
         }
@@ -109,20 +132,10 @@ final class BookSkips: XCTestCase {
 
     func testPlaybackAndSpeedSurviveBothCrossFileRoutes() {
         for route in ["FullPlayer", "remote"] {
-            seed(110)
-            app.buttons["Play"].tap()
-            wait("playing at 1.5x") { $0["rate"] == "1.50" && $0["paused"] == "no" }
-            app.buttons[route == "remote" ? "Remote back" : "Back 30 seconds"].tap()
-            landed("backward", from: 109.9..<130, track: "0", by: -30)
-            app.buttons["Pause"].tap()
-            wait("paused") { $0["paused"] == "yes" }
-            seed(80)
-            app.buttons["Play"].tap()
-            wait("playing") { $0["rate"] == "1.50" }
-            app.buttons[route == "remote" ? "Remote forward" : "Forward 30 seconds"].tap()
-            landed("forward", from: 79.9..<100, track: "1", by: 30)
-            app.buttons["Pause"].tap()
-            wait("paused") { $0["paused"] == "yes" }
+            playingSkip("backward", route == "remote" ? "Remote back" : "Back 30 seconds",
+                        seed: 110, from: 109.9..<130, track: "0", by: -30)
+            playingSkip("forward", route == "remote" ? "Remote forward" : "Forward 30 seconds",
+                        seed: 80, from: 79.9..<100, track: "1", by: 30)
         }
     }
 }
