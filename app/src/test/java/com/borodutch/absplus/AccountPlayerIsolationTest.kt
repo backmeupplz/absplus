@@ -276,10 +276,11 @@ class AccountPlayerIsolationTest {
                     assertFalse(player.isPlaying)
                 } finally { releasePlayback.countDown() }
                 assertTrue(barrier.blockUntilDelivered(5_000))
-                // This message follows pause on the playback looper. Drain the resulting
-                // application callbacks before sampling the checkpoint to preserve.
-                assertTrue(player.createMessage { _, _ -> }.send().blockUntilDelivered(5_000))
-                shadowOf(Looper.getMainLooper()).idle()
+                // This message follows pause and the service's post-pause checkpoint through the
+                // playback looper back to the app looper. Drain both before sampling the checkpoint.
+                var drained = false
+                player.createMessage { _, _ -> drained = true }.setLooper(Looper.getMainLooper()).send()
+                drainUntil { drained }
                 val checkpoint = Abs.pos(player, now)
                 assertEquals(checkpoint, Abs.progressSync.local()[now.key]!!.getDouble("currentTime"), 0.001)
                 activity.get().call("start", Now("other", null, "Other", "", now.tracks), 0.0, true, scope)
