@@ -4,6 +4,7 @@ A small, fast Android and iOS player for your own [Audiobookshelf](https://www.a
 
 - Website: https://absplus.app (source in `docs/`, served by GitHub Pages)
 - Google Play: https://play.google.com/store/apps/details?id=com.borodutch.absplus
+- App Store: https://apps.apple.com/app/id6818353284
 - APK: [latest release](https://github.com/backmeupplz/absplus/releases/latest)
 
 ## Build
