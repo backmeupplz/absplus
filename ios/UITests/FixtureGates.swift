@@ -25,9 +25,10 @@ extension FixtureGates where Self: XCTestCase {
         // Hosted CI has also dropped the 0.1s press outright: every read for the
         // whole budget stayed at the old value (#82). Both buttons only set the
         // flag to a fixed value, so pressing again after an unacknowledged
-        // attempt cannot fire anything twice. The total stays at gateTimeout: a
-        // held request fails by itself at the app's 20s URLRequest timeout
-        // (Abs.swift), so a longer gate would only trade one failure for another.
+        // attempt cannot fire anything twice. The waits total gateTimeout (each
+        // press adds its own snapshot time); a held request fails by itself at
+        // the app's 20s URLRequest timeout (Abs.swift), so a longer gate would
+        // only trade one failure for another.
         let attempts = 3
         var result = XCTWaiter.Result.timedOut
         for _ in 1...attempts where result != .completed {
@@ -35,7 +36,9 @@ extension FixtureGates where Self: XCTestCase {
             let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: button)
             result = XCTWaiter.wait(for: [gate], timeout: gateTimeout / Double(attempts))
         }
-        XCTAssertEqual(result, .completed, app.debugDescription, file: file, line: line)
+        // A window can end inside a slow snapshot after the value flipped; the
+        // last read has no deadline, so only a value that never flipped fails.
+        XCTAssertTrue(result == .completed || button.value as? String == value, app.debugDescription, file: file, line: line)
     }
     func tab(_ app: XCUIApplication, _ name: String, file: StaticString = #filePath, line: UInt = #line) {
         let button = app.tabBars.buttons[name]
