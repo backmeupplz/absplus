@@ -3,13 +3,14 @@ import UIKit
 
 /// Real production views, URLSession metadata/positions and AVQueuePlayer with a
 /// local silent WAV. Gates make Back/switching deterministic without real media.
-final class PlaybackPreparation: XCTestCase {
+final class PlaybackPreparation: XCTestCase, FixtureGates {
     private func launch(_ arguments: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--loading-test", "--playback"] + arguments
         app.launch()
-        app.buttons["Release fixture requests"].tap()
+        XCTAssertTrue(app.buttons["Release fixture requests"].waitForExistence(timeout: gateTimeout), app.debugDescription)
+        release(app)
         XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12))
         return app
     }
@@ -20,8 +21,17 @@ final class PlaybackPreparation: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 12), .completed, app.debugDescription)
     }
 
+    /// Fixture counters only refresh on Check: press deliberately, then wait for
+    /// the expected text instead of reading it once while the touch may still be
+    /// in flight. A readout that already shows the expected text passes at once.
+    private func check(_ app: XCUIApplication, _ button: String, _ readout: String, _ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        app.buttons[button].press(forDuration: 0.1)
+        let matches = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", text), object: app.staticTexts[readout])
+        XCTAssertEqual(XCTWaiter.wait(for: [matches], timeout: gateTimeout), .completed, app.debugDescription, file: file, line: line)
+    }
+
     private func library(_ app: XCUIApplication) {
-        app.tabBars.buttons["Library"].tap()
+        tab(app, "Library")
         XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12))
     }
 
@@ -35,7 +45,7 @@ final class PlaybackPreparation: XCTestCase {
     private func back(_ app: XCUIApplication) { app.navigationBars.buttons.element(boundBy: 0).tap() }
 
     private func releaseAndAssertNoPlayback(_ app: XCUIApplication) {
-        app.buttons["Release fixture requests"].tap()
+        release(app)
         app.buttons["Release positions"].tap()
         // Beyond both synthetic metadata and position delays; cancellation must
         // remain terminal even if work would otherwise finish after leaving.
@@ -52,8 +62,7 @@ final class PlaybackPreparation: XCTestCase {
             open(app, "Loaded title")
             app.buttons["Play"].firstMatch.doubleTap()
             state(app, "preparing: first")
-            app.buttons["Check positions"].tap()
-            XCTAssertEqual(app.staticTexts["fixture.positions"].label, "Position requests: \(attempt)")
+            check(app, "Check positions", "fixture.positions", "Position requests: \(attempt)")
             back(app)
             releaseAndAssertNoPlayback(app)
         }
@@ -79,26 +88,26 @@ final class PlaybackPreparation: XCTestCase {
 
     func testHomeTileMetadataAndContextMenuCancelWhenLeavingHome() {
         let app = launch()
-        app.buttons["Hold fixture requests"].tap()
+        hold(app)
         app.staticTexts["Loaded title"].firstMatch.tap()
         state(app, "preparing: first")
-        app.tabBars.buttons["Library"].tap()
+        tab(app, "Library")
         // Library itself also waits for the held metadata; leave it visible while releasing.
         releaseAndAssertNoPlayback(app)
-        app.tabBars.buttons["Home"].tap()
+        tab(app, "Home")
         XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12))
-        app.buttons["Hold fixture requests"].tap()
+        hold(app)
         app.buttons["continue.other"].press(forDuration: 1)
         XCTAssertTrue(app.buttons["context.play.other"].waitForExistence(timeout: 5), app.debugDescription)
         app.buttons["context.play.other"].tap()
         state(app, "preparing: other")
-        app.tabBars.buttons["Library"].tap()
+        tab(app, "Library")
         releaseAndAssertNoPlayback(app)
     }
 
     func testRecentPlayButtonCancelsMetadataOnSettingsNavigation() {
         let app = launch()
-        app.buttons["Hold fixture requests"].tap()
+        hold(app)
         app.buttons["Play"].firstMatch.tap()
         state(app, "preparing: other")
         app.buttons["Settings"].tap()
@@ -123,14 +132,14 @@ final class PlaybackPreparation: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--loading-test", "--populated-favorites"]
         app.launch()
-        app.buttons["Release fixture requests"].tap()
+        XCTAssertTrue(app.buttons["Release fixture requests"].waitForExistence(timeout: gateTimeout), app.debugDescription)
+        release(app)
         for _ in 0..<2 {
-            app.tabBars.buttons["Favorites"].tap()
+            tab(app, "Favorites")
             XCTAssertTrue(app.staticTexts["Known favorite"].waitForExistence(timeout: 8))
             sleep(4)
-            app.buttons["Check favorite requests"].tap()
-            XCTAssertEqual(app.staticTexts["fixture.favorites"].label, "Favorite metadata requests: 0")
-            app.tabBars.buttons["Home"].tap()
+            check(app, "Check favorite requests", "fixture.favorites", "Favorite metadata requests: 0")
+            tab(app, "Home")
         }
     }
     func testHomeShelfScrollsToFifthAndMenusStayWithTheirTiles() {
@@ -172,33 +181,29 @@ final class PlaybackPreparation: XCTestCase {
         app.buttons["continue.first"].tap()
         state(app, "preparing: first")
         state(app, "Current: none; preparing: none; playing: false")
-        app.buttons["Check metadata"].tap()
-        XCTAssertEqual(app.staticTexts["fixture.metadata"].label, "Metadata requests: 1; cache: absent")
+        check(app, "Check metadata", "fixture.metadata", "Metadata requests: 1; cache: absent")
         app.buttons["continue.first"].tap()
         state(app, "Current: first; preparing: none; playing: true")
-        app.buttons["Check metadata"].tap()
-        XCTAssertEqual(app.staticTexts["fixture.metadata"].label, "Metadata requests: 2; cache: valid")
+        check(app, "Check metadata", "fixture.metadata", "Metadata requests: 2; cache: valid")
     }
 
     func testHomePlayRefetchesInvalidExistingItemCache() {
         let app = launch(["--invalid-item-cache"])
-        app.buttons["Check metadata"].tap()
-        XCTAssertEqual(app.staticTexts["fixture.metadata"].label, "Metadata requests: 0; cache: invalid")
+        check(app, "Check metadata", "fixture.metadata", "Metadata requests: 0; cache: invalid")
         app.buttons["Release positions"].tap()
         app.buttons["continue.first"].tap()
         state(app, "Current: first; preparing: none; playing: true")
-        app.buttons["Check metadata"].tap()
-        XCTAssertEqual(app.staticTexts["fixture.metadata"].label, "Metadata requests: 1; cache: valid")
+        check(app, "Check metadata", "fixture.metadata", "Metadata requests: 1; cache: valid")
     }
 
     func testHomeSwitchDuringMetadataStartsOnlyLatestTitle() {
         let app = launch()
-        app.buttons["Hold fixture requests"].tap()
+        hold(app)
         app.buttons["continue.first"].tap()
         state(app, "preparing: first")
         app.buttons["continue.other"].tap()
         state(app, "preparing: other")
-        app.buttons["Release fixture requests"].tap()
+        release(app)
         app.buttons["Release positions"].tap()
         state(app, "Current: other; preparing: none; playing: true")
         sleep(4)
