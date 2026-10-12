@@ -27,6 +27,15 @@ final class LoadingLifecycle: XCTestCase, FixtureGates {
         XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 15))
         app.buttons["loading.retry"].tap()
     }
+    private func library(_ app: XCUIApplication, from current: String, to name: String) {
+        app.navigationBars.buttons[current].firstMatch.press(forDuration: 0.1)
+        let item = app.buttons[name].firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: gateTimeout), app.debugDescription)
+        // Same as tabs: prove the title menu committed the pick before
+        // attributing missing content to the library's loading.
+        item.press(forDuration: 0.1)
+        XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: gateTimeout), app.debugDescription)
+    }
 
     func testDelayedSuccessAllTabsAndDetailsBack() {
         let app = launch()
@@ -66,10 +75,10 @@ final class LoadingLifecycle: XCTestCase, FixtureGates {
         initial(app)
         release(app)
         retry(app)
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12), app.debugDescription)
         tab(app, "Library")
         retry(app)
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12), app.debugDescription)
         app.staticTexts["Loaded title"].tap()
         retry(app)
         XCTAssertTrue(app.staticTexts["Loaded details"].waitForExistence(timeout: 10))
@@ -115,13 +124,12 @@ final class LoadingLifecycle: XCTestCase, FixtureGates {
         retry(app)
         XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 10))
         hold(app)
-        app.navigationBars.buttons["Fixture Library"].firstMatch.tap()
-        app.buttons["Other Library"].firstMatch.tap()
+        library(app, from: "Fixture Library", to: "Other Library")
         initial(app)
         release(app)
         XCTAssertFalse(app.staticTexts["Loaded title"].exists)
         retry(app)
-        XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12), app.debugDescription)
     }
 
     func testOfflineIsNotEmptyAndRetrySettles() {
@@ -142,14 +150,12 @@ final class LoadingLifecycle: XCTestCase, FixtureGates {
         let app = launch()
         tab(app, "Library")
         initial(app)
-        app.navigationBars.buttons["Fixture Library"].firstMatch.tap()
-        app.buttons["Other Library"].firstMatch.tap()
+        library(app, from: "Fixture Library", to: "Other Library")
         release(app)
-        XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12), app.debugDescription)
         XCTAssertFalse(app.staticTexts["Loaded title"].exists)
-        app.navigationBars.buttons["Other Library"].firstMatch.tap()
-        app.buttons["Fixture Library"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12))
+        library(app, from: "Other Library", to: "Fixture Library")
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12), app.debugDescription)
         XCTAssertFalse(app.staticTexts["Other title"].exists)
     }
 
