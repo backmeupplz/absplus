@@ -1,6 +1,6 @@
 import XCTest
 
-final class LoadingLifecycle: XCTestCase {
+final class LoadingLifecycle: XCTestCase, FixtureGates {
     private func launch(_ flags: String...) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -9,38 +9,32 @@ final class LoadingLifecycle: XCTestCase {
         return app
     }
     private func initial(_ app: XCUIApplication) {
-        XCTAssertTrue(app.descendants(matching: .any)["loading.initial"].waitForExistence(timeout: 4), app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any)["loading.initial"].waitForExistence(timeout: gateTimeout), app.debugDescription)
         XCTAssertFalse(app.staticTexts["No titles"].exists)
         XCTAssertFalse(app.staticTexts["No favorites"].exists)
         XCTAssertFalse(app.staticTexts["No series"].exists)
     }
-    private func release(_ app: XCUIApplication) {
-        let button = app.buttons["Release fixture requests"]
-        XCTAssertTrue(button.isHittable, app.debugDescription)
-        // Like tab selection, a highlighted 50ms touch is not an acknowledgment.
-        button.press(forDuration: 0.1)
-        let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "released"), object: button)
-        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: 4), .completed, app.debugDescription)
+    private func type(_ app: XCUIApplication, _ text: String) {
+        let field = app.textFields["Username"]
+        field.typeText(text)
+        // CI can return from typeText before the field has the last keystrokes;
+        // the next tap (which may first scroll the form above the keyboard) can
+        // then leave e.g. "fixture-us". Prove the input before submitting it.
+        let typed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", text), object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [typed], timeout: gateTimeout), .completed, app.debugDescription)
     }
     private func retry(_ app: XCUIApplication) {
         XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 15))
         app.buttons["loading.retry"].tap()
     }
-    private func hold(_ app: XCUIApplication) {
-        let button = app.buttons["Hold fixture requests"]
-        XCTAssertTrue(button.isHittable, app.debugDescription)
-        button.press(forDuration: 0.1)
-        let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "held"), object: button)
-        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: 4), .completed, app.debugDescription)
-    }
-    private func tab(_ app: XCUIApplication, _ name: String) {
-        let button = app.tabBars.buttons[name]
-        XCTAssertTrue(button.isHittable, app.debugDescription)
-        // Hosted iOS 26 can animate the 50ms synthesized tap without committing
-        // selection. Send one deliberate touch, then prove navigation before
-        // attributing a missing loading state to the destination screen.
-        button.press(forDuration: 0.1)
-        XCTAssertTrue(button.wait(for: \.isSelected, toEqual: true, timeout: 4), app.debugDescription)
+    private func library(_ app: XCUIApplication, from current: String, to name: String) {
+        app.navigationBars.buttons[current].firstMatch.press(forDuration: 0.1)
+        let item = app.buttons[name].firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: gateTimeout), app.debugDescription)
+        // Same as tabs: prove the title menu committed the pick before
+        // attributing missing content to the library's loading.
+        item.press(forDuration: 0.1)
+        XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: gateTimeout), app.debugDescription)
     }
 
     func testDelayedSuccessAllTabsAndDetailsBack() {
@@ -59,12 +53,12 @@ final class LoadingLifecycle: XCTestCase {
         initial(app)
         // Leave before details finish; cancelled work must not replace the retained list.
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: gateTimeout))
         release(app)
         app.staticTexts["Loaded title"].tap()
         XCTAssertTrue(app.staticTexts["Loaded details"].waitForExistence(timeout: 10))
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: gateTimeout))
         hold(app)
         tab(app, "Series")
         initial(app)
@@ -81,10 +75,10 @@ final class LoadingLifecycle: XCTestCase {
         initial(app)
         release(app)
         retry(app)
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12), app.debugDescription)
         tab(app, "Library")
         retry(app)
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12), app.debugDescription)
         app.staticTexts["Loaded title"].tap()
         retry(app)
         XCTAssertTrue(app.staticTexts["Loaded details"].waitForExistence(timeout: 10))
@@ -122,7 +116,7 @@ final class LoadingLifecycle: XCTestCase {
     func testCacheRefreshFailureKeepsTitlesAndSwitchResets() {
         let app = launch("--cached", "--failure")
         tab(app, "Library")
-        XCTAssertTrue(app.staticTexts["Cached title"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Cached title"].waitForExistence(timeout: gateTimeout))
         XCTAssertTrue(app.descendants(matching: .any)["loading.refresh"].exists)
         release(app)
         XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 12))
@@ -130,13 +124,12 @@ final class LoadingLifecycle: XCTestCase {
         retry(app)
         XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 10))
         hold(app)
-        app.navigationBars.buttons["Fixture Library"].firstMatch.tap()
-        app.buttons["Other Library"].firstMatch.tap()
+        library(app, from: "Fixture Library", to: "Other Library")
         initial(app)
         release(app)
         XCTAssertFalse(app.staticTexts["Loaded title"].exists)
         retry(app)
-        XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12), app.debugDescription)
     }
 
     func testOfflineIsNotEmptyAndRetrySettles() {
@@ -157,24 +150,22 @@ final class LoadingLifecycle: XCTestCase {
         let app = launch()
         tab(app, "Library")
         initial(app)
-        app.navigationBars.buttons["Fixture Library"].firstMatch.tap()
-        app.buttons["Other Library"].firstMatch.tap()
+        library(app, from: "Fixture Library", to: "Other Library")
         release(app)
-        XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12), app.debugDescription)
         XCTAssertFalse(app.staticTexts["Loaded title"].exists)
-        app.navigationBars.buttons["Other Library"].firstMatch.tap()
-        app.buttons["Fixture Library"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12))
+        library(app, from: "Other Library", to: "Fixture Library")
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 12), app.debugDescription)
         XCTAssertFalse(app.staticTexts["Other title"].exists)
     }
 
     func testLoginFailureRetainsInputAndAllowsRetry() {
         let app = launch("--login", "--failure")
         app.textFields["Username"].tap()
-        app.textFields["Username"].typeText("fixture-user")
+        type(app, "fixture-user")
         let signIn = app.buttons["Sign in"]
         signIn.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["Signing in"].firstMatch.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.descendants(matching: .any)["Signing in"].firstMatch.waitForExistence(timeout: gateTimeout))
         release(app)
         XCTAssertTrue(app.staticTexts["login.error"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.textFields["Username"].value as? String, "fixture-user")
@@ -186,13 +177,13 @@ final class LoadingLifecycle: XCTestCase {
         app.buttons["Settings"].tap()
         app.buttons["Link account"].tap()
         app.textFields["Username"].tap()
-        app.textFields["Username"].typeText("fixture-user")
+        type(app, "fixture-user")
         app.buttons["Link"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["Linking account"].firstMatch.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.descendants(matching: .any)["Linking account"].firstMatch.waitForExistence(timeout: gateTimeout))
         app.buttons["Cancel"].tap()
-        XCTAssertTrue(app.buttons["Link account"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Link account"].waitForExistence(timeout: gateTimeout))
         app.buttons["Link account"].tap()
-        XCTAssertTrue(app.textFields["Username"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["Username"].waitForExistence(timeout: gateTimeout))
         XCTAssertFalse(app.staticTexts["Linked fixture-user"].exists)
     }
     func testNoLibrariesFinishesRatherThanSpinningForever() {
