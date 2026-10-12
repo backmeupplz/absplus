@@ -1,6 +1,6 @@
 import XCTest
 
-final class LoadingLifecycle: XCTestCase {
+final class LoadingLifecycle: XCTestCase, FixtureGates {
     private func launch(_ flags: String...) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()

@@ -3,7 +3,7 @@ import UIKit
 
 /// Real production views, URLSession metadata/positions and AVQueuePlayer with a
 /// local silent WAV. Gates make Back/switching deterministic without real media.
-final class PlaybackPreparation: XCTestCase {
+final class PlaybackPreparation: XCTestCase, FixtureGates {
     private func launch(_ arguments: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -21,8 +21,9 @@ final class PlaybackPreparation: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 12), .completed, app.debugDescription)
     }
 
-    /// Fixture counters only refresh on Check, so a dropped touch would leave the
-    /// previous readout: press deliberately, then wait for the expected text.
+    /// Fixture counters only refresh on Check: press deliberately, then wait for
+    /// the expected text instead of reading it once while the touch may still be
+    /// in flight. A readout that already shows the expected text passes at once.
     private func check(_ app: XCUIApplication, _ button: String, _ readout: String, _ text: String, file: StaticString = #filePath, line: UInt = #line) {
         app.buttons[button].press(forDuration: 0.1)
         let matches = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", text), object: app.staticTexts[readout])

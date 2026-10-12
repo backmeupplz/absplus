@@ -1,8 +1,10 @@
 import XCTest
 
-/// Acknowledged touches for the `--loading-test` fixture, shared by every suite
-/// that drives its request gates and tab bar.
-extension XCTestCase {
+/// Acknowledged touches for the `--loading-test` fixture. Suites that drive its
+/// request gates and tab bar opt in, so other suites keep these names free.
+protocol FixtureGates {}
+
+extension FixtureGates where Self: XCTestCase {
     // Hosted CI simulators can spend ~3s on one accessibility snapshot while the
     // app is busy. With the first read ~1s in, a 4s budget allowed only one read,
     // which ended past the deadline even though the gate had already flipped.
