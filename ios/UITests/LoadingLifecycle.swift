@@ -2,9 +2,10 @@ import XCTest
 
 final class LoadingLifecycle: XCTestCase {
     // Hosted CI simulators can spend ~3s on one accessibility snapshot while the
-    // app is busy, so a 4s budget saw a single stale read of a gate that had
-    // already flipped. The waits still require the acknowledgment; they just
-    // allow several reads of it.
+    // app is busy. With the first read ~1s in, a 4s budget allowed only one read,
+    // which ended past the deadline even though the gate had already flipped.
+    // Waits for states the fixture holds until the test acts still require that
+    // state; they just allow several reads of it.
     private let gateTimeout: TimeInterval = 15
     private func launch(_ flags: String...) -> XCUIApplication {
         continueAfterFailure = false
@@ -14,7 +15,7 @@ final class LoadingLifecycle: XCTestCase {
         return app
     }
     private func initial(_ app: XCUIApplication) {
-        XCTAssertTrue(app.descendants(matching: .any)["loading.initial"].waitForExistence(timeout: 4), app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any)["loading.initial"].waitForExistence(timeout: gateTimeout), app.debugDescription)
         XCTAssertFalse(app.staticTexts["No titles"].exists)
         XCTAssertFalse(app.staticTexts["No favorites"].exists)
         XCTAssertFalse(app.staticTexts["No series"].exists)
@@ -26,6 +27,15 @@ final class LoadingLifecycle: XCTestCase {
         button.press(forDuration: 0.1)
         let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "released"), object: button)
         XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: gateTimeout), .completed, app.debugDescription)
+    }
+    private func type(_ app: XCUIApplication, _ text: String) {
+        let field = app.textFields["Username"]
+        field.typeText(text)
+        // CI can return from typeText before the field has the last keystrokes;
+        // the next tap (which may first scroll the form above the keyboard) then
+        // left "fixture-us". Prove the input before submitting it.
+        let typed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", text), object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [typed], timeout: gateTimeout), .completed, app.debugDescription)
     }
     private func retry(_ app: XCUIApplication) {
         XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 15))
@@ -127,7 +137,7 @@ final class LoadingLifecycle: XCTestCase {
     func testCacheRefreshFailureKeepsTitlesAndSwitchResets() {
         let app = launch("--cached", "--failure")
         tab(app, "Library")
-        XCTAssertTrue(app.staticTexts["Cached title"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Cached title"].waitForExistence(timeout: gateTimeout))
         XCTAssertTrue(app.descendants(matching: .any)["loading.refresh"].exists)
         release(app)
         XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 12))
@@ -176,14 +186,10 @@ final class LoadingLifecycle: XCTestCase {
     func testLoginFailureRetainsInputAndAllowsRetry() {
         let app = launch("--login", "--failure")
         app.textFields["Username"].tap()
-        app.textFields["Username"].typeText("fixture-user")
-        // CI can still be committing the last keystrokes when typeText returns;
-        // tapping Sign in then ends editing and drops them ("fixture-us").
-        let typed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "fixture-user"), object: app.textFields["Username"])
-        XCTAssertEqual(XCTWaiter.wait(for: [typed], timeout: gateTimeout), .completed, app.debugDescription)
+        type(app, "fixture-user")
         let signIn = app.buttons["Sign in"]
         signIn.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["Signing in"].firstMatch.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.descendants(matching: .any)["Signing in"].firstMatch.waitForExistence(timeout: gateTimeout))
         release(app)
         XCTAssertTrue(app.staticTexts["login.error"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.textFields["Username"].value as? String, "fixture-user")
@@ -195,9 +201,9 @@ final class LoadingLifecycle: XCTestCase {
         app.buttons["Settings"].tap()
         app.buttons["Link account"].tap()
         app.textFields["Username"].tap()
-        app.textFields["Username"].typeText("fixture-user")
+        type(app, "fixture-user")
         app.buttons["Link"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["Linking account"].firstMatch.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.descendants(matching: .any)["Linking account"].firstMatch.waitForExistence(timeout: gateTimeout))
         app.buttons["Cancel"].tap()
         XCTAssertTrue(app.buttons["Link account"].waitForExistence(timeout: 5))
         app.buttons["Link account"].tap()
