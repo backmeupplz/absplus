@@ -26,9 +26,9 @@ extension FixtureGates where Self: XCTestCase {
         // whole budget stayed at the old value (#82). Both buttons only set the
         // flag to a fixed value, so pressing again after an unacknowledged
         // attempt cannot fire anything twice. The waits total gateTimeout (each
-        // press adds its own snapshot time); a held request fails by itself at
-        // the app's 20s URLRequest timeout (Abs.swift), so a longer gate would
-        // only trade one failure for another.
+        // press adds its own snapshot time); the fixture keeps held requests
+        // past the app's 20s URLRequest timeout, so a slow press still finds
+        // them held rather than failed (#82).
         let attempts = 3
         var result = XCTWaiter.Result.timedOut
         for _ in 1...attempts where result != .completed {
