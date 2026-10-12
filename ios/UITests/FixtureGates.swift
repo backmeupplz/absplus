@@ -22,9 +22,20 @@ extension FixtureGates where Self: XCTestCase {
         let button = app.buttons[name]
         XCTAssertTrue(button.isHittable, app.debugDescription, file: file, line: line)
         // Like tab selection, a highlighted 50ms touch is not an acknowledgment.
-        button.press(forDuration: 0.1)
-        let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: button)
-        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: gateTimeout), .completed, app.debugDescription, file: file, line: line)
+        // Hosted CI has also dropped the 0.1s press outright: every read for the
+        // whole budget stayed at the old value (#82). Both buttons only set the
+        // flag to a fixed value, so pressing again after an unacknowledged
+        // attempt cannot fire anything twice. The total stays at gateTimeout: a
+        // held request fails by itself at the app's 20s URLRequest timeout
+        // (Abs.swift), so a longer gate would only trade one failure for another.
+        let attempts = 3
+        var result = XCTWaiter.Result.timedOut
+        for _ in 1...attempts where result != .completed {
+            button.press(forDuration: 0.1)
+            let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: button)
+            result = XCTWaiter.wait(for: [gate], timeout: gateTimeout / Double(attempts))
+        }
+        XCTAssertEqual(result, .completed, app.debugDescription, file: file, line: line)
     }
     func tab(_ app: XCUIApplication, _ name: String, file: StaticString = #filePath, line: UInt = #line) {
         let button = app.tabBars.buttons[name]
