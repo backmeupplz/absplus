@@ -32,8 +32,8 @@ final class LoadingLifecycle: XCTestCase {
         let field = app.textFields["Username"]
         field.typeText(text)
         // CI can return from typeText before the field has the last keystrokes;
-        // the next tap (which may first scroll the form above the keyboard) then
-        // left "fixture-us". Prove the input before submitting it.
+        // the next tap (which may first scroll the form above the keyboard) can
+        // then leave e.g. "fixture-us". Prove the input before submitting it.
         let typed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", text), object: field)
         XCTAssertEqual(XCTWaiter.wait(for: [typed], timeout: gateTimeout), .completed, app.debugDescription)
     }
@@ -74,12 +74,12 @@ final class LoadingLifecycle: XCTestCase {
         initial(app)
         // Leave before details finish; cancelled work must not replace the retained list.
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: gateTimeout))
         release(app)
         app.staticTexts["Loaded title"].tap()
         XCTAssertTrue(app.staticTexts["Loaded details"].waitForExistence(timeout: 10))
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Loaded title"].waitForExistence(timeout: gateTimeout))
         hold(app)
         tab(app, "Series")
         initial(app)
@@ -205,9 +205,9 @@ final class LoadingLifecycle: XCTestCase {
         app.buttons["Link"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["Linking account"].firstMatch.waitForExistence(timeout: gateTimeout))
         app.buttons["Cancel"].tap()
-        XCTAssertTrue(app.buttons["Link account"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Link account"].waitForExistence(timeout: gateTimeout))
         app.buttons["Link account"].tap()
-        XCTAssertTrue(app.textFields["Username"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["Username"].waitForExistence(timeout: gateTimeout))
         XCTAssertFalse(app.staticTexts["Linked fixture-user"].exists)
     }
     func testNoLibrariesFinishesRatherThanSpinningForever() {
