@@ -42,6 +42,17 @@ final class OfflineLibrary: XCTestCase {
             app.swipeUp(velocity: .slow)
         }
         XCTAssertTrue(partial.isHittable, "Partial title remains manageable in Storage")
+        // A gesture on a still-moving list only stops the scroll, so wait for the
+        // row to stop moving before measuring or swiping it.
+        func settle() {
+            var frame = row.frame
+            for _ in 0..<20 {
+                Thread.sleep(forTimeInterval: 0.25)
+                if row.frame == frame { return }
+                frame = row.frame
+            }
+        }
+        settle()
         // The loop stops as soon as the row peeks in, often at the bottom edge by
         // the home indicator. Center it with a held drag that leaves no momentum.
         let lift = row.frame.midY - app.windows.firstMatch.frame.midY
@@ -50,14 +61,7 @@ final class OfflineLibrary: XCTestCase {
             start.press(forDuration: 0.1,
                         thenDragTo: start.withOffset(CGVector(dx: 0, dy: -lift)),
                         withVelocity: .slow, thenHoldForDuration: 0.2)
-        }
-        // A swipe that lands on a still-decelerating list only stops the scroll,
-        // so wait for the row to settle before revealing its swipe action.
-        var frame = row.frame
-        for _ in 0..<20 {
-            Thread.sleep(forTimeInterval: 0.25)
-            if row.frame == frame { break }
-            frame = row.frame
+            settle()
         }
         XCTAssertTrue(row.isHittable, "Partial row settled on screen")
         let remove = app.buttons["Remove"].firstMatch
