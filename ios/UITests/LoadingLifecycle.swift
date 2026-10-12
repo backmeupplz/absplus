@@ -1,12 +1,6 @@
 import XCTest
 
 final class LoadingLifecycle: XCTestCase {
-    // Hosted CI simulators can spend ~3s on one accessibility snapshot while the
-    // app is busy. With the first read ~1s in, a 4s budget allowed only one read,
-    // which ended past the deadline even though the gate had already flipped.
-    // Waits for states the fixture holds until the test acts still require that
-    // state; they just allow several reads of it.
-    private let gateTimeout: TimeInterval = 15
     private func launch(_ flags: String...) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -20,14 +14,6 @@ final class LoadingLifecycle: XCTestCase {
         XCTAssertFalse(app.staticTexts["No favorites"].exists)
         XCTAssertFalse(app.staticTexts["No series"].exists)
     }
-    private func release(_ app: XCUIApplication) {
-        let button = app.buttons["Release fixture requests"]
-        XCTAssertTrue(button.isHittable, app.debugDescription)
-        // Like tab selection, a highlighted 50ms touch is not an acknowledgment.
-        button.press(forDuration: 0.1)
-        let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "released"), object: button)
-        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: gateTimeout), .completed, app.debugDescription)
-    }
     private func type(_ app: XCUIApplication, _ text: String) {
         let field = app.textFields["Username"]
         field.typeText(text)
@@ -40,22 +26,6 @@ final class LoadingLifecycle: XCTestCase {
     private func retry(_ app: XCUIApplication) {
         XCTAssertTrue(app.buttons["loading.retry"].waitForExistence(timeout: 15))
         app.buttons["loading.retry"].tap()
-    }
-    private func hold(_ app: XCUIApplication) {
-        let button = app.buttons["Hold fixture requests"]
-        XCTAssertTrue(button.isHittable, app.debugDescription)
-        button.press(forDuration: 0.1)
-        let gate = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "held"), object: button)
-        XCTAssertEqual(XCTWaiter.wait(for: [gate], timeout: gateTimeout), .completed, app.debugDescription)
-    }
-    private func tab(_ app: XCUIApplication, _ name: String) {
-        let button = app.tabBars.buttons[name]
-        XCTAssertTrue(button.isHittable, app.debugDescription)
-        // Hosted iOS 26 can animate the 50ms synthesized tap without committing
-        // selection. Send one deliberate touch, then prove navigation before
-        // attributing a missing loading state to the destination screen.
-        button.press(forDuration: 0.1)
-        XCTAssertTrue(button.wait(for: \.isSelected, toEqual: true, timeout: gateTimeout), app.debugDescription)
     }
 
     func testDelayedSuccessAllTabsAndDetailsBack() {
