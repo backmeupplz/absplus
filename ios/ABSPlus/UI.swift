@@ -126,6 +126,8 @@ struct Tile: View {
     }
 }
 
+/// Put it in a ScrollView with `.contentMargins(16, for: .scrollContent)`, not inner padding:
+/// on iOS 26 an edge-swipe back to a scrolled grid left padded content 16pt to the left.
 struct CardGrid: View {
     let cards: [Card]
     var ratio: CGFloat = 1
@@ -137,7 +139,6 @@ struct CardGrid: View {
             }
         }
         .scrollTargetLayout()
-        .padding(16)
     }
 }
 
@@ -309,6 +310,7 @@ struct ShelfView: View {
 
     var body: some View {
         ScrollView { CardGrid(cards: avail(cards), ratio: ratio) }
+            .contentMargins(16, for: .scrollContent)
             // Use native stable targets without pinning to .top: keep the intra-row offset.
             .scrollPosition(id: $visibleTitle)
             .navigationTitle(name)
