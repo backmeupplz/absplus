@@ -22,7 +22,9 @@ jobs:
       - run: ./gradlew testDebugUnitTest assembleDebug
   ios:
     runs-on: macos-26
-    timeout-minutes: 30
+    # Leaves room for ios/ci_simulator.py to download the iOS platform on a runner missing it,
+    # and for xcodebuild's -destination-timeout.
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
@@ -43,16 +45,35 @@ jobs:
     name: iOS (${{ matrix.group }})
     steps:
       - uses: actions/checkout@v7
-      - name: Build and exercise mapped regression suites
+      # Some runners start without the preinstalled simulators or are slow to show them to xcodebuild,
+      # so pick (or create) one that exists, boot it, and let xcodebuild wait for it.
+      - name: Resolve iOS Simulator
+        timeout-minutes: 25
+        run: |
+          python3 -m unittest ios/ci_simulator_test.py
+          udid=$(python3 ios/ci_simulator.py)
+          echo "SIMULATOR_ID=$udid" >> "$GITHUB_ENV"
+      # Building for a generic destination needs no device discovery, and gives the booted
+      # simulator minutes to show up for xcodebuild before the tests look for it.
+      - name: Build for testing
         run: >-
           xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
-          -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
+          -destination 'generic/platform=iOS Simulator' ARCHS=arm64
+          -resultBundlePath ios-build.xcresult
+          build-for-testing
+      - name: Exercise mapped regression suites
+        run: >-
+          xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
+          -destination "platform=iOS Simulator,id=$SIMULATOR_ID"
+          -destination-timeout 300
           -parallel-testing-enabled NO
           -resultBundlePath ios-tests.xcresult
-          ${{ matrix.tests }} test
+          ${{ matrix.tests }} test-without-building
       - name: Preserve native failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: ios-test-results-${{ matrix.group }}
-          path: ios-tests.xcresult
+          path: |
+            ios-build.xcresult
+            ios-tests.xcresult
