@@ -123,7 +123,15 @@ final class LoadingProtocol: URLProtocol, @unchecked Sendable {
     static let counts = OSAllocatedUnfairLock(initialState: [String: Int]())
     private let stopped = OSAllocatedUnfairLock(initialState: false)
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "abs-loading-fixture.invalid" }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        // URLSession times a held request out at the app's 20s URLRequest timeout
+        // (Abs.swift), and a slow CI simulator can take that long to deliver the
+        // test's Release press. A held request must stay held, so outlast the
+        // 60s hold deadline below; the session config cannot override this.
+        var request = request
+        request.timeoutInterval = 90
+        return request
+    }
     static func item(_ id: String, _ title: String) -> [String: Any] {
         let playback = ProcessInfo.processInfo.arguments.contains("--playback")
         let track: [String: Any] = ["ino": "fixture-audio", "duration": 120, "startOffset": 0,
