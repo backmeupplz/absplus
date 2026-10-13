@@ -15,6 +15,7 @@ final class ListLifecycle: XCTestCase {
         let target = titles.allElementsBoundByIndex.first { $0.isHittable && $0.frame.minY > 180 && $0.frame.maxY < 700 }!
         let name = target.label
         XCTAssertNotEqual(name, "Title 000")
+        let x = target.frame.minX
         let y = target.frame.minY
         for gesture in [false, true, false] {
             app.staticTexts[name].tap()
@@ -38,6 +39,9 @@ final class ListLifecycle: XCTestCase {
             sleep(2)
             XCTAssertTrue(app.staticTexts[name].isHittable)
             XCTAssertEqual(app.staticTexts[name].frame.minY, y, accuracy: 3)
+            // CI once recorded the grid drawn 16pt left after an edge-swipe pop; minY alone
+            // can't see that, so require the anchor back in its column once the app responds.
+            XCTAssertEqual(app.staticTexts[name].frame.minX, x, accuracy: 3, "List shifted sideways after returning")
         }
         // Search is part of this list context and must survive returning from details.
         let search = app.searchFields.firstMatch
@@ -48,6 +52,7 @@ final class ListLifecycle: XCTestCase {
         scroll.swipeUp()
         let filtered = titles.allElementsBoundByIndex.first { $0.isHittable && $0.frame.minY > 180 && $0.frame.maxY < 650 }!
         let filteredName = filtered.label
+        let filteredX = filtered.frame.minX
         let filteredY = filtered.frame.minY
         filtered.tap()
         XCTAssertTrue(app.staticTexts["Fixture details"].firstMatch.waitForExistence(timeout: 10))
@@ -55,6 +60,7 @@ final class ListLifecycle: XCTestCase {
         sleep(2)
         XCTAssertEqual(search.value as? String, "Title 3")
         XCTAssertEqual(app.staticTexts[filteredName].frame.minY, filteredY, accuracy: 3)
+        XCTAssertEqual(app.staticTexts[filteredName].frame.minX, filteredX, accuracy: 3, "Filtered list shifted sideways after returning")
         app.buttons.matching(NSPredicate(format: "label IN {'Cancel', 'close'}")).firstMatch.tap()
         app.navigationBars.buttons["Fixture Library"].tap()
         app.buttons["Other Library"].tap()
