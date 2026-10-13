@@ -2,8 +2,9 @@
 """Resolve the iOS Simulator CI runs the UI tests on and print its UDID.
 
 Some hosted macos-26 runners start with none of the preinstalled simulators
-visible to xcodebuild (actions/runner-images#12948, #13220), so a hard-coded
-`name=iPhone 17` destination fails before any test runs. This waits for
+visible to xcodebuild in time (actions/runner-images#12948, #13220), so a
+hard-coded `name=iPhone 17` destination fails before any test runs; the test
+step pairs this UDID with a longer -destination-timeout. This waits for
 CoreSimulator, then uses an existing iPhone 17 on the newest iOS runtime the
 active Xcode can test the app on, else creates one, else uses a device with the
 same screen (the UI tests assert on-screen geometry). It fails rather than test
