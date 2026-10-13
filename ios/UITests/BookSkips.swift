@@ -96,9 +96,10 @@ final class BookSkips: XCTestCase {
         }
     }
 
-    /// Playback that reached the book's end already stopped and shows Play instead.
+    /// Playback can reach the book's end between any two reads, which turns FullPlayer's Pause
+    /// into Play, so pause through the fixture's fixed button; pausing an ended player is a no-op.
     private func pause() {
-        if app.buttons["Pause"].exists { app.buttons["Pause"].tap() }
+        app.buttons["Fixture pause"].tap()
         wait("paused") { $0["paused"] == "yes" }
     }
 

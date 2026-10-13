@@ -20,6 +20,8 @@ struct BookSkipFixture: View {
             HStack {
                 Button("Remote back") { remoteStatus = String(player.remoteSkipBackward().rawValue) }
                 Button("Remote forward") { remoteStatus = String(player.remoteSkipForward().rawValue) }
+                // FullPlayer's toggle turns into Play once the book ends; this label never changes.
+                Button("Fixture pause") { player.p.pause() }
             }.font(.caption)
             Text(snapshot).font(.system(size: 9, design: .monospaced))
                 .accessibilityIdentifier("skip-state")
