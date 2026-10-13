@@ -140,7 +140,10 @@ struct BookSkipFixture: View {
         // as a queue rebuild then seek makes), never a later one: a stall that only lags playback
         // before it settles must not move it forward. Playback may already have run since the
         // jump for up to the sampling gap; `slack` bounds how far that reading can be past it.
-        if jumped, landing == nil || switched || !(drift < 5) {
+        // A backward landing just under 100 plays on into file 1; a hiccup at that crossing is
+        // not a seek, so it keeps the file-0 landing.
+        let crossed = last.track == "0" && track == "1" && drift < 5 && landing?.track == "0"
+        if jumped, landing == nil || (switched && !crossed) || !(drift < 5) {
             landing = (track, global, Double(max(rate, last.rate, player.speed)) * gap, now)
         }
         // Judge once playback settled: ready on a file, at speed, progressing without a jump

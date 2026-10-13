@@ -77,13 +77,15 @@ final class BookSkips: XCTestCase {
             app.buttons["Play"].tap()
             // Rate 1.5 also shows while waiting to play; the fixture only latches a skip made
             // while playback is actually progressing.
-            wait("playing at 1.5x") {
+            // A stall between two reads can also let playback run to the book's end, so before
+            // the last attempt a missed Play wait is retried too.
+            let playing = wait("playing at 1.5x", fatal: attempt == 3) {
                 $0["rate"] == "1.50" && $0["paused"] == "no" && (Double($0["actual"] ?? "") ?? -1) > Double(start) + 0.2
             }
+            if playing.isEmpty { pause(); continue }
             app.buttons[button].tap()
             let jump = wait("\(direction) cross-file playback retained", fatal: attempt == 3) { $0["jump"] != "none" }["jump"] ?? ""
-            app.buttons["Pause"].tap()
-            wait("paused") { $0["paused"] == "yes" }
+            pause()
             let parts = jump.split(separator: ":").map(String.init)
             let attachment = XCTAttachment(string: jump)
             attachment.name = "Actual \(direction) skip landing during playback (attempt \(attempt))"
@@ -92,6 +94,12 @@ final class BookSkips: XCTestCase {
             if attempt < 3, unclear(parts, from: range, by: delta) { continue }
             return judge(jump, parts, from: range, track: track, by: delta)
         }
+    }
+
+    /// Playback that reached the book's end already stopped and shows Play instead.
+    private func pause() {
+        if app.buttons["Pause"].exists { app.buttons["Pause"].tap() }
+        wait("paused") { $0["paused"] == "yes" }
     }
 
     /// No latch, a skip that started outside `range` (including one latched from the file-1
