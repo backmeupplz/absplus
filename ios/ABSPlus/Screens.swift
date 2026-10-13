@@ -112,6 +112,7 @@ struct LibraryView: View {
         ScrollView {
             CardGrid(cards: shown, ratio: app.offline ? 1 : ratio(sel))
         }
+        .contentMargins(16, for: .scrollContent)
         // Native targets retain the visible identity and its offset when results move.
         // Do not force .top: that would discard a partially scrolled row.
         .scrollPosition(id: $visibleTitle)
@@ -223,6 +224,7 @@ struct FavoritesView: View {
 
     var body: some View {
         ScrollView { CardGrid(cards: avail(app.fav)) }
+            .contentMargins(16, for: .scrollContent)
             .loadingFeedback(state: loading, empty: avail(app.fav).isEmpty, title: app.offline ? "No downloaded favorites" : "No favorites", detail: "Tap ♡ on a book or podcast to keep it here.", retry: reload)
             .navigationTitle("Favorites")
             .settingsButton()
