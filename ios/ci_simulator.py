@@ -3,12 +3,13 @@
 
 Some hosted macos-26 runners start with none of the preinstalled simulators
 visible to xcodebuild in time (actions/runner-images#12948, #13220), so a
-hard-coded `name=iPhone 17` destination fails before any test runs; the test
-step pairs this UDID with a longer -destination-timeout. This waits for
-CoreSimulator, then uses an existing iPhone 17 on the newest iOS runtime the
-active Xcode can test the app on, else creates one, else uses a device with the
-same screen (the UI tests assert on-screen geometry). It fails rather than test
-on a different screen size. The chosen device and runtime are logged on stderr.
+hard-coded `name=iPhone 17` destination fails before any test runs. CI builds
+for a generic simulator first, then tests on this UDID with a longer
+-destination-timeout. This waits for CoreSimulator, then uses an existing
+iPhone 17 on the newest iOS runtime the active Xcode can test the app on, else
+creates one, else uses a device with the same screen (the UI tests assert
+on-screen geometry). It fails rather than test on a different screen size. The
+chosen device and runtime are logged on stderr.
 """
 import json
 import os
@@ -196,8 +197,8 @@ def main():
                 picked = wait_for_choice(sdk, minimum, WAIT_SECONDS, restart=False)
     if not picked:
         log(run("xcrun", "simctl", "list", check=False).stdout)
-        print(f"::error::No iPhone simulator with the iPhone 17 screen on iOS {minimum}-{sdk} is usable on this runner",
-              file=sys.stderr)
+        print(f"::error::Could not find, create or boot an iPhone simulator with the iPhone 17 screen "
+              f"on iOS {minimum}-{sdk}", file=sys.stderr)
         return 1
     runtime, device_type, _, reason = picked
     message = (f"iOS Simulator: {device_type['name']} on {runtime['name']} ({runtime.get('buildversion', '?')}), "
