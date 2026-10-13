@@ -137,7 +137,7 @@ struct CardGrid: View {
             }
         }
         .scrollTargetLayout()
-        .padding(16)
+        .padding(ProcessInfo.processInfo.environment["ABS98_MARGINS"] != nil ? 0 : 16)
     }
 }
 

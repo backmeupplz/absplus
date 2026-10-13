@@ -114,7 +114,9 @@ struct LibraryView: View {
         }
         // Native targets retain the visible identity and its offset when results move.
         // Do not force .top: that would discard a partially scrolled row.
-        .scrollPosition(id: $visibleTitle)
+        .contentMargins(ProcessInfo.processInfo.environment["ABS98_MARGINS"] != nil ? 16 : 0, for: .scrollContent)
+        .scrollPosition(id: $visibleTitle, anchor: ProcessInfo.processInfo.environment["ABS98_EXP"] != nil ? .topLeading : nil)
+        .task { if ProcessInfo.processInfo.environment["ABS98_EXP"] != nil { try? await Task.sleep(for: .seconds(5)); visibleTitle = "Title-150" } }
         .onChange(of: "\(sel):\(app.offline):\(query)") { visibleTitle = nil }
         .id("\(sel):\(app.offline):\(query)") // only a new list context resets the viewport
         .navigationTitle(app.offline ? "Downloaded" : libs.first { $0.id == sel }?.name ?? "Library")
