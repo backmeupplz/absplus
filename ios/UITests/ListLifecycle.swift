@@ -3,11 +3,15 @@ import XCTest
 final class ListLifecycle: XCTestCase {
     func testListPositionSurvivesButtonAndGestureBack() {
         continueAfterFailure = false
+        // These waits are upper bounds, not sleeps. On a loaded CI simulator one
+        // accessibility query right after the pop's 500-title reload stalled ~9s
+        // and was retried, exhausting a 10s wait although the gesture had finished.
+        let navigationTimeout: TimeInterval = 30
         let app = XCUIApplication()
         app.launchArguments = ["--list-lifecycle-test"]
         app.launch()
         let first = app.staticTexts["Title 000"]
-        XCTAssertTrue(first.waitForExistence(timeout: 15))
+        XCTAssertTrue(first.waitForExistence(timeout: navigationTimeout))
         let scroll = app.scrollViews.firstMatch
         for _ in 0..<12 { scroll.swipeUp() }
         // Pick a fully visible title, not a prefetched LazyVGrid accessibility node.
@@ -18,7 +22,7 @@ final class ListLifecycle: XCTestCase {
         let y = target.frame.minY
         for gesture in [false, true, false] {
             app.staticTexts[name].tap()
-            XCTAssertTrue(app.staticTexts["Fixture details"].firstMatch.waitForExistence(timeout: 10))
+            XCTAssertTrue(app.staticTexts["Fixture details"].firstMatch.waitForExistence(timeout: navigationTimeout))
             if gesture {
                 // CI recorded this fast drag starting then cancelling the pop,
                 // with its final move and lift sharing a timestamp. Use a slower
@@ -29,11 +33,11 @@ final class ListLifecycle: XCTestCase {
                            withVelocity: .slow, thenHoldForDuration: 0.2)
                 let details = app.staticTexts["Fixture details"].firstMatch
                 let popped = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: details)
-                XCTAssertEqual(XCTWaiter.wait(for: [popped], timeout: 10), .completed, "Edge gesture did not pop details")
+                XCTAssertEqual(XCTWaiter.wait(for: [popped], timeout: navigationTimeout), .completed, "Edge gesture did not pop details")
             } else {
                 app.navigationBars.buttons.element(boundBy: 0).tap()
             }
-            XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 10))
+            XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: navigationTimeout))
             // Wait through the delayed reload and cover/layout tasks, not just transition.
             sleep(2)
             XCTAssertTrue(app.staticTexts[name].isHittable)
@@ -44,13 +48,13 @@ final class ListLifecycle: XCTestCase {
         search.tap()
         search.typeText("Title 3")
         app.keyboards.buttons["Search"].tap()
-        XCTAssertTrue(app.staticTexts["Title 300"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Title 300"].waitForExistence(timeout: navigationTimeout))
         scroll.swipeUp()
         let filtered = titles.allElementsBoundByIndex.first { $0.isHittable && $0.frame.minY > 180 && $0.frame.maxY < 650 }!
         let filteredName = filtered.label
         let filteredY = filtered.frame.minY
         filtered.tap()
-        XCTAssertTrue(app.staticTexts["Fixture details"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Fixture details"].firstMatch.waitForExistence(timeout: navigationTimeout))
         app.navigationBars.buttons.element(boundBy: 0).tap()
         sleep(2)
         XCTAssertEqual(search.value as? String, "Title 3")
@@ -58,7 +62,7 @@ final class ListLifecycle: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label IN {'Cancel', 'close'}")).firstMatch.tap()
         app.navigationBars.buttons["Fixture Library"].tap()
         app.buttons["Other Library"].tap()
-        XCTAssertTrue(app.staticTexts["Other 000"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Other 000"].waitForExistence(timeout: navigationTimeout))
         XCTAssertTrue(app.staticTexts["Other 000"].isHittable)
     }
 }
