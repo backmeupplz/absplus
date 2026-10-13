@@ -36,13 +36,50 @@ final class OfflineLibrary: XCTestCase {
         app.buttons["Settings"].tap()
         app.staticTexts["Downloads"].firstMatch.tap()
         let partial = app.staticTexts["Fixture partial"]
-        for _ in 0..<30 {
+        let row = app.cells.containing(.staticText, identifier: "Fixture partial").firstMatch
+        for _ in 0..<40 {
             if partial.isHittable { break }
-            app.swipeUp()
+            app.swipeUp(velocity: .slow)
         }
         XCTAssertTrue(partial.isHittable, "Partial title remains manageable in Storage")
-        partial.swipeLeft()
-        app.buttons["Remove"].firstMatch.tap()
+        // A gesture on a still-moving list only stops the scroll, so wait for the
+        // row to stop moving before measuring or swiping it.
+        func settle() {
+            var frame = row.frame
+            for _ in 0..<20 {
+                Thread.sleep(forTimeInterval: 0.25)
+                if row.frame == frame { return }
+                frame = row.frame
+            }
+        }
+        settle()
+        // The loop stops as soon as the row peeks in, often at the bottom edge by
+        // the home indicator. Center it with a held drag that leaves no momentum.
+        // A drag shorter than the scroll threshold would register as a tap and
+        // open a row's details, and a row near the middle is safe to swipe as is.
+        let lift = row.frame.midY - app.windows.firstMatch.frame.midY
+        if lift > 60 {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+            start.press(forDuration: 0.1,
+                        thenDragTo: start.withOffset(CGVector(dx: 0, dy: -lift)),
+                        withVelocity: .slow, thenHoldForDuration: 0.2)
+            settle()
+        }
+        XCTAssertTrue(row.isHittable, "Partial row settled on screen")
+        let remove = app.buttons["Remove"].firstMatch
+        for _ in 0..<3 where !remove.exists {
+            // A deliberate partial drag across the whole row reveals the action
+            // without a full swipe, which would delete it without a tap.
+            row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+                .press(forDuration: 0.05,
+                       thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.5)),
+                       withVelocity: .slow, thenHoldForDuration: 0.2)
+            _ = remove.waitForExistence(timeout: 2)
+            XCTAssertTrue(app.navigationBars["Downloads"].exists, "Swipe must stay in Storage, not open details")
+        }
+        XCTAssertTrue(remove.isHittable, "Swipe reveals the Remove action")
+        XCTAssertEqual(remove.frame.midY, row.frame.midY, accuracy: 4, "Remove belongs to the partial row")
+        remove.tap()
         XCTAssertTrue(partial.waitForNonExistence(timeout: 5))
     }
 
