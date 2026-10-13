@@ -86,19 +86,44 @@ final class PlaybackPreparation: XCTestCase, FixtureGates {
         state(app, "Current: other; preparing: none; playing: true")
     }
 
+    /// Long-presses a Home tile until its context menu opens. Hosted CI has
+    /// delivered the 1s press as a plain tap: the tile's own action started
+    /// preparing it and no menu appeared (#100). `undo` must cancel that
+    /// preparation and return to Home before the press is repeated; callers
+    /// still require the menu's Play to take effect.
+    private func contextMenu(_ app: XCUIApplication, _ key: String, undo: () -> Void, file: StaticString = #filePath, line: UInt = #line) {
+        let tile = app.buttons["continue.\(key)"]
+        let play = app.buttons["context.play.\(key)"]
+        // A query, not the readout itself: the open menu may hide it, and a
+        // missing element must not fail the read.
+        let tapped = app.staticTexts.matching(NSPredicate(format: "identifier == 'fixture.playback' AND label CONTAINS %@", "preparing: \(key)")).firstMatch
+        for _ in 1...3 {
+            tile.press(forDuration: 2)
+            // Wait for whichever the touch caused; a press dropped outright causes neither.
+            let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in play.exists || tapped.exists }, object: nil)
+            _ = XCTWaiter.wait(for: [settled], timeout: gateTimeout)
+            if play.exists { return }
+            if tapped.exists { undo() }
+        }
+        XCTAssertTrue(play.exists, app.debugDescription, file: file, line: line)
+    }
+
     func testHomeTileMetadataAndContextMenuCancelWhenLeavingHome() {
         let app = launch()
+        // Library itself also waits for the held metadata; leave it visible while releasing.
+        let leaveHomeAndReturn = {
+            self.tab(app, "Library")
+            self.releaseAndAssertNoPlayback(app)
+            self.tab(app, "Home")
+            XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12))
+            self.hold(app)
+        }
         hold(app)
         app.staticTexts["Loaded title"].firstMatch.tap()
         state(app, "preparing: first")
-        tab(app, "Library")
-        // Library itself also waits for the held metadata; leave it visible while releasing.
-        releaseAndAssertNoPlayback(app)
-        tab(app, "Home")
-        XCTAssertTrue(app.staticTexts["Other title"].waitForExistence(timeout: 12))
-        hold(app)
-        app.buttons["continue.other"].press(forDuration: 1)
-        XCTAssertTrue(app.buttons["context.play.other"].waitForExistence(timeout: 5), app.debugDescription)
+        leaveHomeAndReturn()
+        // A press that lands as a tap prepares the tile directly; leaving Home must cancel that too.
+        contextMenu(app, "other", undo: leaveHomeAndReturn)
         app.buttons["context.play.other"].tap()
         state(app, "preparing: other")
         tab(app, "Library")
