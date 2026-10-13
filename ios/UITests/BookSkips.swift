@@ -56,24 +56,32 @@ final class BookSkips: XCTestCase {
     }
 
     /// A slow read can return long after a skip made during playback, so judge the landing the
-    /// fixture latched from the actual AVQueuePlayer (`jump=from:fromRate:track:actual:rate:speed:after`):
-    /// playing at 1.5x from `range`, the skip crossed into `track` and settled `by` seconds away,
-    /// allowing only for playback in the `after` seconds it took, still playing at 1.5x.
-    /// `from` is sampled when the queue is rebuilt, which can trail the tap, hence 5s below;
-    /// a landing at the target file's start stays well outside that.
+    /// fixture latched from the actual AVQueuePlayer
+    /// (`jump=from:fromRate:track:actual:rate:speed:after:slack`): playing at 1.5x from `range`,
+    /// the skip crossed into `track` and landed `by` seconds away, allowing only for playback in
+    /// the `after` seconds until the landing was read, then settled still playing at 1.5x.
+    /// `actual` is the first reading after the jump and can be up to `slack` past the landing, so
+    /// the lower bound subtracts it. `from` is sampled when the queue is rebuilt, which can trail
+    /// the tap, hence 5s below; a landing at the target file's start stays well outside that.
     ///
     /// 1.5x playback leaves `range` about 13s after Play, and a stalled simulator can spend that
     /// on the Play read and skip tap alone. A skip that started outside `range` (including one
-    /// latched from the file-1 rebuild tick at 100) says nothing about crossing files, so it is
-    /// retried from a fresh seed; the last attempt still fails on it.
+    /// latched from the file-1 rebuild tick at 100) says nothing about crossing files, and a
+    /// landing read more than 1s of playback late can't pin where it landed, so either is retried
+    /// from a fresh seed; the last attempt still judges it.
     private func playingSkip(_ direction: String, _ button: String, seed start: Int, from range: Range<Double>,
                              track: String, by delta: Double) {
         for attempt in 1...3 {
             seed(start)
             app.buttons["Play"].tap()
-            wait("playing at 1.5x") { $0["rate"] == "1.50" && $0["paused"] == "no" }
+            // Rate 1.5 also shows while waiting to play; the fixture only latches a skip made
+            // while playback is actually progressing.
+            wait("playing at 1.5x") {
+                $0["rate"] == "1.50" && $0["paused"] == "no" && (Double($0["actual"] ?? "") ?? -1) > Double(start) + 0.2
+            }
             app.buttons[button].tap()
-            let jump = wait("\(direction) cross-file playback retained") { $0["jump"] != "none" }["jump"] ?? ""
+            // Up to 12 attempts share the offline-progress job's budget, so keep this wait short.
+            let jump = wait("\(direction) cross-file playback retained", timeout: 15) { $0["jump"] != "none" }["jump"] ?? ""
             app.buttons["Pause"].tap()
             wait("paused") { $0["paused"] == "yes" }
             let parts = jump.split(separator: ":").map(String.init)
@@ -82,18 +90,20 @@ final class BookSkips: XCTestCase {
             attachment.lifetime = .keepAlways
             add(attachment)
             if attempt < 3, let from = Double(parts.first ?? ""), !range.contains(from) { continue }
+            if attempt < 3, parts.count == 8, let slack = Double(parts[7]), slack > 1 { continue }
             return judge(jump, parts, from: range, track: track, by: delta)
         }
     }
 
     private func judge(_ jump: String, _ parts: [String], from range: Range<Double>, track: String, by delta: Double) {
-        guard parts.count == 7, let from = Double(parts[0]), let actual = Double(parts[3]), let after = Double(parts[6]) else {
+        guard parts.count == 8, let from = Double(parts[0]), let actual = Double(parts[3]), let after = Double(parts[6]),
+              let slack = Double(parts[7]) else {
             return XCTFail("skip landing malformed: \(jump)")
         }
         XCTAssertTrue(range.contains(from), "skip started outside the cross-file range: \(jump)")
         XCTAssertEqual(parts[1], "1.50", "not playing at 1.5x before the skip: \(jump)")
         XCTAssertEqual(parts[2], track, "skip did not cross files: \(jump)")
-        XCTAssertGreaterThan(actual, from + delta - 5, "skip landed short: \(jump)")
+        XCTAssertGreaterThan(actual - slack, from + delta - 5, "skip landed short: \(jump)")
         XCTAssertLessThan(actual, from + delta + 1.5 * after + 1.5, "skip landed too far: \(jump)")
         XCTAssertEqual(parts[4], "1.50", "playback rate not retained: \(jump)")
         XCTAssertEqual(parts[5], "1.50", "speed not retained: \(jump)")
@@ -136,11 +146,12 @@ final class BookSkips: XCTestCase {
             // `from` is sampled up to one fixture tick before the tap, and the skip uses the model
             // position, so a sample just under 130 can still skip from 130 into file 1 (100).
             // That would be indistinguishable from a skip clamped within file 1, so leave a 1s
-            // margin and let such a skip be retried as outside the window.
+            // margin and let such a skip be retried as outside the window. Forward keeps the same
+            // margin under 100, past which the skip would be an in-file seek within file 1.
             playingSkip("backward", route == "remote" ? "Remote back" : "Back 30 seconds",
                         seed: 110, from: 109.9..<129, track: "0", by: -30)
             playingSkip("forward", route == "remote" ? "Remote forward" : "Forward 30 seconds",
-                        seed: 80, from: 79.9..<100, track: "1", by: 30)
+                        seed: 80, from: 79.9..<99, track: "1", by: 30)
         }
     }
 }

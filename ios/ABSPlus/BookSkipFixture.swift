@@ -103,27 +103,31 @@ struct BookSkipFixture: View {
 }
 
 /// Latches where the first skip made during playback actually landed, so a slow UI test read
-/// still sees it after playback has moved on: `jump=from:fromRate:track:actual:rate:speed:after`.
+/// still sees it after playback has moved on:
+/// `jump=from:fromRate:track:actual:rate:speed:after:slack`.
 /// It watches only the actual AVQueuePlayer: model position ticks briefly report a rebuilt
 /// queue's file start.
 @MainActor private final class SkipLatch {
     private(set) var latched = "none"
     private var last: (track: String, global: Double, rate: Float, moving: Bool, at: Date)?
     private var pending: (from: Double, rate: Float, at: Date)?
-    private var run: (track: String, global: Double, at: Date)?
+    private var landing: (track: String, global: Double, slack: Double, at: Date)?
+    private var run: Date?
 
     /// Fixture seeds start a new step.
-    func reset() { latched = "none"; last = nil; pending = nil; run = nil }
+    func reset() { latched = "none"; last = nil; pending = nil; landing = nil; run = nil }
 
     func observe() {
         let (track, _, global) = actual()
         let rate = player.p.rate, moving = player.p.timeControlStatus == .playing, now = Date()
         defer { last = (track, global, rate, moving, now) }
         guard latched == "none", let last else { return }
-        // Anything but continuous progress at the playing rate is a jump; file changes at
-        // 100s are continuous in book time. NaN (no item) never counts as continuous.
-        let switched = track != last.track && !(last.track == "0" && track == "1" && abs(global - 100) < 2)
-        let drift = abs(global - last.global - (last.moving ? Double(last.rate) : 0) * now.timeIntervalSince(last.at))
+        // Anything but continuous progress at the playing rate is a jump. Playback from file 0
+        // into file 1 is continuous in book time however long the sampling gap; a real skip
+        // across that boundary never is. NaN (no item) never counts as continuous.
+        let gap = now.timeIntervalSince(last.at)
+        let drift = abs(global - last.global - (last.moving ? Double(last.rate) : 0) * gap)
+        let switched = track != last.track && !(last.track == "0" && track == "1" && drift < 0.5)
         let jumped = switched || !(drift < 0.5)
         if pending == nil {
             // Only a file switch or a 5s jump is a skip, not an audio hiccup. Seeds and skips
@@ -132,13 +136,17 @@ struct BookSkipFixture: View {
             pending = (last.global, last.rate, last.at)
         }
         guard let skip = pending else { return }
-        // Judge where playback settled: ready on a file, at speed, progressing without a
-        // jump for a full second. A seek in flight restarts the run.
+        // The landing is the first reading after the latest jump, never a later one, so a stall
+        // before playback settles cannot move it. Playback may already have run since the jump
+        // for up to the sampling gap; `slack` bounds how far that reading can be past it.
+        if jumped { landing = (track, global, Double(max(rate, last.rate, player.speed)) * gap, now) }
+        // Judge once playback settled: ready on a file, at speed, progressing without a jump
+        // for a full second. A seek in flight restarts the run and moves the landing.
         if jumped || !moving || player.p.currentItem?.status != .readyToPlay || rate != player.speed { run = nil }
-        else if run == nil { run = (track, global, now) }
-        if let run, now.timeIntervalSince(run.at) >= 1 {
-            latched = String(format: "%.3f:%.2f:%@:%.3f:%.2f:%.2f:%.3f", skip.from, skip.rate, run.track, run.global,
-                             rate, player.speed, run.at.timeIntervalSince(skip.at))
+        else if run == nil { run = now }
+        if let run, let landing, now.timeIntervalSince(run) >= 1 {
+            latched = String(format: "%.3f:%.2f:%@:%.3f:%.2f:%.2f:%.3f:%.3f", skip.from, skip.rate, landing.track,
+                             landing.global, rate, player.speed, landing.at.timeIntervalSince(skip.at), landing.slack)
         }
     }
 }
