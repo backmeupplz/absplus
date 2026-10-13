@@ -22,7 +22,8 @@ jobs:
       - run: ./gradlew testDebugUnitTest assembleDebug
   ios:
     runs-on: macos-26
-    timeout-minutes: 30
+    # Leaves room for ios/ci_simulator.py to download the iOS platform on a runner missing it.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -43,10 +44,17 @@ jobs:
     name: iOS (${{ matrix.group }})
     steps:
       - uses: actions/checkout@v7
+      # Some runners start without the preinstalled simulators, so pick (or create) one that exists.
+      - name: Resolve iOS Simulator
+        timeout-minutes: 15
+        run: |
+          python3 -m unittest ios/ci_simulator_test.py
+          udid=$(python3 ios/ci_simulator.py)
+          echo "SIMULATOR_ID=$udid" >> "$GITHUB_ENV"
       - name: Build and exercise mapped regression suites
         run: >-
           xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
-          -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
+          -destination "platform=iOS Simulator,id=$SIMULATOR_ID"
           -parallel-testing-enabled NO
           -resultBundlePath ios-tests.xcresult
           ${{ matrix.tests }} test
