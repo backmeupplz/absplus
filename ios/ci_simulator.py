@@ -29,6 +29,7 @@ WAIT_SECONDS = 180
 RESTART_AFTER_SECONDS = 60
 POLL_SECONDS = 10
 ATTEMPTS = 2
+STEP_TIMEOUT_SECONDS = 300
 
 
 def log(message):
@@ -100,12 +101,20 @@ def choose(listing, sdk, minimum, screen_of=screen):
     return runtime, device_type, device, "same screen as iPhone 17"
 
 
-def run(*args, check=True):
-    result = subprocess.run(args, capture_output=True, text=True)
+def run(*args, check=True, timeout=None):
+    result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
     if check and result.returncode:
         log(f"{' '.join(args)} exited {result.returncode}: {result.stderr.strip()}")
         raise subprocess.CalledProcessError(result.returncode, args, result.stdout, result.stderr)
     return result
+
+
+def listed(destinations, udid):
+    """Whether `xcodebuild -showdestinations` offers the simulator as compatible.
+
+    Incompatible destinations are listed too, with the same id and an `error:`.
+    """
+    return any(f"id:{udid}," in line and "error:" not in line for line in destinations.splitlines())
 
 
 def deployment_target():
@@ -162,9 +171,10 @@ def prepare(picked):
         udid = run("xcrun", "simctl", "create", name, device_type["identifier"], runtime["identifier"]).stdout.strip()
         origin = f"created \"{name}\""
     # Booting here surfaces a broken simulator before the build, not mid-suite.
-    run("xcrun", "simctl", "bootstatus", udid, "-b")
-    destinations = run("xcodebuild", "-project", PROJECT, "-scheme", SCHEME, "-showdestinations").stdout
-    if f"id:{udid}" not in destinations:
+    run("xcrun", "simctl", "bootstatus", udid, "-b", timeout=STEP_TIMEOUT_SECONDS)
+    destinations = run("xcodebuild", "-project", PROJECT, "-scheme", SCHEME, "-showdestinations",
+                       timeout=STEP_TIMEOUT_SECONDS).stdout
+    if not listed(destinations, udid):
         log(destinations)
         raise RuntimeError(f"xcodebuild does not list simulator {udid}")
     return udid, origin
@@ -187,7 +197,7 @@ def main():
         try:
             udid, origin = prepare(picked)
             break
-        except (subprocess.CalledProcessError, RuntimeError) as error:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, RuntimeError) as error:
             log(f"Simulator attempt {attempt} failed: {error}")
             picked = None
             if attempt < ATTEMPTS:
