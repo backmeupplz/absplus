@@ -41,14 +41,15 @@ final class BookSkips: XCTestCase {
 
     /// Verify AVQueuePlayer's actual current item/time, not only the model's target position.
     private func at(_ seconds: Double) {
-        wait("paused at \(seconds)") { v in
+        let read = wait("paused at \(seconds)") { v in
             v["ready"] == "yes" && v["local"] == "yes" && v["paused"] == "yes" &&
             v["track"] == (seconds < 100 ? "0" : "1") &&
             abs((Double(v["actual"] ?? "") ?? -1000) - seconds) < 0.15 &&
             abs((Double(v["pos"] ?? "") ?? -1000) - seconds) < 0.15 &&
             v["rate"] == "0.00" && v["speed"] == "1.50" && v["default"] == "1.50"
         }
-        let attachment = XCTAttachment(string: app.staticTexts["skip-state"].label)
+        // Attach the read that passed; another read costs 10-19s on a stalled simulator.
+        let attachment = XCTAttachment(string: read.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ";"))
         attachment.name = "Actual AVQueuePlayer at \(seconds)"
         attachment.lifetime = .keepAlways
         add(attachment)
@@ -132,8 +133,12 @@ final class BookSkips: XCTestCase {
 
     func testPlaybackAndSpeedSurviveBothCrossFileRoutes() {
         for route in ["FullPlayer", "remote"] {
+            // `from` is sampled up to one fixture tick before the tap, and the skip uses the model
+            // position, so a sample just under 130 can still skip from 130 into file 1 (100).
+            // That would be indistinguishable from a skip clamped within file 1, so leave a 1s
+            // margin and let such a skip be retried as outside the window.
             playingSkip("backward", route == "remote" ? "Remote back" : "Back 30 seconds",
-                        seed: 110, from: 109.9..<130, track: "0", by: -30)
+                        seed: 110, from: 109.9..<129, track: "0", by: -30)
             playingSkip("forward", route == "remote" ? "Remote forward" : "Forward 30 seconds",
                         seed: 80, from: 79.9..<100, track: "1", by: 30)
         }
