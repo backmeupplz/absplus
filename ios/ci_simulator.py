@@ -18,7 +18,6 @@ import sys
 import time
 
 PROJECT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ABSPlus.xcodeproj")
-SCHEME = "ABSPlus"
 PREFERRED = "com.apple.CoreSimulator.SimDeviceType.iPhone-17"
 # iPhone 17 screen in pixels (width, height, scale), used when its device type
 # bundle is missing from the runner.
@@ -29,7 +28,7 @@ WAIT_SECONDS = 180
 RESTART_AFTER_SECONDS = 60
 POLL_SECONDS = 10
 ATTEMPTS = 2
-STEP_TIMEOUT_SECONDS = 300
+BOOT_TIMEOUT_SECONDS = 300
 
 
 def log(message):
@@ -109,14 +108,6 @@ def run(*args, check=True, timeout=None):
     return result
 
 
-def listed(destinations, udid):
-    """Whether `xcodebuild -showdestinations` offers the simulator as compatible.
-
-    Incompatible destinations are listed too, with the same id and an `error:`.
-    """
-    return any(f"id:{udid}," in line and "error:" not in line for line in destinations.splitlines())
-
-
 def deployment_target():
     with open(os.path.join(PROJECT, "project.pbxproj")) as f:
         targets = re.findall(r"IPHONEOS_DEPLOYMENT_TARGET = ([\d.]+);", f.read())
@@ -171,12 +162,11 @@ def prepare(picked):
         udid = run("xcrun", "simctl", "create", name, device_type["identifier"], runtime["identifier"]).stdout.strip()
         origin = f"created \"{name}\""
     # Booting here surfaces a broken simulator before the build, not mid-suite.
-    run("xcrun", "simctl", "bootstatus", udid, "-b", timeout=STEP_TIMEOUT_SECONDS)
-    destinations = run("xcodebuild", "-project", PROJECT, "-scheme", SCHEME, "-showdestinations",
-                       timeout=STEP_TIMEOUT_SECONDS).stdout
-    if not listed(destinations, udid):
-        log(destinations)
-        raise RuntimeError(f"xcodebuild does not list simulator {udid}")
+    # xcodebuild can still be slow to discover it on some runners; the test step
+    # covers that with -destination-timeout.
+    started = time.monotonic()
+    run("xcrun", "simctl", "bootstatus", udid, "-b", timeout=BOOT_TIMEOUT_SECONDS)
+    log(f"Booted {udid} in {time.monotonic() - started:.0f}s")
     return udid, origin
 
 
@@ -197,7 +187,7 @@ def main():
         try:
             udid, origin = prepare(picked)
             break
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, RuntimeError) as error:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
             log(f"Simulator attempt {attempt} failed: {error}")
             picked = None
             if attempt < ATTEMPTS:

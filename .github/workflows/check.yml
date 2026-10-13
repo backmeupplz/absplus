@@ -44,7 +44,8 @@ jobs:
     name: iOS (${{ matrix.group }})
     steps:
       - uses: actions/checkout@v7
-      # Some runners start without the preinstalled simulators, so pick (or create) one that exists.
+      # Some runners start without the preinstalled simulators or are slow to show them to xcodebuild,
+      # so pick (or create) one that exists, boot it, and let xcodebuild wait for it.
       - name: Resolve iOS Simulator
         timeout-minutes: 25
         run: |
@@ -55,6 +56,7 @@ jobs:
         run: >-
           xcodebuild -project ios/ABSPlus.xcodeproj -scheme ABSPlus
           -destination "platform=iOS Simulator,id=$SIMULATOR_ID"
+          -destination-timeout 300
           -parallel-testing-enabled NO
           -resultBundlePath ios-tests.xcresult
           ${{ matrix.tests }} test

@@ -3,7 +3,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(__file__))
-from ci_simulator import PREFERRED, choose, listed  # noqa: E402
+from ci_simulator import PREFERRED, choose  # noqa: E402
 
 SCREENS = {
     "iPhone-17": (1206, 2622, 3.0),
@@ -112,23 +112,6 @@ class ChooseTest(unittest.TestCase):
     def test_nothing_usable(self):
         self.assertIsNone(self.pick({}))
         self.assertIsNone(self.pick(listing([runtime("26.5", TYPES[-1:])])))
-
-
-class ListedTest(unittest.TestCase):
-    DESTINATIONS = """
-\tDestinations compatible with the "ABSPlus" scheme:
-\t\t{ platform:iOS Simulator, id:dvtdevice-DVTiOSDeviceSimulatorPlaceholder-iphonesimulator:placeholder, name:Any iOS Simulator Device }
-\t\t{ platform:iOS Simulator, arch:arm64, id:GOOD, OS:26.5, name:iPhone 17 }
-
-\tDestinations incompatible with the "ABSPlus" scheme:
-\t\t{ platform:iOS Simulator, arch:arm64, id:BAD, OS:27.0, name:iPhone 17, error:iOS 27.0 is not installed. }
-"""
-
-    def test_only_compatible_destinations_count(self):
-        self.assertTrue(listed(self.DESTINATIONS, "GOOD"))
-        self.assertFalse(listed(self.DESTINATIONS, "BAD"))
-        self.assertFalse(listed(self.DESTINATIONS, "GOO"))
-        self.assertFalse(listed("", "GOOD"))
 
 
 if __name__ == "__main__":
