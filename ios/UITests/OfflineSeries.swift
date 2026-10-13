@@ -67,8 +67,17 @@ final class OfflineSeries: XCTestCase {
         app.buttons["Remove download"].tap()
         let confirmation = app.sheets.buttons["Remove download"]
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
-        confirmation.tap()
-        XCTAssertTrue(app.buttons["Download"].waitForExistence(timeout: 5))
+        // Hosted iOS 26 has animated the 50ms confirmation tap without committing
+        // it: five seconds later the dialog was still up and the detail still
+        // offered "Remove download" (#99). Send a deliberate press, and press
+        // again only while the dialog is still showing, so a committed removal
+        // that is just slow to redraw is never confirmed twice.
+        let download = app.buttons["Download"]
+        for _ in 0..<3 where !download.exists {
+            if confirmation.exists { confirmation.press(forDuration: 0.1) }
+            _ = download.waitForExistence(timeout: 5)
+        }
+        XCTAssertTrue(download.exists, app.debugDescription)
         app.buttons["Notify twice"].tap()
         back()
         checkAnchor()
