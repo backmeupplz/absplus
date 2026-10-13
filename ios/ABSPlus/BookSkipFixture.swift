@@ -136,10 +136,13 @@ struct BookSkipFixture: View {
             pending = (last.global, last.rate, last.at)
         }
         guard let skip = pending else { return }
-        // The landing is the first reading after the latest jump, never a later one, so a stall
-        // before playback settles cannot move it. Playback may already have run since the jump
-        // for up to the sampling gap; `slack` bounds how far that reading can be past it.
-        if jumped { landing = (track, global, Double(max(rate, last.rate, player.speed)) * gap, now) }
+        // The landing is the first reading after the latest seek-sized jump (a file switch or 5s,
+        // as a queue rebuild then seek makes), never a later one: a stall that only lags playback
+        // before it settles must not move it forward. Playback may already have run since the
+        // jump for up to the sampling gap; `slack` bounds how far that reading can be past it.
+        if jumped, landing == nil || switched || !(drift < 5) {
+            landing = (track, global, Double(max(rate, last.rate, player.speed)) * gap, now)
+        }
         // Judge once playback settled: ready on a file, at speed, progressing without a jump
         // for a full second. A seek in flight restarts the run and moves the landing.
         if jumped || !moving || player.p.currentItem?.status != .readyToPlay || rate != player.speed { run = nil }

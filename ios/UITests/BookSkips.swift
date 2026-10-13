@@ -24,9 +24,11 @@ final class BookSkips: XCTestCase {
     // relaunch. XCTWaiter's 10s budget then expired mid-read and discarded a read
     // that already showed the target state. Judge every read that starts before
     // the deadline, and allow several of them; the required state is unchanged.
-    /// Returns the read that satisfied `condition`, so callers need no slow re-read.
+    /// Returns the read that satisfied `condition`, so callers need no slow re-read, or an empty
+    /// read when it timed out without being `fatal`.
     @discardableResult
-    private func wait(_ reason: String, timeout: TimeInterval = 30, _ condition: ([String: String]) -> Bool) -> [String: String] {
+    private func wait(_ reason: String, timeout: TimeInterval = 30, fatal: Bool = true,
+                      _ condition: ([String: String]) -> Bool) -> [String: String] {
         let deadline = Date().addingTimeInterval(timeout)
         var label: String
         repeat {
@@ -35,7 +37,7 @@ final class BookSkips: XCTestCase {
             if condition(read) { return read }
             Thread.sleep(forTimeInterval: 0.1)
         } while Date() < deadline
-        XCTFail("\(reason) not reached within \(Int(timeout))s; last read: \(label)")
+        if fatal { XCTFail("\(reason) not reached within \(Int(timeout))s; last read: \(label)") }
         return [:]
     }
 
@@ -65,10 +67,9 @@ final class BookSkips: XCTestCase {
     /// the tap, hence 5s below; a landing at the target file's start stays well outside that.
     ///
     /// 1.5x playback leaves `range` about 13s after Play, and a stalled simulator can spend that
-    /// on the Play read and skip tap alone. A skip that started outside `range` (including one
-    /// latched from the file-1 rebuild tick at 100) says nothing about crossing files, and a
-    /// landing read more than 1s of playback late can't pin where it landed, so either is retried
-    /// from a fresh seed; the last attempt still judges it.
+    /// on the Play read and skip tap alone. Such a skip may never latch (it started while the
+    /// player was not progressing), or say nothing about crossing files, so it is retried from a
+    /// fresh seed; the last attempt still judges it.
     private func playingSkip(_ direction: String, _ button: String, seed start: Int, from range: Range<Double>,
                              track: String, by delta: Double) {
         for attempt in 1...3 {
@@ -80,8 +81,7 @@ final class BookSkips: XCTestCase {
                 $0["rate"] == "1.50" && $0["paused"] == "no" && (Double($0["actual"] ?? "") ?? -1) > Double(start) + 0.2
             }
             app.buttons[button].tap()
-            // Up to 12 attempts share the offline-progress job's budget, so keep this wait short.
-            let jump = wait("\(direction) cross-file playback retained", timeout: 15) { $0["jump"] != "none" }["jump"] ?? ""
+            let jump = wait("\(direction) cross-file playback retained", fatal: attempt == 3) { $0["jump"] != "none" }["jump"] ?? ""
             app.buttons["Pause"].tap()
             wait("paused") { $0["paused"] == "yes" }
             let parts = jump.split(separator: ":").map(String.init)
@@ -89,10 +89,19 @@ final class BookSkips: XCTestCase {
             attachment.name = "Actual \(direction) skip landing during playback (attempt \(attempt))"
             attachment.lifetime = .keepAlways
             add(attachment)
-            if attempt < 3, let from = Double(parts.first ?? ""), !range.contains(from) { continue }
-            if attempt < 3, parts.count == 8, let slack = Double(parts[7]), slack > 1 { continue }
+            if attempt < 3, unclear(parts, from: range, by: delta) { continue }
             return judge(jump, parts, from: range, track: track, by: delta)
         }
+    }
+
+    /// No latch, a skip that started outside `range` (including one latched from the file-1
+    /// rebuild tick at 100), a landing read more than 1s of playback late, or a forward landing
+    /// read at or past 130, which a skip that started in file 1 also reaches.
+    private func unclear(_ parts: [String], from range: Range<Double>, by delta: Double) -> Bool {
+        guard parts.count == 8, let from = Double(parts[0]), let actual = Double(parts[3]), let slack = Double(parts[7]) else {
+            return parts.isEmpty
+        }
+        return !range.contains(from) || slack > 1 || (delta > 0 && actual >= 100 + delta)
     }
 
     private func judge(_ jump: String, _ parts: [String], from range: Range<Double>, track: String, by delta: Double) {
@@ -103,6 +112,9 @@ final class BookSkips: XCTestCase {
         XCTAssertTrue(range.contains(from), "skip started outside the cross-file range: \(jump)")
         XCTAssertEqual(parts[1], "1.50", "not playing at 1.5x before the skip: \(jump)")
         XCTAssertEqual(parts[2], track, "skip did not cross files: \(jump)")
+        // `from` can trail the skip, so playback may have crossed 100 first. A forward landing
+        // under 130 shows the skip itself started in file 0; backward always starts in file 1.
+        if delta > 0 { XCTAssertLessThan(actual, 100 + delta, "forward skip may have started in file 1: \(jump)") }
         XCTAssertGreaterThan(actual - slack, from + delta - 5, "skip landed short: \(jump)")
         XCTAssertLessThan(actual, from + delta + 1.5 * after + 1.5, "skip landed too far: \(jump)")
         XCTAssertEqual(parts[4], "1.50", "playback rate not retained: \(jump)")
