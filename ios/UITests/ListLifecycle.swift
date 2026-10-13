@@ -3,9 +3,10 @@ import XCTest
 final class ListLifecycle: XCTestCase {
     func testListPositionSurvivesButtonAndGestureBack() {
         continueAfterFailure = false
-        // These waits are upper bounds, not sleeps. On a loaded CI simulator one
-        // accessibility query right after the pop's 500-title reload stalled ~9s
-        // and was retried, exhausting a 10s wait although the gesture had finished.
+        // These waits are upper bounds, not sleeps. On a loaded CI simulator the app
+        // stopped answering accessibility queries for ~10s after returning to this
+        // large list; the recording showed the edge-swipe pop already finished, but
+        // the one stalled query exhausted a 10s wait.
         let navigationTimeout: TimeInterval = 30
         let app = XCUIApplication()
         app.launchArguments = ["--list-lifecycle-test"]
