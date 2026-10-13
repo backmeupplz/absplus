@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v7
       # Some runners start without the preinstalled simulators, so pick (or create) one that exists.
       - name: Resolve iOS Simulator
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: |
           python3 -m unittest ios/ci_simulator_test.py
           udid=$(python3 ios/ci_simulator.py)

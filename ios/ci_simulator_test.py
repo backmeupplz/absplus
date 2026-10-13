@@ -58,8 +58,8 @@ def listing(runtimes, devices=None, types=TYPES):
 
 
 class ChooseTest(unittest.TestCase):
-    def pick(self, data, sdk="26.6"):
-        return choose(data, sdk, screen_of)
+    def pick(self, data, sdk="26.6", minimum="26.1"):
+        return choose(data, sdk, minimum, screen_of)
 
     def test_reuses_existing_iphone_17_on_newest_runtime(self):
         old, new = runtime("26.2", TYPES), runtime("26.5", TYPES)
@@ -99,11 +99,15 @@ class ChooseTest(unittest.TestCase):
         _, t, d, _ = self.pick(listing([rt], {rt["identifier"]: [device("Mine", "iPhone-16-Pro", "P")]}, types=types))
         self.assertEqual((t["name"], d["udid"]), ("iPhone 16 Pro", "P"))
 
-    def test_falls_back_to_newest_iphone_when_no_screen_matches(self):
+    def test_refuses_a_different_screen(self):
         types = [t for t in TYPES if t["identifier"].rsplit(".", 1)[1] in ("iPhone-16", "iPhone-Air")]
-        _, t, _, reason = self.pick(listing([runtime("26.5", types)], types=types))
-        self.assertEqual(t["name"], "iPhone Air")
-        self.assertIn("screen differs", reason)
+        self.assertIsNone(self.pick(listing([runtime("26.5", types)], types=types)))
+
+    def test_skips_runtimes_older_than_the_deployment_target(self):
+        data = listing([runtime("26.0", TYPES), runtime("26.0.1", TYPES)])
+        self.assertIsNone(self.pick(data))
+        data["runtimes"].append(runtime("26.1", TYPES))
+        self.assertEqual(self.pick(data)[0]["version"], "26.1")
 
     def test_nothing_usable(self):
         self.assertIsNone(self.pick({}))
