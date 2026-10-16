@@ -1,5 +1,5 @@
 # One published GitHub release vX.Y.Z ships everything: the bundle to Google Play, the iPhone app to the App Store,
-# the signed APK as absplus-X.Y.Z.apk on the release, and the new version to the F-Droid merge request while it's open
+# the signed APK as absplus-X.Y.Z.apk and absplus.apk on the release, and the new version to the F-Droid merge request while it's open
 # (once merged, F-Droid follows new tags itself and builds them; it ships our APK only if its own build matches it).
 # A previous version still waiting for review or in review is replaced on both stores.
 # Before releasing: bump versionName/versionCode in app/build.gradle.kts and add
@@ -93,14 +93,16 @@ jobs:
           printf '%s' "$KEYSTORE_PROPERTIES" > keystore.properties
           printf '%s' "$UPLOAD_JKS" | base64 -d > upload.jks
       - run: ./gradlew bundleRelease assembleRelease
-      # F-Droid compares its own build of the tag with this APK, so it has to come from this clean CI build
+      # F-Droid compares its own build of the tag with absplus-X.Y.Z.apk, so it has to come from this clean CI build.
+      # absplus.apk is the same file under a stable name: absplus.app links releases/latest/download/absplus.apk.
       - name: Attach the APK
         if: env.MODE == 'full'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk "absplus-$VERSION.apk"
-          gh release upload "$TAG" "absplus-$VERSION.apk" --clobber
+          cp app/build/outputs/apk/release/app-release.apk absplus.apk
+          gh release upload "$TAG" "absplus-$VERSION.apk" absplus.apk --clobber
       - name: Google Play
         if: env.MODE != 'testflight-only'
         run: |

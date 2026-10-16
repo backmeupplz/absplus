@@ -25,7 +25,7 @@ Bump `versionCode` and `versionName` in `app/build.gradle.kts` and add `fastlane
 gh release create vX.Y.Z --target main --title "ABS+ X.Y.Z" --notes-file fastlane/metadata/android/en-US/changelogs/<versionCode>.txt
 ```
 
-The Release workflow ships everything from that one release: the bundle to Google Play, the iPhone app to the App Store (build number = `versionCode`), the signed `absplus-X.Y.Z.apk` to the release, and the new version to the F-Droid merge request while it's open. A previous version still waiting for review or in review is replaced on both stores. F-Droid builds the tag itself and publishes the APK only if its own build matches it. Run the workflow by hand with mode `dry-run` to build everything and publish nothing, or `testflight-only` to upload the iPhone build without submitting it. The store texts and images in `fastlane/` link to `play/`.
+The Release workflow ships everything from that one release: the bundle to Google Play, the iPhone app to the App Store (build number = `versionCode`), the signed `absplus-X.Y.Z.apk` (and the same file as `absplus.apk`, which absplus.app links through `releases/latest`) to the release, and the new version to the F-Droid merge request while it's open. A previous version still waiting for review or in review is replaced on both stores. F-Droid builds the tag itself and publishes the APK only if its own build matches it. Run the workflow by hand with mode `dry-run` to build everything and publish nothing, or `testflight-only` to upload the iPhone build without submitting it. The store texts and images in `fastlane/` link to `play/`.
 
 ## iOS
 
