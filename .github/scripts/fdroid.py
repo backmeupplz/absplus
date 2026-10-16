@@ -4,23 +4,36 @@
 Once the merge request is merged, F-Droid's checkupdates follows new tags itself and this does nothing.
   fdroid.py <version> <version code> <commit> [--dry-run]   (--dry-run prints the change and pushes nothing)
   env: FDROID_MR (merge request number in fdroid/fdroiddata), FDROID_APP_ID, FDROID_FORK (e.g. backmeupplz/fdroiddata),
-       FDROID_BRANCH, GITLAB_TOKEN (write_repository on the fork; only needed to push)"""
+       FDROID_BRANCH, GITLAB_TOKEN (write_repository on the fork; only needed to push),
+       optional FDROID_UPDATE_CHECK_MODE and FDROID_BINARIES to change those fields too (e.g. a new tag scheme)"""
 import difflib, json, os, re, subprocess, sys, tempfile, urllib.request
 from urllib.parse import quote
 
 API = "https://gitlab.com/api/v4/projects/"
 
 
-def rewrite(metadata, version, code, commit):
-    """The metadata at this release; exits if it doesn't hold exactly one build entry"""
+def replace(metadata, pattern, new, field):
+    metadata, found = re.subn(pattern, new, metadata)
+    if found != 1:
+        sys.exit(f"Expected one {field} line in the metadata, found {found}")
+    return metadata
+
+
+def rewrite(metadata, version, code, commit, update_check_mode=None, binaries=None):
+    """The metadata at this release, formatted the way fdroiddata's rewritemeta check wants it.
+    Exits if it doesn't hold exactly one build entry."""
     if len(re.findall(r"(?m)^  - versionName:", metadata)) != 1:
         sys.exit("The merge request's metadata should hold exactly one build entry")
     # YAML reads 1.2 as a number, so such versions get quotes like rewritemeta gives them
     name = f"'{version}'" if re.fullmatch(r"\d+(\.\d+)?", version) else version
     for key, value in (("versionName", name), ("versionCode", code), ("commit", commit), ("CurrentVersion", name), ("CurrentVersionCode", code)):
-        metadata, found = re.subn(rf"(?m)^([ -]*{key}): .*$", rf"\g<1>: {value}", metadata)
-        if found != 1:
-            sys.exit(f"Expected one {key} line in the metadata, found {found}")
+        metadata = replace(metadata, rf"(?m)^([ -]*{key}): .*$", lambda m, value=value: f"{m[1]}: {value}", key)
+    if update_check_mode:
+        metadata = replace(metadata, r"(?m)^UpdateCheckMode: .*$", lambda m: f"UpdateCheckMode: {update_check_mode}", "UpdateCheckMode")
+    if binaries:
+        # rewritemeta (ruamel.yaml, width 80) puts a value longer than 80 characters on a line of its own
+        metadata = replace(metadata, r"(?m)^Binaries:.*(?:\n  \S.*)?$",
+                           lambda m: "Binaries: " + ("\n  " if len(binaries) > 80 else "") + binaries, "Binaries")
     return metadata
 
 
@@ -32,7 +45,7 @@ def main():
     if mr["state"] != "opened":
         return print(f"F-Droid merge request !{mr['iid']} is {mr['state']}: F-Droid picks up new tags itself")
     old = urllib.request.urlopen(f"{API}{quote(fork, safe='')}/repository/files/{quote(path, safe='')}/raw?ref={quote(branch)}").read().decode()
-    new = rewrite(old, version, code, commit)
+    new = rewrite(old, version, code, commit, os.environ.get("FDROID_UPDATE_CHECK_MODE"), os.environ.get("FDROID_BINARIES"))
     if new == old:
         return print(f"F-Droid merge request !{mr['iid']} is at {version} already")
     print("".join(difflib.unified_diff(old.splitlines(True), new.splitlines(True), path, path)))
