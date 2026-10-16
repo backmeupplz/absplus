@@ -12,26 +12,27 @@ android {
         applicationId = "com.borodutch.absplus"
         minSdk = 29
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.1.2"
+        versionCode = 5
+        versionName = "1.2.0"
     }
+    // Without the key (e.g. on F-Droid's build server) release builds come out unsigned.
     signingConfigs {
-        create("upload") {
-            if (keys.isNotEmpty()) {
-                storeFile = rootProject.file(keys.getProperty("storeFile"))
-                storePassword = keys.getProperty("storePassword")
-                keyAlias = keys.getProperty("keyAlias")
-                keyPassword = keys.getProperty("keyPassword")
-            }
+        if (keys.isNotEmpty()) create("upload") {
+            storeFile = rootProject.file(keys.getProperty("storeFile"))
+            storePassword = keys.getProperty("storePassword")
+            keyAlias = keys.getProperty("keyAlias")
+            keyPassword = keys.getProperty("keyPassword")
         }
     }
+    // F-Droid rejects APKs carrying Google's encrypted dependency block, which blocks reproducible builds there. Play still gets it from the bundle.
+    dependenciesInfo { includeInApk = false }
     testOptions { unitTests.isIncludeAndroidResources = true }
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            signingConfig = signingConfigs.getByName(if (keys.isNotEmpty()) "upload" else "debug")
+            signingConfig = signingConfigs.findByName("upload")
         }
     }
 }

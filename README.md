@@ -15,7 +15,17 @@ JDK 21 and the Android SDK:
 ./gradlew assembleRelease
 ```
 
-Without a `keystore.properties`, release builds are signed with the debug key.
+Without a `keystore.properties`, release builds come out unsigned, which is how F-Droid builds them.
+
+## Releasing
+
+Bump `versionCode` and `versionName` in `app/build.gradle.kts`, add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (one or two plain sentences, F-Droid and Google Play both show them), merge, then publish the release:
+
+```sh
+gh release create vX.Y.Z --target main --title "ABS+ X.Y.Z" --notes-file fastlane/metadata/android/en-US/changelogs/<versionCode>.txt
+```
+
+The Google Play workflow sends the bundle to Play and attaches the signed `absplus-X.Y.Z.apk`. F-Droid builds the tag itself and publishes that APK only if its own build matches it. The store texts and images in `fastlane/` link to `play/`.
 
 ## iOS
 

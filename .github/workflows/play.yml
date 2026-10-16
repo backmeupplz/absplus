@@ -1,4 +1,6 @@
-# On a published GitHub release, build the signed bundle and submit it to Google Play production for review.
+# On a published GitHub release, build the signed bundle and submit it to Google Play production for review, and attach the
+# signed APK as absplus-<version>.apk. F-Droid builds each tag itself and ships this APK only if its own build matches it,
+# so the APK has to come from this clean CI build, not a local one.
 # A newer commit replaces the release on the track, so a submission still in review is cancelled for this one.
 # Secrets: KEYSTORE_PROPERTIES (the local keystore.properties file), UPLOAD_JKS (base64 of upload.jks),
 # PLAY_SERVICE_ACCOUNT_JSON (key of a service account invited in Play Console with release permissions).
@@ -7,6 +9,8 @@ name: Google Play
 on:
   release:
     types: [published]
+permissions:
+  contents: write # attach the APK
 
 jobs:
   upload:
@@ -25,7 +29,14 @@ jobs:
         run: |
           printf '%s' "$KEYSTORE_PROPERTIES" > keystore.properties
           printf '%s' "$UPLOAD_JKS" | base64 -d > upload.jks
-      - run: ./gradlew bundleRelease
+      - run: ./gradlew bundleRelease assembleRelease
+      - name: Attach the APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "absplus-${TAG#v}.apk"
+          gh release upload "$TAG" "absplus-${TAG#v}.apk" --clobber
       - name: Play release notes from the first paragraph of the GitHub release (Play allows 500 characters)
         env:
           BODY: ${{ github.event.release.body }}
