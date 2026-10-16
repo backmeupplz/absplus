@@ -92,10 +92,12 @@ jobs:
           [ -n "$UPLOAD_JKS" ] || { echo "::error::No UPLOAD_JKS secret: release builds would come out unsigned"; exit 1; }
           printf '%s' "$KEYSTORE_PROPERTIES" > keystore.properties
           printf '%s' "$UPLOAD_JKS" | base64 -d > upload.jks
-      - run: ./gradlew bundleRelease assembleRelease
+      - id: build
+        run: ./gradlew bundleRelease assembleRelease
       # F-Droid compares its own build of the tag with absplus-X.Y.Z.apk, so it has to come from this clean CI build.
       # absplus.apk is the same file under a stable name: absplus.app links releases/latest/download/absplus.apk.
-      - name: Attach the APK
+      - id: attach
+        name: Attach the APK
         if: env.MODE == 'full'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -103,13 +105,14 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "absplus-$VERSION.apk"
           cp app/build/outputs/apk/release/app-release.apk absplus.apk
           gh release upload "$TAG" "absplus-$VERSION.apk" absplus.apk --clobber
+      # Play and F-Droid don't wait on each other: one failing still lets the other ship
       - name: Google Play
-        if: env.MODE != 'testflight-only'
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && env.MODE != 'testflight-only' }}
         run: |
           [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ] || { echo "::warning::No PLAY_SERVICE_ACCOUNT_JSON secret: skipping Google Play"; exit 0; }
           python3 .github/scripts/play.py app/build/outputs/bundle/release/app-release.aab "$VERSION" "$NOTES_DIR/$CODE.txt" $DRY
       - name: F-Droid merge request
-        if: env.MODE != 'testflight-only'
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.attach.outcome != 'failure' && env.MODE != 'testflight-only' }}
         run: python3 .github/scripts/fdroid.py "$VERSION" "$CODE" "${{ needs.version.outputs.commit }}" $DRY
 
   ios:
