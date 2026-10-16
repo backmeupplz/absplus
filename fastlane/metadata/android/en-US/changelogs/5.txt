@@ -1,0 +1,1 @@
+Listening you do offline is now synced to your server once you're back online, and 30-second skips carry on into the next file of a book. Each server keeps its own sign-in, downloads and cache, lists remember where you were, and Settings has a new About section.
