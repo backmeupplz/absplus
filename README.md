@@ -19,13 +19,13 @@ Without a `keystore.properties`, release builds come out unsigned, which is how 
 
 ## Releasing
 
-Bump `versionCode` and `versionName` in `app/build.gradle.kts`, add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (one or two plain sentences, F-Droid and Google Play both show them), merge, then publish the release:
+Bump `versionCode` and `versionName` in `app/build.gradle.kts` and add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (one or two plain sentences, with no mention of Android or iPhone: Google Play, the App Store and F-Droid all show them). Merge, then publish the release:
 
 ```sh
 gh release create vX.Y.Z --target main --title "ABS+ X.Y.Z" --notes-file fastlane/metadata/android/en-US/changelogs/<versionCode>.txt
 ```
 
-The Google Play workflow sends the bundle to Play and attaches the signed `absplus-X.Y.Z.apk`. F-Droid builds the tag itself and publishes that APK only if its own build matches it. The store texts and images in `fastlane/` link to `play/`.
+The Release workflow ships everything from that one release: the bundle to Google Play, the iPhone app to the App Store (build number = `versionCode`), the signed `absplus-X.Y.Z.apk` to the release, and the new version to the F-Droid merge request while it's open. A previous version still waiting for review or in review is replaced on both stores. F-Droid builds the tag itself and publishes the APK only if its own build matches it. Run the workflow by hand with mode `dry-run` to build everything and publish nothing, or `testflight-only` to upload the iPhone build without submitting it. The store texts and images in `fastlane/` link to `play/`.
 
 ## iOS
 
