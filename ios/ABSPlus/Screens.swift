@@ -259,7 +259,7 @@ struct SettingsView: View {
     @State private var linking = false
 
     var body: some View {
-        let dls = app.downloads()
+        let dls = app.downloadRows()
         let total = dls.reduce(0) { $0 + $1.size }
         Form {
             Section("Account") {
@@ -377,7 +377,7 @@ struct DownloadsView: View {
     @State private var stopAll = false
 
     var body: some View {
-        let items = app.downloads()
+        let items = app.downloadRows()
         let total = items.reduce(0) { $0 + $1.size }
         List {
             if !app.dlq.isEmpty {
@@ -411,10 +411,10 @@ struct DownloadsView: View {
             }
             if !items.isEmpty {
                 Section {
-                    ForEach(items, id: \.id) { d in
-                        let c = app.cachedCard(d.id)
+                    ForEach(items, id: \.card.key) { d in
+                        let c = d.card
                         NavigationLink(value: Route.item(c.id)) { Row(card: c, meta: "\(c.sub) · \(bytes(d.size))") }
-                            .swipeActions { Button("Remove", role: .destructive) { app.removeAll(d.id) } }
+                            .swipeActions { Button("Remove", role: .destructive) { d.remove() } }
                     }
                 } header: {
                     Text("\(items.count) item\(items.count == 1 ? "" : "s") · \(bytes(total))")
@@ -439,7 +439,7 @@ struct DownloadsView: View {
             if !items.isEmpty { Button("Remove all", role: .destructive) { removeAll = true } }
         }
         .confirmationDialog("Remove all \(items.count) downloads (\(bytes(total))) from this device? Nothing is deleted on the server.", isPresented: $removeAll, titleVisibility: .visible) {
-            Button("Remove all", role: .destructive) { items.forEach { app.removeAll($0.id) } }
+            Button("Remove all", role: .destructive) { app.downloads().forEach { app.removeAll($0.id) } }
         }
     }
 }

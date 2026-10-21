@@ -65,6 +65,19 @@ class DownloadRemovalTest {
         resetProcessState()
     }
 
+    @Test fun downloadsListEachFinishedEpisodeAndRemovesOnlyThatOne() {
+        fun keys() = Abs.downloadRows().map { it.card.key }.sorted()
+        assertEquals(listOf(a, b, other).map { it.key }.sorted(), keys())
+
+        Abs.downloadRows().first { it.card.key == a.key }.remove()
+
+        assertRemoved(a)
+        assertComplete(b)
+        assertPartial(c, 3)
+        assertQueue(c, d, otherPartial)
+        assertEquals(listOf(b, other).map { it.key }.sorted(), keys())
+    }
+
     @Test fun removingOneCompleteEpisodePreservesSiblingsAndPartialQueueAcrossReload() {
         // Main.removeDl delegates here and then invalidates the downloaded-state memo.
         Abs.remove(a.tracks.map { Abs.file(a.item, it) })

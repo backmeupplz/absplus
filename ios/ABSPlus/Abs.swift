@@ -713,6 +713,32 @@ let resumeDir: URL = {
         cached("/api/items/\(id)?expanded=1").flatMap { try? JSONDecoder().decode(Item.self, from: $0).card } ?? Card(id: id, title: "Unknown item", sub: "")
     }
 
+    struct DlRow { var card: Card, size: Int64, remove: () -> Void }
+
+    /// a row per downloaded book and per downloaded podcast episode; podcast files the cached json can't name stay on the podcast's row
+    func downloadRows() -> [DlRow] {
+        downloads().flatMap { d -> [DlRow] in
+            let item = cachedCard(d.id)
+            guard let eps = cached("/api/items/\(d.id)?expanded=1").flatMap({ try? JSONDecoder().decode(Item.self, from: $0) })?.media.episodes else {
+                return [DlRow(card: item, size: d.size) { self.removeAll(d.id) }]
+            }
+            let dir = audioDir.appending(path: component(d.id))
+            var rest = Set(((try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.fileSizeKey])) ?? []).map(\.lastPathComponent))
+            let rows = eps.compactMap { e -> DlRow? in
+                guard let t = e.audioFile?.track(0), rest.remove(file(d.id, t).lastPathComponent) != nil else { return nil }
+                let n = Now(item: d.id, ep: e.id, title: e.title ?? "", author: item.title, tracks: [t])
+                return DlRow(card: Card(id: d.id, title: n.title, sub: item.title, ep: e.id), size: max(0, size(file(d.id, t)))) { self.remove(n) }
+            }
+            let left = rest.map { dir.appending(path: $0) }
+            guard !left.isEmpty else { return rows }
+            return rows + [DlRow(card: item, size: left.reduce(0) { $0 + max(0, size($1)) }) {
+                left.forEach { try? FileManager.default.removeItem(at: $0) }
+                _ = dir.withUnsafeFileSystemRepresentation { path in path.map { Darwin.rmdir($0) } }
+                self.dlChanged()
+            }]
+        }
+    }
+
     func removeAll(_ id: String) {
         let dir = audioDir.appending(path: component(id))
         let prefix = "accounts/\(mediaScope)/audio/\(component(id))/"
