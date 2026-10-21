@@ -697,11 +697,11 @@ class Main : AppCompatActivity() {
             .also { (it.layoutParams as LinearLayout.LayoutParams).marginStart = dp(16) })
 
         body.addView(section("Storage"))
-        val dls = Abs.downloads()
+        val dls = Abs.downloadRows()
         val busy = Dl.jobs.size.takeIf { it > 0 }?.let { " · $it downloading" } ?: ""
         body.addView(row(
             col(text("Downloads", M.attr.textAppearanceTitleSmall),
-                text("${dls.size} item${if (dls.size == 1) "" else "s"} · ${mb(dls.sumOf { d -> d.listFiles()?.sumOf { it.length() } ?: 0L })}$busy", M.attr.textAppearanceBodySmall, muted = true)).lp(0, -2, 1f),
+                text("${dls.size} item${if (dls.size == 1) "" else "s"} · ${mb(dls.sumOf { it.size })}$busy", M.attr.textAppearanceBodySmall, muted = true)).lp(0, -2, 1f),
         ).pad(16, 10).apply {
             setBackgroundResource(res(android.R.attr.selectableItemBackground))
             setOnClickListener { push(::downloads) }
@@ -738,7 +738,7 @@ class Main : AppCompatActivity() {
             onDlTick = { rows.forEach { it.second() } }
         }
         onDl = { downloads() }
-        val items = Abs.downloads().map { d -> d to (d.listFiles()?.sumOf { it.length() } ?: 0L) }
+        val items = Abs.downloadRows().map { it to it.size }
         val total = items.sumOf { it.second }
         if (jobs.isNotEmpty() && items.isNotEmpty()) body.addView(section("On this device"))
         if (items.isEmpty() && jobs.isEmpty()) body.addView(text("Nothing downloaded on this device.", muted = true).pad(16, 4))
@@ -747,15 +747,15 @@ class Main : AppCompatActivity() {
                 text("${items.size} items · ${mb(total)}", muted = true).lp(0, -2, 1f),
                 button("Remove all", R.drawable.i_delete, M.attr.materialButtonOutlinedStyle) {
                     confirm("Remove all ${items.size} downloads (${mb(total)}) from this device? Nothing is deleted on the server.") {
-                        items.forEach { Abs.removeAll(it.first) }
+                        Abs.downloads().forEach { Abs.removeAll(it) }
                         downloads()
                     }
                 },
             ).pad(16, 4))
             items.forEach { (d, size) ->
-                val c = Abs.cachedCard(d.name)
+                val c = d.card
                 body.addView(listRow(c, "${c.sub} · ${mb(size)}", R.drawable.i_delete, {
-                    confirm("Remove the download of “${c.title}” from this device?") { Abs.removeAll(d); downloads() }
+                    confirm("Remove the download of “${c.title}” from this device?") { d.remove(); downloads() }
                 }) { push { item(c.id) } })
             }
         }

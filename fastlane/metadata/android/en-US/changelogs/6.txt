@@ -1,0 +1,1 @@
+Downloads in Settings now list every downloaded podcast episode on its own, so you can find and remove episodes one at a time.

@@ -543,6 +543,22 @@ object Abs {
     /** title/author from the item page's cached json */
     fun cachedCard(id: String) = runCatching { Card.item(JSONObject(cached("/api/items/$id?expanded=1")!!)) }.getOrElse { Card(id, "Unknown item", "") }
 
+    class DlRow(val card: Card, val files: List<File>, val remove: () -> Unit) { val size get() = files.sumOf { it.length() } }
+
+    /** a row per downloaded book and per downloaded podcast episode; podcast files the cached json can't name stay on the podcast's row */
+    fun downloadRows(): List<DlRow> = downloads().flatMap { d ->
+        val files = d.listFiles { f -> !f.name.endsWith(".part") }.orEmpty().toList()
+        val item = cachedCard(d.name)
+        val eps = runCatching { JSONObject(cached("/api/items/${d.name}?expanded=1")!!).getJSONObject("media").getJSONArray("episodes") }.getOrNull()
+            ?: return@flatMap listOf(DlRow(item, files) { removeAll(d) })
+        val rows = (0 until eps.length()).map { eps.getJSONObject(it) }.mapNotNull { e ->
+            val f = e.optJSONObject("audioFile")?.let { file(d.name, track(it, 0.0)) }?.takeIf { it in files } ?: return@mapNotNull null
+            DlRow(Card(d.name, e.str("title"), item.title, e.getString("id")), listOf(f)) { remove(listOf(f)); dlChanged() }
+        }
+        val rest = files - rows.flatMap { it.files }.toSet()
+        if (rest.isEmpty()) rows else rows + DlRow(item, rest) { remove(rest); dlChanged() }
+    }
+
     fun removeAll(item: File) {
         if (item.parentFile != File(mediaDir, "audio")) return
         Dl.jobs.filter { it.n.item == item.name }.forEach { Dl.cancel(it.n) }
