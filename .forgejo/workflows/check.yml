@@ -20,6 +20,8 @@ jobs:
           java-version: 21
       # GitHub-hosted runners ship the Android SDK; the Forgejo job image does not
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew testDebugUnitTest assembleDebug
       - run: python3 -m unittest discover -s .github/scripts # the shared release scripts
