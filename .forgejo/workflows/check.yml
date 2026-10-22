@@ -23,6 +23,7 @@ jobs:
       - run: python3 -m unittest discover -s .github/scripts # the shared release scripts
   ios:
     runs-on: macos-26
+    if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'backmeupplz'
     # Leaves room for ios/ci_simulator.py to download the iOS platform on a runner missing it,
     # and for xcodebuild's -destination-timeout.
     timeout-minutes: 50
@@ -72,7 +73,7 @@ jobs:
           ${{ matrix.tests }} test-without-building
       - name: Preserve native failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v4
         with:
           name: ios-test-results-${{ matrix.group }}
           path: |
