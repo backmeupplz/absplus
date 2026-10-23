@@ -1,5 +1,6 @@
-# One published GitHub release vX.Y.Z ships everything: the bundle to Google Play, the iPhone app to the App Store,
-# the signed APK as absplus-X.Y.Z.apk and absplus.apk on the release, and the new version to the F-Droid merge request while it's open
+# One release vX.Y.Z published on git.borodutch.com ships everything: the bundle to Google Play, the iPhone app to the App Store,
+# the signed APK as absplus-X.Y.Z.apk and absplus.apk on the release and on the same release on the GitHub mirror (created there
+# when missing; downloads link to GitHub), and the new version to the F-Droid merge request while it's open
 # (once merged, F-Droid follows new tags itself and builds them; it ships our APK only if its own build matches it).
 # A previous version still waiting for review or in review is replaced on both stores.
 # Before releasing: bump versionName/versionCode in app/build.gradle.kts and add
@@ -7,7 +8,8 @@
 # Run by hand (Actions → Release → Run workflow): dry-run builds everything and publishes nothing,
 # testflight-only uploads the iPhone build without submitting it, full is what a published release does.
 # Secrets: KEYSTORE_PROPERTIES, UPLOAD_JKS, PLAY_SERVICE_ACCOUNT_JSON, ASC_KEY_P8 (the .p8 key), GITLAB_TOKEN
-# (write_repository on the fdroiddata fork). A step whose secret is missing is skipped with a warning.
+# (write_repository on the fdroiddata fork), GH_MIRROR_TOKEN (GitHub token with repo scope, for the GitHub release).
+# A step whose secret is missing is skipped with a warning.
 # .github/scripts is shared with Mesh+ and Todorant: keep it identical there; this repo's values are the env below.
 name: Release
 on:
@@ -83,6 +85,10 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      # GitHub-hosted runners ship the Android SDK; the Forgejo job image does not
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - uses: gradle/actions/setup-gradle@v6
       - name: Restore upload key
         env:
@@ -100,11 +106,15 @@ jobs:
         name: Attach the APK
         if: env.MODE == 'full'
         env:
-          GH_TOKEN: ${{ github.token }}
+          FORGEJO_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_MIRROR_TOKEN }}
+          RELEASE_TITLE: ${{ github.event.release.name }}
+          RELEASE_NOTES: ${{ github.event.release.body }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk "absplus-$VERSION.apk"
           cp app/build/outputs/apk/release/app-release.apk absplus.apk
-          gh release upload "$TAG" "absplus-$VERSION.apk" absplus.apk --clobber
+          .github/scripts/attach.sh "$TAG" "absplus-$VERSION.apk" absplus.apk
       # Play and F-Droid don't wait on each other: one failing still lets the other ship
       - name: Google Play
         if: ${{ !cancelled() && steps.build.outcome == 'success' && env.MODE != 'testflight-only' }}
@@ -124,19 +134,19 @@ jobs:
       CODE: ${{ needs.version.outputs.code }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
     steps:
+      # The Mac runner is shared, so the key stays in this job's temp folder (ios/release.sh, altool and appstore.py read
+      # API_PRIVATE_KEYS_DIR) and is removed at the end. The build uses the Mac's selected Xcode.
       - name: App Store Connect key
         run: |
           [ -n "$ASC_KEY_P8" ] || { echo "::warning::No ASC_KEY_P8 secret: skipping the iPhone app"; exit 0; }
-          mkdir -p ~/.appstoreconnect/private_keys
-          printf '%s\n' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+          keys=$(mktemp -d "$RUNNER_TEMP/asc.XXXXXX")
+          printf '%s\n' "$ASC_KEY_P8" > "$keys/AuthKey_$ASC_KEY_ID.p8"
+          echo "API_PRIVATE_KEYS_DIR=$keys" >> "$GITHUB_ENV"
           echo "IOS=1" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         if: env.IOS
         with:
           ref: ${{ env.TAG }}
-      - name: Newest Xcode
-        if: env.IOS
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)" && xcodebuild -version
       # The build number is the Android versionCode, so both stores count the same way
       - name: Archive, sign and upload
         if: env.IOS
@@ -144,3 +154,6 @@ jobs:
       - name: App Review
         if: env.IOS && env.MODE != 'testflight-only'
         run: python3 .github/scripts/appstore.py "$VERSION" "$CODE" "$NOTES_DIR/$CODE.txt" ${{ env.MODE == 'dry-run' && '--dry-run' || '' }}
+      - name: Remove the key
+        if: always() && env.API_PRIVATE_KEYS_DIR
+        run: rm -rf "$API_PRIVATE_KEYS_DIR"

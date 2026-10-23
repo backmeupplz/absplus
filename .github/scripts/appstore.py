@@ -3,12 +3,13 @@
 """Sends an uploaded iPhone build to App Review, released automatically once approved.
 A submission still waiting or in review is cancelled, and its version takes the new number and build.
   appstore.py <version> <build number> <notes file> [--dry-run]   (--dry-run prints the plan and changes nothing)
-  env: APP_STORE_APP_ID, ASC_KEY_ID, ASC_ISSUER_ID; the key is ~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8"""
+  env: APP_STORE_APP_ID, ASC_KEY_ID, ASC_ISSUER_ID; the key is AuthKey_<ASC_KEY_ID>.p8 in API_PRIVATE_KEYS_DIR
+       (default ~/.appstoreconnect/private_keys), the folder altool reads too"""
 import base64, json, os, subprocess, sys, time, urllib.error, urllib.request
 from urllib.parse import urlencode
 
 APP, KEY_ID, ISSUER = os.environ["APP_STORE_APP_ID"], os.environ["ASC_KEY_ID"], os.environ["ASC_ISSUER_ID"]
-KEY = os.path.expanduser(f"~/.appstoreconnect/private_keys/AuthKey_{KEY_ID}.p8")
+KEY = os.path.join(os.path.expanduser(os.environ.get("API_PRIVATE_KEYS_DIR", "~/.appstoreconnect/private_keys")), f"AuthKey_{KEY_ID}.p8")
 # States where a version can still take a new build and number
 EDITABLE = {"PREPARE_FOR_SUBMISSION", "READY_FOR_REVIEW", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED", "INVALID_BINARY"}
 OPEN = ["WAITING_FOR_REVIEW", "IN_REVIEW", "UNRESOLVED_ISSUES"]
