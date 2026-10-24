@@ -7,30 +7,16 @@ struct ABSPlusApp: App {
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--loading-test") {
-                LoadingFixture()
-            } else if ProcessInfo.processInfo.arguments.contains("--book-skip-test") {
-                BookSkipFixture()
-            } else if ProcessInfo.processInfo.arguments.contains("--download-removal-test") {
+            if ProcessInfo.processInfo.arguments.contains("--download-removal-test") {
                 DownloadRemovalFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--progress-test") {
                 ProgressFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--download-retry-test") {
                 DownloadRetryFixture()
-            } else if ProcessInfo.processInfo.arguments.contains("--accessibility-test") {
-                AccessibilityFixture()
-            } else if ProcessInfo.processInfo.arguments.contains("--list-lifecycle-test") {
-                ListLifecycleFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--isolation-test") {
                 IsolationFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--retained-test") {
                 RetainedFixture()
-            } else if ProcessInfo.processInfo.arguments.contains("--offline-series-test") {
-                OfflineSeriesFixture()
-            } else if ProcessInfo.processInfo.arguments.contains("--offline-library-test") {
-                OfflineLibraryFixture()
-            } else if ProcessInfo.processInfo.arguments.contains("--offline-home-test") {
-                OfflineHomeFixture()
             } else { RootView() }
 #else
             RootView()

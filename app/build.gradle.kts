@@ -26,7 +26,11 @@ android {
     }
     // F-Droid rejects APKs carrying Google's encrypted dependency block, which blocks reproducible builds there. Play still gets it from the bundle.
     dependenciesInfo { includeInApk = false }
-    testOptions { unitTests.isIncludeAndroidResources = true }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        // Robolectric suites are independent (own servers on port 0), so they split across JVMs.
+        unitTests.all { it.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4) }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true

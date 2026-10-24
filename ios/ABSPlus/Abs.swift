@@ -886,7 +886,7 @@ let resumeDir: URL = {
 
     private static func kcRead() -> [String: Tok] {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(where: { ["--book-skip-test", "--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test", "--loading-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test"].contains($0) }) {
             return UserDefaults.standard.data(forKey: "fixture-accounts").flatMap { try? JSONDecoder().decode([String: Tok].self, from: $0) } ?? [:]
         }
 #endif
@@ -899,7 +899,7 @@ let resumeDir: URL = {
 
     private func kcWrite(_ v: [String: Tok]) {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(where: { ["--book-skip-test", "--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test", "--loading-test", "--list-lifecycle-test", "--offline-home-test", "--offline-library-test", "--offline-series-test", "--accessibility-test"].contains($0) }) {
+        if ProcessInfo.processInfo.arguments.contains(where: { ["--download-removal-test", "--download-retry-test", "--isolation-test", "--retained-test"].contains($0) }) {
             d.set(try? JSONEncoder().encode(v), forKey: "fixture-accounts")
             return
         }

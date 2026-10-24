@@ -1,15 +1,15 @@
 import XCTest
 
 final class ProgressReplay: XCTestCase {
+    func verdict(_ label: String) -> Bool { label.hasPrefix("PASS") || label.hasPrefix("FAIL") }
+
     func testProcessRelaunchUploadsWithoutPlaying() {
         let app = XCUIApplication()
         for phase in ["seed", "drain"] {
             app.launchArguments = ["--progress-test", "--progress-" + phase]
             app.launch()
             let result = app.staticTexts["progress-result"]
-            XCTAssertTrue(result.waitForExistence(timeout: 15))
-            expectation(for: NSPredicate(format: "label BEGINSWITH 'PASS' OR label BEGINSWITH 'FAIL'"), evaluatedWith: result)
-            waitForExpectations(timeout: 30)
+            XCTAssertTrue(result.waitForLabel(timeout: 45, verdict))
             XCTAssertEqual(result.label, phase == "seed" ? "PASS seeded" : "PASS relaunched")
             app.terminate()
         }
@@ -20,9 +20,7 @@ final class ProgressReplay: XCTestCase {
         app.launchArguments = ["--progress-test", "--progress-playback-auth"]
         app.launch()
         let result = app.staticTexts["progress-result"]
-        XCTAssertTrue(result.waitForExistence(timeout: 15))
-        expectation(for: NSPredicate(format: "label BEGINSWITH 'PASS' OR label BEGINSWITH 'FAIL'"), evaluatedWith: result)
-        waitForExpectations(timeout: 30)
+        XCTAssertTrue(result.waitForLabel(timeout: 45, verdict))
         XCTAssertEqual(result.label, "PASS playback authentication")
     }
 
@@ -31,10 +29,7 @@ final class ProgressReplay: XCTestCase {
         app.launchArguments = ["--progress-test"]
         app.launch()
         let result = app.staticTexts["progress-result"]
-        XCTAssertTrue(result.waitForExistence(timeout: 15))
-        let done = NSPredicate(format: "label BEGINSWITH 'PASS' OR label BEGINSWITH 'FAIL'")
-        expectation(for: done, evaluatedWith: result)
-        waitForExpectations(timeout: 60)
+        XCTAssertTrue(result.waitForLabel(timeout: 75, verdict))
         XCTAssertEqual(result.label, "PASS progress replay")
     }
 }

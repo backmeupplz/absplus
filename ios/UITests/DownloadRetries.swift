@@ -6,11 +6,11 @@ final class DownloadRetries: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--download-retry-test", "--completion-seed"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Completion gap persisted"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Completion gap persisted"].waitForLabel(timeout: 15))
         app.terminate()
         app.launchArguments = ["--download-retry-test", "--completion-relaunch"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Interrupted completion passed"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Interrupted completion passed"].waitForLabel(timeout: 15))
     }
 
     func testQueueFailuresAndRelaunch() {
@@ -18,11 +18,11 @@ final class DownloadRetries: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--download-retry-test"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Retry fixtures passed"].waitForExistence(timeout: 45))
+        XCTAssertTrue(app.staticTexts["Retry fixtures passed"].waitForLabel(timeout: 45))
         XCTAssertTrue(app.staticTexts["Waiting to retry…"].exists)
         app.terminate()
         app.launchArguments = ["--download-retry-test", "--retry-relaunch"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Relaunch passed"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Relaunch passed"].waitForLabel(timeout: 20))
     }
 }

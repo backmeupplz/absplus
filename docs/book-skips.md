@@ -20,4 +20,4 @@ This is native Android/Robolectric integration coverage, not a physical Bluetoot
 
 ## iOS parity
 
-See [iOS fixture instructions](../ios/BOOK_SKIPS_TEST.md). The fixtures use synthetic local audio, the real AVQueuePlayer, FullPlayer controls, and the same skip handlers registered with MPRemoteCommandCenter. OS Control Center/Bluetooth event delivery itself remains a device smoke check. No private library or credentials are needed.
+The iOS BookSkips UI suite and its fixture were removed in PR #37 (slow, gesture-driven XCUITest); iOS cross-file skips are no longer covered by an automated test. OS Control Center/Bluetooth event delivery remains a device smoke check.

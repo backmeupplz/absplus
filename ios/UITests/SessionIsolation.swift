@@ -6,9 +6,7 @@ final class SessionIsolation: XCTestCase {
         app.launchArguments = ["--isolation-test"]
         app.launch()
         let result = app.staticTexts["isolation-result"]
-        XCTAssertTrue(result.waitForExistence(timeout: 15))
-        expectation(for: NSPredicate(format: "label != %@", "Running isolation checks"), evaluatedWith: result)
-        waitForExpectations(timeout: 45)
+        XCTAssertTrue(result.waitForLabel(timeout: 60) { $0 != "Running isolation checks" })
         XCTAssertEqual(result.label, "Isolation checks passed")
     }
 }
