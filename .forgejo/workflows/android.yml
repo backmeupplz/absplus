@@ -1,0 +1,71 @@
+name: Android
+# The Android app and the shared release scripts. iOS, site and Markdown changes skip it (ios.yml checks the iPhone app).
+on:
+  pull_request:
+    paths: ['app/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', 'gradlew', '.github/scripts/**', '.forgejo/workflows/android.yml']
+  push:
+    branches: [main]
+    paths: ['app/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', 'gradlew', '.github/scripts/**', '.forgejo/workflows/android.yml']
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 -m unittest discover -s .github/scripts # the shared release scripts
+      # The JDK, the Android SDK, Gradle with its dependencies and Robolectric's Android jars come back in one piece
+      # instead of being downloaded: the job image has none of them. Saved even when the tests fail.
+      - id: toolchain
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk
+            /root/.android/sdk/*
+            !/root/.android/sdk/cmdline-tools
+            /root/.gradle/wrapper/dists/*/*/*
+            !/root/.gradle/wrapper/dists/*/*/*.zip
+            /root/.gradle/caches/modules-2
+            /root/.m2/repository/org/robolectric
+          key: android-${{ hashFiles('*.gradle.kts', 'app/build.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: android-
+      # Gradle's build cache carries task outputs from run to run, so a commit whose code an earlier run already built
+      # and tested (a merge of a green PR, a workflow-only change) takes its classes and test results from it.
+      - uses: actions/cache/restore@v4
+        with:
+          path: /root/.gradle/caches/build-cache-1
+          key: gradle-build-cache-${{ github.run_id }}
+          restore-keys: gradle-build-cache-
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      # A restored SDK has its licenses, platform and build tools (Gradle installs those it misses), so it needs no sdkmanager.
+      - id: sdk
+        run: test -d ~/.android/sdk/licenses && echo "ANDROID_HOME=$HOME/.android/sdk" >> "$GITHUB_ENV" || echo missing=1 >> "$GITHUB_OUTPUT"
+      - uses: android-actions/setup-android@v3
+        if: steps.sdk.outputs.missing
+        with:
+          packages: platform-tools
+      - run: ./gradlew --no-daemon --build-cache testDebugUnitTest assembleDebug
+      - uses: actions/cache/save@v4
+        if: always() && steps.toolchain.outputs.cache-hit != 'true'
+        with:
+          path: |
+            /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk
+            /root/.android/sdk/*
+            !/root/.android/sdk/cmdline-tools
+            /root/.gradle/wrapper/dists/*/*/*
+            !/root/.gradle/wrapper/dists/*/*/*.zip
+            /root/.gradle/caches/modules-2
+            /root/.m2/repository/org/robolectric
+          key: android-${{ hashFiles('*.gradle.kts', 'app/build.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: /root/.gradle/caches/build-cache-1
+          key: gradle-build-cache-${{ github.run_id }}

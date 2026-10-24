@@ -25,6 +25,9 @@ PREFERRED = "com.apple.CoreSimulator.SimDeviceType.iPhone-17"
 # bundle is missing from the runner.
 PREFERRED_SCREEN = (1206, 2622, 3.0)
 CREATED_PREFIX = "ABS+ CI "
+# The Mac runner instances share one user and so one simulator set; each instance names its own simulator
+# here, or concurrent jobs would boot, test on and erase the same device.
+NAME = os.environ.get("CI_SIMULATOR_NAME")
 
 WAIT_SECONDS = 180
 RESTART_AFTER_SECONDS = 60
@@ -118,10 +121,13 @@ def deployment_target():
 
 def listing():
     try:
-        return json.loads(run("xcrun", "simctl", "list", "-j").stdout)
+        data = json.loads(run("xcrun", "simctl", "list", "-j").stdout)
     except (subprocess.CalledProcessError, json.JSONDecodeError) as error:
         log(f"simctl list failed: {error}")
         return {}
+    if NAME:
+        data["devices"] = {r: [d for d in ds if d.get("name") == NAME] for r, ds in data.get("devices", {}).items()}
+    return data
 
 
 def summary(data):
@@ -159,8 +165,11 @@ def prepare(picked):
     runtime, device_type, device, _ = picked
     if device:
         udid, origin = device["udid"], f"existing \"{device['name']}\""
+        if NAME and device.get("state") != "Shutdown":
+            # A job cancelled mid-test leaves its simulator booted, sometimes wedged: start from a clean boot.
+            run("xcrun", "simctl", "shutdown", udid, check=False)
     else:
-        name = CREATED_PREFIX + device_type["name"]
+        name = NAME or CREATED_PREFIX + device_type["name"]
         udid = run("xcrun", "simctl", "create", name, device_type["identifier"], runtime["identifier"]).stdout.strip()
         origin = f"created \"{name}\""
     # Booting here surfaces a broken simulator before the build, not mid-suite.

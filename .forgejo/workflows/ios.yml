@@ -1,0 +1,86 @@
+name: iOS
+# The iPhone app's UI regression suites. Android, site and Markdown changes skip it (android.yml checks the Android app).
+on:
+  pull_request:
+    paths: ['ios/**', '.forgejo/workflows/ios.yml']
+  push:
+    branches: [main]
+    paths: ['ios/**', '.forgejo/workflows/ios.yml']
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  ios:
+    runs-on: macos-26
+    if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'backmeupplz'
+    # Leaves room for ios/ci_simulator.py to download the iOS platform on a runner missing it,
+    # and for xcodebuild's -destination-timeout.
+    timeout-minutes: 50
+    # Three legs of similar length on three runner instances. xcodebuild's own parallel testing (simulator clones in
+    # one job) ran every test several times slower on this Mac, so each leg tests serially on its own simulator.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: playback
+            tests: >-
+              -only-testing:UITests/PlaybackPreparation -only-testing:UITests/ProgressReplay
+              -only-testing:UITests/RetainedDownloads -only-testing:UITests/SessionIsolation
+              -only-testing:UITests/DownloadRetries
+          - group: loading
+            tests: >-
+              -only-testing:UITests/LoadingLifecycle -only-testing:UITests/ListLifecycle
+              -only-testing:UITests/Accessibility -only-testing:UITests/BookSkips
+          - group: offline
+            tests: >-
+              -only-testing:UITests/OfflineLibrary -only-testing:UITests/OfflineSeries
+              -only-testing:UITests/OfflineHome -only-testing:UITests/DownloadRemoval
+    name: iOS (${{ matrix.group }})
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: ios
+      # The runner instances (runner/rN) share one user. Each gets its own simulator, since jobs on one simulator kill
+      # each other's tests, and its own copy of the sources: the checkout path changes with every run, and Xcode only
+      # rebuilds what changed while the path stays the same and unchanged files keep their inode and time.
+      # Some runners start without the preinstalled simulators or are slow to show them to xcodebuild,
+      # so ci_simulator.py picks (or creates) one that exists, boots it, and xcodebuild waits for it.
+      - name: Stage sources and resolve iOS Simulator
+        timeout-minutes: 25
+        run: |
+          runner="${PWD%%/work/*}"
+          mkdir -p "$runner/ci/absplus"
+          rsync -rlc --delete ios/ "$runner/ci/absplus/ios/"
+          echo "STAGE=$runner/ci/absplus" >> "$GITHUB_ENV"
+          python3 -m unittest ios/ci_simulator_test.py
+          udid=$(CI_SIMULATOR_NAME="CI iPhone ${runner##*/}" python3 ios/ci_simulator.py)
+          echo "SIMULATOR_ID=$udid" >> "$GITHUB_ENV"
+      # Building for a generic destination needs no device discovery, and gives the booted
+      # simulator time to show up for xcodebuild before the tests look for it.
+      - name: Build for testing
+        run: >-
+          xcodebuild -project "$STAGE/ios/ABSPlus.xcodeproj" -scheme ABSPlus -derivedDataPath "$STAGE/DerivedData"
+          -destination 'generic/platform=iOS Simulator' ARCHS=arm64
+          build-for-testing
+      # A failing test gets one retry (LoadingLifecycle.testCacheRefreshFailureKeepsTitlesAndSwitchResets is flaky). No
+      # sysdiagnose afterwards: the sandboxed runner can't collect one, and xcodebuild waited 10 minutes for it.
+      - name: Exercise mapped regression suites
+        timeout-minutes: 30
+        run: >-
+          xcodebuild -project "$STAGE/ios/ABSPlus.xcodeproj" -scheme ABSPlus -derivedDataPath "$STAGE/DerivedData"
+          -destination "platform=iOS Simulator,id=$SIMULATOR_ID"
+          -destination-timeout 300
+          -parallel-testing-enabled NO
+          -retry-tests-on-failure -test-iterations 2 -collect-test-diagnostics never
+          -resultBundlePath ios-tests.xcresult
+          ${{ matrix.tests }} test-without-building
+      # The xcresult bundle is too big for the Mac's uplink (uploads ran 30 minutes and failed), so the failures go to the log.
+      - name: Failure summary
+        if: failure()
+        run: test -d ios-tests.xcresult && xcrun xcresulttool get test-results summary --path ios-tests.xcresult
+      # An idle booted simulator keeps burning CPU on this shared Mac; booting it again next time takes seconds.
+      - name: Shut down the simulator
+        if: always() && env.SIMULATOR_ID
+        run: xcrun simctl shutdown "$SIMULATOR_ID" || true
