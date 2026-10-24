@@ -13,14 +13,26 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   android:
-    runs-on: ubuntu-24.04
+    # Our own pushes and PRs run on the Mac runners, where the JDK, the SDK and Gradle's caches persist between runs.
+    # Outsiders' PRs (bridged from GitHub by the `github` user) never touch the Mac: they get the Linux path below.
+    runs-on: ${{ (github.event_name != 'pull_request' || contains(fromJSON('["backmeupplz","renovate","claude"]'), github.event.pull_request.user.login)) && 'macos-latest' || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - run: python3 -m unittest discover -s .github/scripts # the shared release scripts
-      # The JDK, the Android SDK, Gradle with its dependencies and Robolectric's Android jars come back in one piece
-      # instead of being downloaded: the job image has none of them. Saved even when the tests fail.
+      # Mac: Homebrew's JDK, a per-runner SDK (Gradle installs the platform and build tools it needs) and Gradle's own
+      # caches in the runner user's home, Robolectric's Android jars included.
+      - name: Mac toolchain
+        if: runner.os == 'macOS'
+        run: |
+          sdk="${PWD%%/work/*}/android-sdk"
+          [ -d "$sdk/licenses" ] || { mkdir -p "$sdk" && cp -R /opt/homebrew/share/android-commandlinetools/licenses "$sdk/"; }
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "JAVA_HOME=/opt/homebrew/opt/openjdk@21" >> "$GITHUB_ENV"
+      # Linux: the JDK, the Android SDK, Gradle with its dependencies and Robolectric's Android jars come back in one
+      # piece instead of being downloaded (the job image has none of them), saved even when the tests fail.
       - id: toolchain
+        if: runner.os == 'Linux'
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -34,18 +46,21 @@ jobs:
           key: android-${{ hashFiles('*.gradle.kts', 'app/build.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: android-
       # Gradle's build cache carries task outputs from run to run, so a commit whose code an earlier run already built
-      # and tested (a merge of a green PR, a workflow-only change) takes its classes and test results from it.
-      - uses: actions/cache/restore@v4
+      # and tested (a merge of a green PR, a workflow-only change) takes its classes and test results from it. The Mac
+      # keeps it in the runner user's home.
+      - if: runner.os == 'Linux'
+        uses: actions/cache/restore@v4
         with:
           path: /root/.gradle/caches/build-cache-1
           key: gradle-build-cache-${{ github.run_id }}
           restore-keys: gradle-build-cache-
-      - uses: actions/setup-java@v6
+      - if: runner.os == 'Linux'
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
-      # A restored SDK has its licenses, platform and build tools (Gradle installs those it misses), so it needs no sdkmanager.
       - id: sdk
+        if: runner.os == 'Linux'
         run: test -d ~/.android/sdk/licenses && echo "ANDROID_HOME=$HOME/.android/sdk" >> "$GITHUB_ENV" || echo missing=1 >> "$GITHUB_OUTPUT"
       - uses: android-actions/setup-android@v3
         if: steps.sdk.outputs.missing
@@ -53,7 +68,7 @@ jobs:
           packages: platform-tools
       - run: ./gradlew --no-daemon --build-cache testDebugUnitTest assembleDebug
       - uses: actions/cache/save@v4
-        if: always() && steps.toolchain.outputs.cache-hit != 'true'
+        if: always() && runner.os == 'Linux' && steps.toolchain.outputs.cache-hit != 'true'
         with:
           path: |
             /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk
@@ -65,7 +80,7 @@ jobs:
             /root/.m2/repository/org/robolectric
           key: android-${{ hashFiles('*.gradle.kts', 'app/build.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
       - uses: actions/cache/save@v4
-        if: always()
+        if: always() && runner.os == 'Linux'
         with:
           path: /root/.gradle/caches/build-cache-1
           key: gradle-build-cache-${{ github.run_id }}

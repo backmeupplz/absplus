@@ -14,7 +14,8 @@ concurrency:
 jobs:
   ios:
     runs-on: macos-26
-    if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'backmeupplz'
+    # Mac only, and only for our own PRs: outsiders' PRs (bridged from GitHub by the `github` user) never run on it.
+    if: github.event_name != 'pull_request' || contains(fromJSON('["backmeupplz","renovate","claude"]'), github.event.pull_request.user.login)
     # Leaves room for ios/ci_simulator.py to download the iOS platform on a runner missing it,
     # and for xcodebuild's -destination-timeout.
     timeout-minutes: 50
