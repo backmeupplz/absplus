@@ -16,11 +16,11 @@ jobs:
     # Our own pushes and PRs run on the Mac runners, where the JDK, the SDK and Gradle's caches persist between runs.
     # Outsiders' PRs (bridged from GitHub by the `github` user) never touch the Mac: they get the Linux path below.
     runs-on: ${{ (github.event_name != 'pull_request' || contains(fromJSON('["backmeupplz","renovate","claude"]'), github.event.pull_request.user.login)) && 'macos-latest' || 'ubuntu-24.04' }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - run: python3 -m unittest discover -s .github/scripts # the shared release scripts
-      # Mac: Homebrew's JDK, a per-runner SDK (Gradle installs the platform and build tools it needs) and Gradle's own
+      # Mac: a per-runner JDK and SDK (Gradle installs the platform and build tools it needs) and Gradle's own
       # caches in the runner user's home, Robolectric's Android jars included.
       - name: Mac toolchain
         if: runner.os == 'macOS'
@@ -28,7 +28,15 @@ jobs:
           sdk="${PWD%%/work/*}/android-sdk"
           [ -d "$sdk/licenses" ] || { mkdir -p "$sdk" && cp -R /opt/homebrew/share/android-commandlinetools/licenses "$sdk/"; }
           echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
-          echo "JAVA_HOME=/opt/homebrew/opt/openjdk@21" >> "$GITHUB_ENV"
+          # Temurin, pinned and checked, kept per runner: Homebrew's JDK can't load the user's private freetype.
+          jdk="${PWD%%/work/*}/temurin-21.0.13+9"
+          if [ ! -x "$jdk/Contents/Home/bin/java" ]; then
+            rm -rf "$jdk.tmp" && mkdir -p "$jdk.tmp"
+            curl -fsSL -o "$jdk.tmp/jdk.tgz" https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.13_9.tar.gz
+            echo "bf036b35b071bfb2f54f2c0af8ee8d88afa95ee6eb3dce02c0f94cfc2524d04a  $jdk.tmp/jdk.tgz" | shasum -a 256 -c
+            tar -xzf "$jdk.tmp/jdk.tgz" -C "$jdk.tmp" --strip-components 1 && rm "$jdk.tmp/jdk.tgz" && mv "$jdk.tmp" "$jdk"
+          fi
+          echo "JAVA_HOME=$jdk/Contents/Home" >> "$GITHUB_ENV"
       # Linux: the JDK, the Android SDK, Gradle with its dependencies and Robolectric's Android jars come back in one
       # piece instead of being downloaded (the job image has none of them), saved even when the tests fail.
       - id: toolchain
