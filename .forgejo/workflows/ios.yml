@@ -1,5 +1,7 @@
 name: iOS
-# The iPhone app: a build plus its self-checking fixture suites. Android, site and Markdown changes skip it (android.yml checks the Android app).
+# Compile check of the iPhone app on PRs and main. No simulator tests: they cost minutes per run and kept an iOS
+# Simulator busy on the shared Mac (the user dropped them; the test targets stay for local runs). Android keeps its
+# Robolectric tests (android.yml); store builds happen in release.yml.
 on:
   pull_request:
     paths: ['ios/**', '.forgejo/workflows/ios.yml']
@@ -13,53 +15,25 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   ios:
+    name: iOS
     runs-on: macos-26
     # Mac only, and only for our own PRs: outsiders' PRs (bridged from GitHub by the `github` user) never run on it.
     if: github.event_name != 'pull_request' || contains(fromJSON('["backmeupplz","renovate","claude"]'), github.event.pull_request.user.login)
-    # Leaves room for ios/ci_simulator.py to download the iOS platform on a runner missing it,
-    # and for xcodebuild's -destination-timeout.
-    timeout-minutes: 50
-    name: iOS
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v5
         with:
           sparse-checkout: ios
-      # The runner instances (runner/rN) share one user. Each gets its own simulator, since jobs on one simulator kill
-      # each other's tests, and its own copy of the sources: the checkout path changes with every run, and Xcode only
-      # rebuilds what changed while the path stays the same and unchanged files keep their inode and time.
-      # Some runners start without the preinstalled simulators or are slow to show them to xcodebuild,
-      # so ci_simulator.py picks (or creates) one that exists, boots it, and xcodebuild waits for it.
-      - name: Stage sources and resolve iOS Simulator
-        timeout-minutes: 25
+      # Each runner instance (runner/rN) builds its own copy of the sources: the checkout path changes with every run,
+      # and Xcode only rebuilds what changed while the path stays the same and unchanged files keep their inode and time.
+      # xcodebuild runs with a clean environment because it reads every variable as a build setting, and the runner's
+      # per-run ones made it redo the build setup each time. The generic simulator destination needs no booted device.
+      - name: Build
         run: |
           runner="${PWD%%/work/*}"
-          mkdir -p "$runner/ci/absplus"
-          rsync -rlc --delete ios/ "$runner/ci/absplus/ios/"
-          echo "STAGE=$runner/ci/absplus" >> "$GITHUB_ENV"
-          python3 -m unittest ios/ci_simulator_test.py
-          udid=$(CI_SIMULATOR_NAME="CI iPhone ${runner##*/}" python3 ios/ci_simulator.py)
-          echo "SIMULATOR_ID=$udid" >> "$GITHUB_ENV"
-      # One xcodebuild builds incrementally and runs the self-checking fixture suites: each launches the app into a
-      # DEBUG fixture that runs its checks in-process and shows the verdict. The gesture-driven suites were removed
-      # (PR #37); Tour is a manual screenshot run. No sysdiagnose afterwards: the sandboxed runner can't collect one,
-      # and xcodebuild waited 10 minutes for it.
-      - name: Build and test
-        timeout-minutes: 15
-        run: >-
-          xcodebuild -project "$STAGE/ios/ABSPlus.xcodeproj" -scheme ABSPlus -derivedDataPath "$STAGE/DerivedData"
-          -destination "platform=iOS Simulator,id=$SIMULATOR_ID"
-          -destination-timeout 300
-          -parallel-testing-enabled NO -collect-test-diagnostics never
-          -resultBundlePath ios-tests.xcresult
-          -only-testing:UITests/SessionIsolation -only-testing:UITests/RetainedDownloads
-          -only-testing:UITests/ProgressReplay -only-testing:UITests/DownloadRetries
-          -only-testing:UITests/DownloadRemoval
-          test
-      # The xcresult bundle is too big for the Mac's uplink (uploads ran 30 minutes and failed), so the failures go to the log.
-      - name: Failure summary
-        if: failure()
-        run: test -d ios-tests.xcresult && xcrun xcresulttool get test-results summary --path ios-tests.xcresult
-      # An idle booted simulator keeps burning CPU on this shared Mac; booting it again next time takes seconds.
-      - name: Shut down the simulator
-        if: always() && env.SIMULATOR_ID
-        run: xcrun simctl shutdown "$SIMULATOR_ID" || true
+          stage="$runner/ci/absplus"
+          mkdir -p "$stage"
+          rsync -rlc --delete ios/ "$stage/ios/"
+          env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" \
+            xcodebuild -quiet -project "$stage/ios/ABSPlus.xcodeproj" -scheme ABSPlus -derivedDataPath "$stage/DerivedData" \
+            -destination 'generic/platform=iOS Simulator' ARCHS=arm64 build-for-testing
