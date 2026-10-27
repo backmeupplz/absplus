@@ -138,6 +138,7 @@ class PlayerService : MediaSessionService() {
             if (p.currentMediaItem?.mediaId != Abs.mediaId(n, captured, p.currentMediaItemIndex)) return@ifCurrent
             val pos = if (finished) n.duration else Abs.pos(p, n)
             Abs.push(n, pos, finished, intentionalPlayback)
+            if (finished && n.ep == null) RatingPrompt.finished(this)
         }
     }
 

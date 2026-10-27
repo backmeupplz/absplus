@@ -254,6 +254,11 @@ struct FavoritesView: View {
 // --- settings
 
 struct SettingsView: View {
+    private let feedback: URL = {
+        let v = Bundle.main.infoDictionary
+        let subject = "ABS+ \(v?["CFBundleShortVersionString"] as? String ?? "") (\(v?["CFBundleVersion"] as? String ?? "")) feedback"
+        return URL(string: "mailto:absplus@borodutch.com?subject=" + subject.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!)!
+    }()
     @State private var confirmLogout = false
     @State private var unlinking: String?
     @State private var linking = false
@@ -294,6 +299,7 @@ struct SettingsView: View {
                 }
             }
             Section("About") {
+                Link("Send feedback", destination: feedback)
                 Link("Website", destination: URL(string: "https://absplus.app")!)
                 Link("Source code", destination: URL(string: "https://github.com/backmeupplz/absplus")!)
                 Link("Privacy policy", destination: URL(string: "https://absplus.app/privacy/")!)

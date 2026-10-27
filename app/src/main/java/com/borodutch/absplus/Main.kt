@@ -150,6 +150,7 @@ class Main : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         Abs.progressSync.wake()
+        RatingPrompt.used(this)
         val f = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlayerService::class.java))).buildAsync()
         fut = f
         f.addListener({ if (fut === f && !isDestroyed) { ctl = runCatching { f.get() }.getOrNull(); restore() } }, mainExecutor)
@@ -194,6 +195,8 @@ class Main : AppCompatActivity() {
         override fun run() {
             updatePlayer()
             updateDl()
+            // a calm moment: playback stopped without an error, the player sheet closed
+            ctl?.let { if (!it.isPlaying && it.playerError == null && sheet == null && !Abs.offline) RatingPrompt.ask(this@Main) }
             refreshConnection()
             if (Abs.offline && ++ticks % 10 == 0) retryConnection()
             h.postDelayed(this, 1000)
@@ -707,16 +710,18 @@ class Main : AppCompatActivity() {
             setOnClickListener { push(::downloads) }
         })
         body.addView(section("About"))
+        val version = packageManager.getPackageInfo(packageName, 0)
         listOf(
+            "Send feedback" to "mailto:absplus@borodutch.com?subject=" + android.net.Uri.encode("ABS+ ${version.versionName} (${version.longVersionCode}) feedback"),
             "Website" to "https://absplus.app",
             "Source code" to "https://github.com/backmeupplz/absplus",
             "Privacy policy" to "https://absplus.app/privacy/",
         ).forEach { (label, url) ->
             body.addView(button(label, style = androidx.appcompat.R.attr.borderlessButtonStyle) {
-                startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                runCatching { startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                    .onFailure { toast(if (url.startsWith("mailto:")) "No email app: write to absplus@borodutch.com" else "No app opens $url") }
             }.lp(-1, -2))
         }
-        val version = packageManager.getPackageInfo(packageName, 0)
         body.addView(text("Version ${version.versionName} (${version.longVersionCode})", muted = true).pad(16, 12))
         show(NestedScrollView(this).apply { addView(body) })
     }

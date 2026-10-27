@@ -98,8 +98,10 @@ jobs:
           [ -n "$UPLOAD_JKS" ] || { echo "::error::No UPLOAD_JKS secret: release builds would come out unsigned"; exit 1; }
           printf '%s' "$KEYSTORE_PROPERTIES" > keystore.properties
           printf '%s' "$UPLOAD_JKS" | base64 -d > upload.jks
+      # Only the Play bundle gets Google's in-app review library (-Pplay). The APK is the default build, the one F-Droid
+      # makes from the tag, so it stays free of Google Play code and matches F-Droid's build.
       - id: build
-        run: ./gradlew bundleRelease assembleRelease
+        run: ./gradlew -Pplay bundleRelease && ./gradlew assembleRelease
       # F-Droid compares its own build of the tag with absplus-X.Y.Z.apk, so it has to come from this clean CI build.
       # absplus.apk is the same file under a stable name: absplus.app links releases/latest/download/absplus.apk.
       - id: attach

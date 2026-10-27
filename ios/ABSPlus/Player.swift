@@ -148,6 +148,7 @@ import UIKit
         if i == n.tracks.count - 1 {
             pos = n.duration
             sync(finished: true)
+            if n.ep == nil { RatingPrompt.finished() }
         } else {
             idx = i + 1
         }

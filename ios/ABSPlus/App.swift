@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 
 @main
@@ -39,8 +40,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
 struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.requestReview) private var requestReview
     @State private var full = false
     @State private var tab = 0
+    /// in the app with playback stopped without an error and the full player closed
+    private var calm: Bool { scenePhase == .active && !full && !player.playing && player.playbackError == nil && !app.offline }
 
     var body: some View {
         Group {
@@ -77,8 +81,14 @@ struct RootView: View {
                     guard epoch == app.mediaEpoch, !Task.isCancelled else { return }
                     await app.resumeQueue()
                 }
+                .task(id: calm) {
+                    guard calm else { return }
+                    try? await Task.sleep(for: .seconds(2))
+                    if !Task.isCancelled && RatingPrompt.ask() { requestReview() }
+                }
             }
         }
+        .onChange(of: scenePhase, initial: true) { _, phase in if phase == .active { RatingPrompt.used() } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { app.startProgressReplay(); Task { await app.resumeQueue() } }
         }
