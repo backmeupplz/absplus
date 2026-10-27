@@ -1,6 +1,4 @@
 User-agent: *
 Allow: /
-# Engineering notes live next to the site's files but aren't part of it.
-Disallow: /*.md$
 
 Sitemap: https://absplus.app/sitemap.xml
