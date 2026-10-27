@@ -1,10 +1,10 @@
 # Store listing (en-US)
 
 ## App name (max 30)
-ABS+
+ABS+ for Audiobookshelf
 
 ## Short description (max 80)
-A fast, minimal audiobook & podcast player for your Audiobookshelf server.
+Stream or download audiobooks and podcasts from your own Audiobookshelf server.
 
 ## Full description (max 4000)
 ABS+ is a small, fast player for your own Audiobookshelf server. Sign in with your server address, username and password, and your books and podcasts are right there.

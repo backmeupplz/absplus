@@ -1,10 +1,10 @@
 # App Store listing (en-US)
 
 ## Name (max 30)
-ABS+
+ABS+ for Audiobookshelf
 
 ## Subtitle (max 30)
-Audiobookshelf player
+Audiobook and podcast player
 
 ## Promotional text (max 170)
 A small, fast player for your own Audiobookshelf server. Stream or download audiobooks and podcasts, and pick up where you left off on any device.
@@ -41,7 +41,7 @@ ABS+ only talks to the server you sign in to. No accounts with us, no analytics,
 ABS+ needs an Audiobookshelf server (audiobookshelf.org) that you or someone you know runs. ABS+ is an independent app, not affiliated with or endorsed by the Audiobookshelf project.
 
 ## Keywords (max 100, comma separated)
-audiobookshelf,audiobook,podcast,self-hosted,player,offline,library,series,listen,server,books
+audiobook,audiobooks,podcast,player,abs,shelf,self-hosted,offline,listen,library,narrator,books
 
 ## URLs
 - Support: https://absplus.app
