@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- The share card template for absplus.app pages; make.sh fills ?t= (title) and ?s= (subtitle). -->
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body { background: linear-gradient(135deg, #3a27b4 0%, #4b35c9 45%, #6c50ea 100%); color: #fff; font-family: "Bricolage Grotesque", sans-serif; position: relative; }
+  .glow { position: absolute; inset: 0; background: radial-gradient(560px 380px at 90% 8%, rgba(255,255,255,.16), transparent 64%); }
+  .ring { position: absolute; right: -120px; bottom: -190px; width: 620px; height: 620px; border-radius: 50%; border: 70px solid rgba(255,255,255,.06); }
+  .in { position: absolute; inset: 64px 76px; display: flex; flex-direction: column; }
+  .top { display: flex; justify-content: space-between; align-items: center; }
+  .brand { display: flex; align-items: center; gap: 16px; font-weight: 800; font-size: 38px; letter-spacing: -.01em; }
+  .brand img { width: 56px; height: 56px; border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+  .brand b, h1 em { color: #ffc94d; font-style: normal; }
+  .url { font-weight: 500; font-size: 25px; color: #ffc94d; }
+  h1 { font-weight: 800; font-size: 74px; line-height: 1.04; letter-spacing: -.03em; margin: auto 0 24px; max-width: 1000px; }
+  p { font-weight: 500; font-size: 30px; line-height: 1.38; color: rgba(255,255,255,.82); margin: 0; max-width: 940px; }
+</style></head>
+<body>
+<div class="glow"></div><div class="ring"></div>
+<div class="in">
+  <div class="top"><div class="brand"><img src="../../docs/img/icon.png" alt=""><span>ABS<b>+</b></span></div><div class="url">absplus.app</div></div>
+  <h1 id="t"></h1><p id="s"></p>
+</div>
+<script>
+  const q = new URLSearchParams(location.search), esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+  document.getElementById("t").innerHTML = esc(q.get("t") || "").replace(/ABS\+/g, "ABS<em>+</em>");
+  document.getElementById("s").textContent = q.get("s") || "";
+</script>
+</body></html>
