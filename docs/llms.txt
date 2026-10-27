@@ -1,0 +1,26 @@
+# ABS+
+
+> ABS+ is a small Android and iPhone app for your Audiobookshelf server. Stream or download audiobooks and podcasts, and pick up where you left off on any device.
+
+It's free and open source with no ads, analytics or account, and it only talks to the Audiobookshelf server you sign in to. It's an independent app, not affiliated with the Audiobookshelf project, made by Nikita Kolmogorov.
+
+## What it does
+
+- Plays a book split into many files as one timeline, with lock screen, headset and Bluetooth controls.
+- Works offline: download a book or a single episode, and the app switches to your downloads when the server can't be reached.
+- Saves progress to your server, so the web player and other Audiobookshelf apps continue from the same spot.
+- Shares progress on a title with another account, for example a partner on a road trip.
+- Syncs favorites between devices and shows series the way your server has them.
+- About 4 MB on Android and 1 MB on iPhone, built natively for each.
+
+## Get it
+
+- [Google Play](https://play.google.com/store/apps/details?id=com.borodutch.absplus)
+- [App Store](https://apps.apple.com/app/id6818353284)
+- [APK for sideloading](https://github.com/backmeupplz/absplus/releases/latest/download/absplus.apk)
+
+## Links
+
+- [Home page](https://absplus.app/)
+- [Privacy policy](https://absplus.app/privacy/)
+- [Source code](https://github.com/backmeupplz/absplus)
