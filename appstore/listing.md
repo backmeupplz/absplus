@@ -40,8 +40,19 @@ ABS+ only talks to the server you sign in to. No accounts with us, no analytics,
 
 ABS+ needs an Audiobookshelf server (audiobookshelf.org) that you or someone you know runs. ABS+ is an independent app, not affiliated with or endorsed by the Audiobookshelf project.
 
-## Keywords (max 100, comma separated)
-audiobook,audiobooks,podcast,player,abs,shelf,self-hosted,offline,listen,library,narrator,books
+## Keywords (max 100)
+client,shelf,server,self-hosted,offline,m4b,mp3,listen,library,free,narrator,sync,download,stream
+
+## Screenshot captions
+1. Pick up where you left off on any device
+2. Every library on your server, by cover
+3. Download a book and listen offline
+4. Skip 30 seconds and change the speed
+5. Podcasts from your server play here too
+6. Series come straight from your server
+
+## Feature graphic tagline (max 60)
+Audiobook and podcast player for Audiobookshelf
 
 ## URLs
 - Support: https://absplus.app

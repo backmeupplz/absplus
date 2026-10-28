@@ -1,0 +1,29 @@
+ABS+ è un lettore di audiolibri e podcast leggero, veloce e gratuito per il tuo server Audiobookshelf. Accedi con l’indirizzo del server, il nome utente e la password, e i tuoi libri e podcast sono subito lì.
+
+ASCOLTO
+• Audiolibri ed episodi di podcast in streaming dal tuo server
+• I libri divisi in più file si ascoltano come uno solo, con un’unica barra di avanzamento
+• Controlli dalla schermata di blocco, dalla notifica, dalle cuffie e via Bluetooth
+• Salti indietro e avanti di 30 secondi, velocità di riproduzione da 0,8× a 2×
+• Riprende da dove eri rimasto, anche dopo che l’app è stata chiusa
+
+L’AVANZAMENTO TI SEGUE
+• L’avanzamento si sincronizza con il tuo server, così le altre app Audiobookshelf e il player web restano aggiornati
+• Continua ad ascoltare mostra quello che stai ascoltando, da qualsiasi dispositivo
+• Condividi l’avanzamento di un libro con un altro account (per esempio per ascoltarlo insieme al partner). Scegli tu i titoli e confermi, e l’app ti chiede il permesso prima di passare alla posizione dell’altra persona.
+
+OFFLINE
+• Scarica libri interi o singoli episodi di podcast da ascoltare offline
+• Quando il server non è raggiungibile, ABS+ passa da solo alla modalità offline e mostra solo ciò che hai scaricato. L’avanzamento viene inviato al server appena torni online.
+• Vedi ed elimina tutti i download in un unico posto
+
+ORGANIZZAZIONE
+• Griglia di copertine per ogni libreria, con ricerca per titolo o autore
+• Le serie dal tuo server
+• Preferiti sincronizzati tra i tuoi dispositivi
+• Ascoltati di recente su questo dispositivo
+
+PRIVACY FIN DALLA PROGETTAZIONE
+ABS+ comunica solo con il server a cui accedi. Nessun account presso di noi, nessuna statistica, nessuna pubblicità, nessun tracciamento. L’app è open source.
+
+ABS+ richiede un server Audiobookshelf (audiobookshelf.org) gestito da te o da qualcuno che conosci. ABS+ è un’app indipendente, non affiliata al progetto Audiobookshelf né approvata da esso.

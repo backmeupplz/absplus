@@ -1,0 +1,29 @@
+ABS+, kendi Audiobookshelf sunucunuz için küçük ve hızlı bir sesli kitap ve podcast oynatıcısıdır. Sunucu adresiniz, kullanıcı adınız ve şifrenizle giriş yaptığınızda kitaplarınız ve podcast'leriniz hemen karşınıza gelir.
+
+DİNLEYİN
+• Sesli kitapları ve podcast bölümlerini sunucunuzdan akışla dinleyin
+• Birçok dosyaya bölünmüş kitaplar, tek bir zaman çizelgesiyle tek kitap gibi çalınır
+• Kilit ekranından, bildirimden, kulaklıktan ve Bluetooth üzerinden kontrol edebilirsiniz
+• 30 saniye geri ve ileri atlayabilir, oynatma hızını 0,8× ile 2× arasında ayarlayabilirsiniz
+• Uygulama kapatılmış olsa bile kaldığınız yerden devam eder
+
+İLERLEMENİZ SİZİNLE GELİR
+• İlerleme sunucunuzla senkronize edilir; böylece diğer Audiobookshelf uygulamaları ve web oynatıcısı da hep güncel kalır
+• Dinlemeye devam et bölümü, hangi cihazda başlamış olursanız olun yarıda kalan kitapları ve podcast'leri gösterir
+• Bir kitaptaki ilerlemenizi başka bir hesapla paylaşabilirsiniz (örneğin partnerinizle birlikte dinlerken). Kitapları siz seçip onaylarsınız, uygulama da diğer hesabın konumuna geçmeden önce size sorar.
+
+ÇEVRİMDIŞI
+• Kitapların tamamını ya da tek tek podcast bölümlerini indirin
+• Sunucuya ulaşılamadığında ABS+ kendiliğinden çevrimdışı moda geçer ve yalnızca indirilenleri gösterir. Yeniden çevrimiçi olduğunuzda ilerlemeniz sunucuya yüklenir.
+• Tüm indirmeleri tek bir yerde görebilir ve kaldırabilirsiniz
+
+DÜZENLEME
+• Her kitaplık için kapak ızgarası ve başlığa ya da yazara göre arama
+• Sunucunuzdaki seriler
+• Cihazlarınız arasında senkronize edilen favoriler
+• Bu cihazda son dinlenenler
+
+GİZLİLİK ESASTIR
+ABS+ yalnızca giriş yaptığınız sunucuyla iletişim kurar. Bizde hesap açmanız gerekmez; uygulamada analiz, reklam ya da takip yoktur. Uygulama açık kaynaklıdır.
+
+ABS+ için sizin ya da tanıdığınız birinin çalıştırdığı bir Audiobookshelf sunucusu (audiobookshelf.org) gerekir. ABS+ bağımsız bir uygulamadır; Audiobookshelf projesiyle bağlantılı değildir ve bu proje tarafından onaylanmamıştır.

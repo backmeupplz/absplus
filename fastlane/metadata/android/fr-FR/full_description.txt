@@ -1,0 +1,29 @@
+ABS+ est un lecteur de livres audio et de podcasts léger, rapide et gratuit pour votre propre serveur Audiobookshelf. Connectez-vous avec l’adresse du serveur, votre nom d’utilisateur et votre mot de passe, et vos livres et podcasts sont là.
+
+ÉCOUTER
+• Livres audio et épisodes de podcast en streaming depuis votre serveur
+• Les livres répartis en plusieurs fichiers se lisent comme un seul, sur une seule barre de progression
+• Commandes sur l’écran de verrouillage, dans la notification, sur le casque et en Bluetooth
+• Retour et avance de 30 secondes, vitesse de lecture de 0,8× à 2×
+• La lecture reprend là où vous l’aviez laissée, même après la fermeture de l’application
+
+UNE PROGRESSION QUI VOUS SUIT
+• La progression est synchronisée avec votre serveur, si bien que les autres apps Audiobookshelf et le lecteur web restent à jour
+• Reprendre l’écoute montre ce que vous êtes en train d’écouter, quel que soit l’appareil
+• Partagez votre progression sur un livre avec un autre compte (par exemple pour écouter à deux). Vous choisissez les titres et confirmez, et l’app vous demande votre accord avant de passer à la position de l’autre personne.
+
+HORS LIGNE
+• Téléchargez des livres entiers ou des épisodes de podcast à l’unité pour les écouter hors ligne
+• Quand le serveur est injoignable, ABS+ passe de lui-même en mode hors ligne et n’affiche que ce qui est téléchargé. La progression est envoyée au serveur dès que vous êtes de nouveau en ligne.
+• Retrouvez et supprimez tous vos téléchargements au même endroit
+
+ORGANISER
+• Une grille de couvertures pour chaque bibliothèque, avec une recherche par titre ou par auteur
+• Les séries de votre serveur
+• Des favoris synchronisés entre vos appareils
+• Écoutés récemment sur cet appareil
+
+CONFIDENTIALITÉ DÈS LA CONCEPTION
+ABS+ ne communique qu’avec le serveur auquel vous vous connectez. Pas de compte chez nous, pas de statistiques, pas de publicité, pas de pistage. L’application est open source.
+
+ABS+ nécessite un serveur Audiobookshelf (audiobookshelf.org) que vous gérez vous-même ou qu’un proche gère pour vous. ABS+ est une app indépendante, qui n’est ni affiliée au projet Audiobookshelf ni approuvée par lui.

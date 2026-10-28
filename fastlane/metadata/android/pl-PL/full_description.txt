@@ -1,0 +1,29 @@
+ABS+ to mały, szybki odtwarzacz audiobooków i podcastów dla Twojego własnego serwera Audiobookshelf. Zaloguj się, podając adres serwera, nazwę użytkownika i hasło, a Twoje książki i podcasty od razu będą na miejscu.
+
+SŁUCHANIE
+• Słuchaj audiobooków i odcinków podcastów strumieniowo, prosto z Twojego serwera
+• Książki podzielone na wiele plików odtwarzają się jak jedna całość, z jedną osią czasu
+• Sterowanie z ekranu blokady, powiadomienia, słuchawek i przez Bluetooth
+• Przewijanie o 30 sekund do tyłu i do przodu oraz szybkość odtwarzania od 0,8× do 2×
+• Aplikacja wznawia odtwarzanie od miejsca, w którym przerwano, nawet jeśli była zamknięta
+
+POSTĘP, KTÓRY IDZIE ZA TOBĄ
+• Postęp synchronizuje się z Twoim serwerem, więc inne aplikacje Audiobookshelf i odtwarzacz w przeglądarce są zawsze na bieżąco
+• Sekcja „Kontynuuj słuchanie” pokazuje, czego słuchasz na wszystkich swoich urządzeniach
+• Udostępniaj postęp w książce innemu kontu (na przykład gdy słuchacie razem z partnerem lub partnerką). To Ty wybierasz tytuły i potwierdzasz wybór, a aplikacja pyta, zanim przeskoczy do miejsca, w którym jest druga osoba.
+
+OFFLINE
+• Pobieraj całe książki lub pojedyncze odcinki podcastów
+• Gdy serwer jest nieosiągalny, ABS+ sam przechodzi w tryb offline i pokazuje tylko pobrane treści. Postęp trafia na serwer, gdy tylko znów będziesz online.
+• Wszystkie pobrane pliki w jednym miejscu, gdzie możesz je przejrzeć i usunąć
+
+PORZĄDEK
+• Siatka okładek dla każdej biblioteki z wyszukiwaniem po tytule lub autorze
+• Serie z Twojego serwera
+• Ulubione synchronizowane między Twoimi urządzeniami
+• Ostatnio odtwarzane na tym urządzeniu
+
+PRYWATNOŚĆ OD PODSTAW
+ABS+ łączy się tylko z serwerem, na którym się logujesz. Nie zakładasz u nas konta, a aplikacja nie zbiera statystyk, nie wyświetla reklam i nie śledzi użytkowników. Aplikacja ma otwarty kod źródłowy.
+
+ABS+ wymaga serwera Audiobookshelf (audiobookshelf.org), który prowadzisz Ty lub ktoś, kogo znasz. ABS+ to niezależna aplikacja, niepowiązana z projektem Audiobookshelf ani przez niego niepopierana.
