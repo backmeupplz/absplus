@@ -52,7 +52,7 @@ final class Tour: XCTestCase {
         signIn()
 
         // library -> book page -> play
-        tap(app.tabBars.buttons["Library"])
+        tap(app.tab("Library"))
         wait(label("Alice"), timeout: 20)
         shot("03-library")
         tap(label("Alice"))
@@ -71,48 +71,48 @@ final class Tour: XCTestCase {
 
         // favorites: add, check, remove
         tap(app.buttons["Add to favorites"])
-        tap(app.tabBars.buttons["Favorites"])
+        tap(app.tab("Favorites"))
         wait(label("Alice"), timeout: 10)
         shot("09-favorites")
-        tap(app.tabBars.buttons["Library"])
+        tap(app.tab("Library"))
         tap(app.buttons["Remove from favorites"])
 
-        tap(app.tabBars.buttons["Home"])
+        tap(app.tab("Home"))
         wait(app.staticTexts["Continue listening"], timeout: 20)
         shot("02-home")
 
-        tap(app.tabBars.buttons["Series"])
+        tap(app.tab("Series"))
         wait(app.buttons.containing(NSPredicate(format: "label CONTAINS 'books'")).firstMatch, timeout: 20)
         shot("07-series")
         tap(app.buttons.containing(NSPredicate(format: "label CONTAINS 'books'")).firstMatch)
         shot("08-series-detail")
 
         // podcast library via the title menu
-        tap(app.tabBars.buttons["Library"])
-        app.navigationBars.buttons.element(boundBy: 0).tap() // back to the grid
-        tap(app.navigationBars.buttons["Audiobooks"])
+        tap(app.tab("Library"))
+        app.back.tap() // back to the grid
+        tap(app.barButton("Audiobooks"))
         tap(app.buttons["Podcasts"])
         tap(label("Lex"))
         wait(app.staticTexts["Episodes"], timeout: 20)
         shot("06-podcast")
 
         // settings
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.back.tap()
         tap(app.buttons["Settings"])
         wait(app.staticTexts["Linked accounts"], timeout: 10)
         shot("10-settings")
 
         // download a small book, then see it under Settings -> Downloads
-        tap(app.tabBars.buttons["Library"])
-        app.tabBars.buttons["Library"].tap() // reselecting a tab pops to its root
-        if app.navigationBars.buttons["Podcasts"].waitForExistence(timeout: 3) {
-            app.navigationBars.buttons["Podcasts"].tap()
+        tap(app.tab("Library"))
+        app.tab("Library").tap() // reselecting a tab pops to its root
+        if app.barButton("Podcasts").waitForExistence(timeout: 3) {
+            app.barButton("Podcasts").tap()
             tap(app.buttons["Audiobooks"])
         }
         tap(label("Velveteen"))
         tap(app.buttons["Download"])
         wait(app.buttons["Remove download"], timeout: 180)
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.back.tap()
         tap(app.buttons["Settings"])
         tap(app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'Downloads'")).firstMatch)
         wait(label("Velveteen"))
@@ -135,17 +135,17 @@ final class Tour: XCTestCase {
         func confirm(_ s: String) { tap(app.buttons.matching(identifier: s).element(boundBy: 1)) }
 
         // start clean, so the podcast's second episode (#501, 250 MB) is the second "Download" button
-        tap(app.tabBars.buttons["Home"])
+        tap(app.tab("Home"))
         tap(app.buttons["Settings"])
         tap(app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'Downloads'")).firstMatch)
         if app.buttons["Remove all"].waitForExistence(timeout: 3) {
             app.buttons["Remove all"].tap()
             confirm("Remove all")
         }
-        tap(app.tabBars.buttons["Library"])
-        app.tabBars.buttons["Library"].tap()
-        if app.navigationBars.buttons["Audiobooks"].waitForExistence(timeout: 5) {
-            app.navigationBars.buttons["Audiobooks"].tap()
+        tap(app.tab("Library"))
+        app.tab("Library").tap()
+        if app.barButton("Audiobooks").waitForExistence(timeout: 5) {
+            app.barButton("Audiobooks").tap()
             tap(app.buttons["Podcasts"])
         }
         tap(label("Lex"))
@@ -164,13 +164,13 @@ final class Tour: XCTestCase {
         XCTAssertFalse(app.buttons["dlbar"].exists)
 
         // start again and kill the app mid-download: the system keeps the transfer going, and the app picks it up on launch
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.back.tap()
         tap(second)
         wait(app.buttons["dlbar"])
         app.terminate()
         app.launch()
         shot("15-after-relaunch")
-        tap(app.tabBars.buttons["Library"])
+        tap(app.tab("Library"))
         tap(label("Lex"))
         XCTAssert(app.buttons["Remove download"].waitForExistence(timeout: 300), "download didn't finish after the relaunch")
         shot("16-finished")

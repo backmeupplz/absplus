@@ -131,9 +131,11 @@ struct Tile: View {
 struct CardGrid: View {
     let cards: [Card]
     var ratio: CGFloat = 1
+    @Environment(\.horizontalSizeClass) private var size
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 12, alignment: .top)], spacing: 16) {
+        // Regular width (iPhone Duo inner display, iPad) gets bigger covers, not just more of the phone's tiles.
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: size == .regular ? 140 : 104), spacing: size == .regular ? 20 : 12, alignment: .top)], spacing: 16) {
             ForEach(cards, id: \.key) { c in
                 NavigationLink(value: Route.item(c.id)) { Tile(card: c, ratio: ratio) }.buttonStyle(.plain)
             }
@@ -255,6 +257,7 @@ struct DlBar: View {
                 .padding(.vertical, 9)
                 .contentShape(.rect)
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
+                .frame(maxWidth: 560) // wider than any phone in compact width
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
@@ -317,7 +320,29 @@ struct ShelfView: View {
     }
 }
 
+/// Insets a scrolling screen so its content stays at most `width` wide in a wider window (iPhone Duo inner display,
+/// iPad) while it still scrolls edge to edge. Compact phones are narrower than any width used here, so this adds
+/// nothing there. It is always applied (only the amount changes), so a size class change keeps the view's identity.
+struct Readable: ViewModifier {
+    let width: CGFloat
+    @State private var inset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .safeAreaPadding(.horizontal, inset)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { inset = max(0, ($0 - width) / 2) }
+    }
+}
+
 extension View {
+    func readable(_ width: CGFloat = 680) -> some View { modifier(Readable(width: width)) }
+
+    /// Reports how wide this view is inside the safe area, so not counting the column beside an iPhone Duo's status
+    /// pill. Regular width alone does not mean room: a narrow window can be regular too.
+    func onSafeWidthChange(_ action: @escaping (CGFloat) -> Void) -> some View {
+        onGeometryChange(for: CGFloat.self) { $0.size.width - $0.safeAreaInsets.leading - $0.safeAreaInsets.trailing } action: { action($0) }
+    }
+
     func settingsButton() -> some View {
         toolbar {
             ToolbarItem(placement: .topBarTrailing) {

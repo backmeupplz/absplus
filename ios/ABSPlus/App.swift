@@ -18,6 +18,8 @@ struct ABSPlusApp: App {
                 IsolationFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--retained-test") {
                 RetainedFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--fold-test") {
+                FoldFixture()
             } else { RootView() }
 #else
             RootView()
@@ -212,62 +214,79 @@ struct MiniPlayer: View {
 
 struct FullPlayer: View {
     @State private var drag: Double?
+    @State private var area = CGSize.zero
+    @Environment(\.horizontalSizeClass) private var size
 
     var body: some View {
         if let n = player.now {
             let t = drag ?? player.pos
+            let regular = size == .regular
+            // Regular width (iPhone Duo inner display) gets a bigger cover and controls at a comfortable width; a
+            // window wider than tall puts the cover beside them. AnyLayout keeps the controls' identity (and a
+            // slider drag in progress) when either changes.
+            let side = regular && area.width > area.height
+            let layout = side ? AnyLayout(HStackLayout(spacing: 40)) : AnyLayout(VStackLayout(spacing: 20))
             VStack(spacing: 20) {
-                Cover(id: n.item, radius: 16)
-                    .frame(maxWidth: 340)
-                    .shadow(color: .black.opacity(0.25), radius: 20, y: 10)
-                    .padding(.top, 40)
-                VStack(spacing: 4) {
-                    Text(n.title).font(.title2.bold()).multilineTextAlignment(.center).lineLimit(2)
-                    Text(n.author).font(.headline).foregroundStyle(.secondary).lineLimit(1)
+                layout {
+                    Cover(id: n.item, radius: 16)
+                        .frame(maxWidth: regular ? 440 : 340)
+                        .shadow(color: .black.opacity(0.25), radius: 20, y: 10)
+                        .padding(.top, 40)
+                    VStack(spacing: 20) { controls(n, t) }
+                        .frame(maxWidth: regular ? 560 : nil)
+                        .padding(.top, side ? 40 : 0)
                 }
-                if player.buffering { ProgressView("Buffering audio…") }
-                if let error = player.playbackError {
-                    Text(error).font(.footnote).foregroundStyle(.red)
-                    Button("Retry playback") { player.play() }
-                }
-                VStack(spacing: 2) {
-                    Slider(value: Binding(get: { t }, set: { drag = $0 }), in: 0...max(1, n.duration)) { editing in
-                        if !editing, let d = drag {
-                            player.seek(d)
-                            drag = nil
-                        }
-                    }
-                    HStack {
-                        Text(fmt(t))
-                        Spacer()
-                        Text("-" + fmt(n.duration - t))
-                    }
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                }
-                HStack {
-                    Button(String(format: "%g×", player.speed)) { player.nextSpeed() }
-                        .font(.headline.monospacedDigit()).frame(width: 64)
-                        .accessibilityLabel("Playback speed \(String(format: "%g", player.speed))")
-                    Spacer()
-                    Button { player.skip(-30) } label: { Image(systemName: "gobackward.30").font(.system(size: 32)) }
-                        .accessibilityLabel("Back 30 seconds")
-                    Spacer()
-                    Button { player.toggle() } label: {
-                        Image(systemName: player.playing ? "pause.circle.fill" : "play.circle.fill").font(.system(size: 76))
-                    }
-                    .accessibilityLabel(player.playing ? "Pause" : "Play")
-                    Spacer()
-                    Button { player.skip(30) } label: { Image(systemName: "goforward.30").font(.system(size: 32)) }
-                        .accessibilityLabel("Forward 30 seconds")
-                    Spacer()
-                    RoutePicker().frame(width: 64, height: 44)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 24)
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { area = $0 }
             .presentationDragIndicator(.visible)
         }
+    }
+
+    @ViewBuilder private func controls(_ n: Now, _ t: Double) -> some View {
+        VStack(spacing: 4) {
+            Text(n.title).font(.title2.bold()).multilineTextAlignment(.center).lineLimit(2)
+            Text(n.author).font(.headline).foregroundStyle(.secondary).lineLimit(1)
+        }
+        if player.buffering { ProgressView("Buffering audio…") }
+        if let error = player.playbackError {
+            Text(error).font(.footnote).foregroundStyle(.red)
+            Button("Retry playback") { player.play() }
+        }
+        VStack(spacing: 2) {
+            Slider(value: Binding(get: { t }, set: { drag = $0 }), in: 0...max(1, n.duration)) { editing in
+                if !editing, let d = drag {
+                    player.seek(d)
+                    drag = nil
+                }
+            }
+            HStack {
+                Text(fmt(t))
+                Spacer()
+                Text("-" + fmt(n.duration - t))
+            }
+            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+        }
+        HStack {
+            Button(String(format: "%g×", player.speed)) { player.nextSpeed() }
+                .font(.headline.monospacedDigit()).frame(width: 64)
+                .accessibilityLabel("Playback speed \(String(format: "%g", player.speed))")
+            Spacer()
+            Button { player.skip(-30) } label: { Image(systemName: "gobackward.30").font(.system(size: 32)) }
+                .accessibilityLabel("Back 30 seconds")
+            Spacer()
+            Button { player.toggle() } label: {
+                Image(systemName: player.playing ? "pause.circle.fill" : "play.circle.fill").font(.system(size: 76))
+            }
+            .accessibilityLabel(player.playing ? "Pause" : "Play")
+            Spacer()
+            Button { player.skip(30) } label: { Image(systemName: "goforward.30").font(.system(size: 32)) }
+                .accessibilityLabel("Forward 30 seconds")
+            Spacer()
+            RoutePicker().frame(width: 64, height: 44)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.tint)
     }
 }

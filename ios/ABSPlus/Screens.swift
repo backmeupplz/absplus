@@ -7,19 +7,26 @@ struct HomeView: View {
     @State private var playback = PlaybackRequest()
     @State private var loading = Loading()
     @Environment(Nav.self) private var nav
+    @Environment(\.horizontalSizeClass) private var size
+    @Environment(\.dynamicTypeSize) private var type
+    @State private var room: CGFloat = 0
 
     var body: some View {
         let cont = avail(items)
         let hist = app.hist.filter { !app.offline || app.downloaded($0.card) }
+        let regular = size == .regular
+        // Regular width with room for two rows side by side puts recently played in two columns, unless the text is too
+        // big for half the width.
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 24, alignment: .top), count: regular && room >= 560 && !type.isAccessibilitySize ? 2 : 1)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 20) {
                 if !cont.isEmpty {
                     Text("Continue listening").font(.headline).padding(.horizontal, 20)
                     // Outside a List cell, each tile owns its native context menu.
                     ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(alignment: .top, spacing: 12) {
+                        LazyHStack(alignment: .top, spacing: regular ? 20 : 12) {
                             ForEach(cont, id: \.key) { c in
-                                Button { playback.play(c) } label: { Tile(card: c).frame(width: 116) }
+                                Button { playback.play(c) } label: { Tile(card: c).frame(width: regular ? 150 : 116) }
                                     .buttonStyle(.plain)
                                     .accessibilityIdentifier("continue.\(c.key)")
                                     .overlay { if player.preparing == c.key { ProgressView("Preparing…").padding(8).background(.regularMaterial) } }
@@ -30,7 +37,7 @@ struct HomeView: View {
                                             .accessibilityIdentifier("context.play.\(c.key)")
                                         Button("Details", systemImage: "info.circle") { nav.open(.item(c.id)) }
                                     } preview: {
-                                        Tile(card: c).frame(width: 116).padding()
+                                        Tile(card: c).frame(width: regular ? 150 : 116).padding()
                                     }
                             }
                         }
@@ -40,20 +47,24 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Recently played").font(.headline)
                     if hist.isEmpty && loading.finished && !cont.isEmpty { Text("Nothing played on this device yet.").foregroundStyle(.secondary) }
-                    ForEach(hist, id: \.card.key) { h in
-                        NavigationLink(value: Route.item(h.card.id)) {
-                            Row(card: h.card, meta: Date(timeIntervalSince1970: h.at / 1000).formatted(.relative(presentation: .named))) {
-                                PlayButton(busy: player.preparing == h.card.key) { playback.play(h.card) }
+                    if !hist.isEmpty { LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                        ForEach(hist, id: \.card.key) { h in
+                            NavigationLink(value: Route.item(h.card.id)) {
+                                Row(card: h.card, meta: Date(timeIntervalSince1970: h.at / 1000).formatted(.relative(presentation: .named))) {
+                                    PlayButton(busy: player.preparing == h.card.key) { playback.play(h.card) }
+                                }
                             }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("history-" + h.card.key)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("history-" + h.card.key)
-                    }
+                    } }
                 }
                 .padding(.horizontal, 20)
             }
             .padding(.vertical, 16)
         }
+        .readable(960)
+        .onSafeWidthChange { room = $0 }
         .loadingFeedback(state: loading, empty: cont.isEmpty && hist.isEmpty, title: "Nothing played yet", retry: reload)
         .onDisappear { loading.cancel(); playback.cancel() }
         .navigationTitle("Home")
@@ -191,6 +202,7 @@ struct SeriesView: View {
                 }
             }
         }
+        .readable()
         .loadingFeedback(state: loading, empty: series.values.flatMap { $0 }.allSatisfy { app.offline ? avail($0.books.map(\.card)).isEmpty : false }, title: app.offline ? "No downloaded series" : "No series", retry: reload)
         .onDisappear { loading.cancel() }
         .navigationTitle("Series")
@@ -306,6 +318,7 @@ struct SettingsView: View {
                 LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")
             }
         }
+        .readable()
         .navigationTitle("Settings")
         .confirmationDialog("Log out? Downloads are kept.", isPresented: $confirmLogout, titleVisibility: .visible) {
             Button("Log out", role: .destructive) {
@@ -429,6 +442,7 @@ struct DownloadsView: View {
                 }
             }
         }
+        .readable()
         .overlay {
             if items.isEmpty && app.dlq.isEmpty {
                 ContentUnavailableView("No downloads", systemImage: "arrow.down.circle", description: Text("Nothing downloaded on this device."))
@@ -460,12 +474,21 @@ struct ItemView: View {
     @State private var sharing = false
     @State private var playback = PlaybackRequest()
     @State private var loading = Loading()
+    @Environment(\.horizontalSizeClass) private var size
+    @Environment(\.dynamicTypeSize) private var type
+    @State private var room: CGFloat = 0
+    /// cover beside the details: regular width with room for both, unless the text is too big for half of it
+    private var wide: Bool { size == .regular && room >= 560 && !type.isAccessibilitySize }
+    /// what the details need beside the cover: the play/download/favorite/share row fits in 340 points
+    private var cover: CGFloat { min(300, min(room, 900) - 400) }
 
     var body: some View {
         List {
             if let it { content(it) }
         }
         .listStyle(.plain)
+        .readable(900)
+        .onSafeWidthChange { room = $0 }
         .navigationBarTitleDisplayMode(.inline)
         .loadingFeedback(state: loading, empty: it == nil, title: "Item unavailable", retry: reload)
         .refreshable { await reload() }
@@ -487,40 +510,14 @@ struct ItemView: View {
         let c = it.card
         let book = it.mediaType == "book"
         let eps = episodes(it)
-        VStack(spacing: 8) {
-            BigCover(id: c.id).padding(.bottom, 8)
-            Text(c.title).font(.title2.bold()).multilineTextAlignment(.center)
-            Text(c.sub).font(.headline).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
-            if book {
-                let n = Now(item: c.id, ep: nil, title: c.title, author: c.sub, tracks: (it.media.tracks ?? []).map { $0.track() })
-                let p = app.pct(c.id) ?? 0
-                let meta = [fmt(n.duration), n.tracks.count > 1 ? "\(n.tracks.count) files" : nil,
-                            p >= 1 ? "Finished" : p > 0 ? "\(Int(p * 100))% done" : nil].compactMap { $0 }
-                Text(meta.joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
-                HStack(spacing: 12) {
-                    Button { playback.play(n) } label: {
-                        Group {
-                            if player.preparing == n.key { ProgressView("Preparing…") }
-                            else { Label(p > 0 && p < 1 ? "Resume" : "Play", systemImage: "play.fill") }
-                        }.frame(minWidth: 96)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(n.tracks.isEmpty || player.preparing == n.key)
-                    DlButton(n: n).buttonStyle(.bordered).buttonBorderShape(.circle)
-                    actions(c)
-                }
-                .controlSize(.large)
-                .padding(.top, 8)
-            } else {
-                Text("\(eps.count) episodes").font(.subheadline).foregroundStyle(.secondary)
-                HStack(spacing: 12) { actions(c) }.controlSize(.large).padding(.top, 8)
-            }
-            if !desc.isEmpty {
-                Text(desc).font(.callout).lineLimit(more ? nil : 4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 12)
-                    .onTapGesture { withAnimation { more.toggle() } }
-            }
+        // Regular width: cover beside the details. AnyLayout keeps every child's identity (and the
+        // description's expanded state) when the size class changes, e.g. folding an iPhone Duo.
+        let layout = wide ? AnyLayout(HStackLayout(alignment: .top, spacing: 28)) : AnyLayout(VStackLayout(spacing: 8))
+        layout {
+            BigCover(id: c.id).frame(maxWidth: wide ? cover : nil).padding(.bottom, wide ? 0 : 8)
+                .layoutPriority(wide ? 1 : 0) // the cover takes its width first, the details the rest
+            VStack(alignment: wide ? .leading : .center, spacing: 8) { details(it, c, book, eps) }
+                .frame(minWidth: wide ? 340 : nil, maxWidth: wide ? .infinity : nil, alignment: .leading)
         }
         .frame(maxWidth: .infinity)
         .listRowSeparator(.hidden)
@@ -530,6 +527,42 @@ struct ItemView: View {
             Section("Episodes") {
                 ForEach(eps, id: \.0.key) { n, date in EpisodeRow(n: n, date: date, playback: playback) }
             }
+        }
+    }
+
+    @ViewBuilder private func details(_ it: Item, _ c: Card, _ book: Bool, _ eps: [(Now, String?)]) -> some View {
+        let align: TextAlignment = wide ? .leading : .center
+        Text(c.title).font(.title2.bold()).multilineTextAlignment(align).accessibilityIdentifier("item.title")
+        Text(c.sub).font(.headline).foregroundStyle(.secondary).multilineTextAlignment(align).lineLimit(2).accessibilityIdentifier("item.author")
+        if book {
+            let n = Now(item: c.id, ep: nil, title: c.title, author: c.sub, tracks: (it.media.tracks ?? []).map { $0.track() })
+            let p = app.pct(c.id) ?? 0
+            let meta = [fmt(n.duration), n.tracks.count > 1 ? "\(n.tracks.count) files" : nil,
+                        p >= 1 ? "Finished" : p > 0 ? "\(Int(p * 100))% done" : nil].compactMap { $0 }
+            Text(meta.joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Button { playback.play(n) } label: {
+                    Group {
+                        if player.preparing == n.key { ProgressView("Preparing…") }
+                        else { Label(p > 0 && p < 1 ? "Resume" : "Play", systemImage: "play.fill") }
+                    }.frame(minWidth: 96)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(n.tracks.isEmpty || player.preparing == n.key)
+                DlButton(n: n).buttonStyle(.bordered).buttonBorderShape(.circle)
+                actions(c)
+            }
+            .controlSize(.large)
+            .padding(.top, 8)
+        } else {
+            Text("\(eps.count) episodes").font(.subheadline).foregroundStyle(.secondary)
+            HStack(spacing: 12) { actions(c) }.controlSize(.large).padding(.top, 8)
+        }
+        if !desc.isEmpty {
+            Text(desc).font(.callout).lineLimit(more ? nil : 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 12)
+                .onTapGesture { withAnimation { more.toggle() } }
         }
     }
 
