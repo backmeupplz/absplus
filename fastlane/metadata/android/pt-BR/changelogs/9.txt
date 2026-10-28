@@ -1,0 +1,1 @@
+O ABS+ agora fala 22 idiomas, então o app inteiro segue o idioma do seu celular, e o árabe ganha um layout da direita para a esquerda de verdade. Os erros de download também aparecem no seu idioma, e quando o certificado de segurança de um servidor é recusado, o ABS+ agora avisa você com clareza.

@@ -1,0 +1,1 @@
+ABS+ mówi teraz w 22 językach, więc cała aplikacja korzysta z języka Twojego telefonu, a arabski ma prawdziwy układ od prawej do lewej. Błędy pobierania także pojawiają się w Twoim języku, a gdy certyfikat bezpieczeństwa serwera zostanie odrzucony, ABS+ jasno o tym informuje.

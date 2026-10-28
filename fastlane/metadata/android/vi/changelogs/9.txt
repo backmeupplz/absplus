@@ -1,0 +1,1 @@
+ABS+ giờ đây hỗ trợ 22 ngôn ngữ, nên toàn bộ ứng dụng hiển thị theo ngôn ngữ của điện thoại, và tiếng Ả Rập có bố cục từ phải sang trái đúng nghĩa. Lỗi tải xuống cũng hiển thị bằng ngôn ngữ của bạn, và khi chứng chỉ bảo mật của máy chủ bị từ chối, ABS+ giờ sẽ nói rõ điều đó.

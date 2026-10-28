@@ -1,0 +1,1 @@
+ABS+ artık 22 dil konuşuyor; uygulamanın tamamı telefonunuzun dilini kullanıyor ve Arapça gerçek bir sağdan sola düzene kavuşuyor. İndirme hataları da sizin dilinizde görünüyor ve bir sunucunun güvenlik sertifikası reddedildiğinde ABS+ bunu size artık açıkça söylüyor.

@@ -15,8 +15,8 @@ android {
         applicationId = "com.borodutch.absplus"
         minSdk = 29
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.2.3"
+        versionCode = 9
+        versionName = "1.2.4"
     }
     // Without the key (e.g. on F-Droid's build server) release builds come out unsigned.
     signingConfigs {
