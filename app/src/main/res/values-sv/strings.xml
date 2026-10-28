@@ -172,4 +172,5 @@
     <string name="err_invalid_login">Ogiltigt svar vid inloggning</string>
     <string name="unknown_item">Okänd titel</string>
     <string name="err_unreachable">Det gick inte att nå servern. Kontrollera adressen och din anslutning.</string>
+    <string name="err_tls">Det gick inte att ansluta säkert till servern. Kontrollera dess certifikat.</string>
 </resources>

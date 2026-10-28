@@ -190,4 +190,5 @@
     <string name="err_invalid_login">Некоректна відповідь сервера під час входу</string>
     <string name="unknown_item">Без назви</string>
     <string name="err_unreachable">Не вдалося з’єднатися із сервером. Перевірте адресу та підключення.</string>
+    <string name="err_tls">Не вдалося встановити захищене з’єднання із сервером. Перевірте його сертифікат.</string>
 </resources>

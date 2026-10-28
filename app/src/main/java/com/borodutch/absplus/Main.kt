@@ -796,8 +796,7 @@ class Main : AppCompatActivity() {
     }
 
     /** "45% · 47 of 105 MB", "Queued" or "Waiting for connection" */
-    private fun dlStatus(j: Dl.Job) = when {
-        j.error != null -> j.error!!
+    private fun dlStatus(j: Dl.Job) = j.error?.text(this) ?: when {
         j !== Dl.next -> getString(R.string.dl_queued)
         j.waiting -> getString(R.string.dl_waiting)
         else -> getString(R.string.dl_progress, (Dl.pct(j) * 100).toInt(), mb(j.got), mb(j.total))

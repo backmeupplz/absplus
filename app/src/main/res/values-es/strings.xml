@@ -181,4 +181,5 @@
     <string name="err_invalid_login">Respuesta de inicio de sesión no válida</string>
     <string name="unknown_item">Título desconocido</string>
     <string name="err_unreachable">No se pudo conectar con el servidor. Comprueba la dirección y tu conexión.</string>
+    <string name="err_tls">No se pudo establecer una conexión segura con el servidor. Comprueba su certificado.</string>
 </resources>

@@ -167,7 +167,12 @@ fun Context.errorText(e: Throwable): String = when (e) {
         403 -> getString(R.string.err_forbidden)
         else -> getString(R.string.err_http, e.code)
     }
+    is javax.net.ssl.SSLException -> getString(if (certificateFailure(e)) R.string.err_tls else R.string.err_unreachable)
     is java.net.UnknownHostException, is java.net.ConnectException, is java.net.NoRouteToHostException,
-    is java.net.SocketTimeoutException, is javax.net.ssl.SSLException -> getString(R.string.err_unreachable)
+    is java.net.SocketTimeoutException -> getString(R.string.err_unreachable)
     else -> e.message ?: e.toString()
 }
+
+/** A rejected certificate or host name. Other TLS errors, handshake ones included, are usually dropped connections. */
+fun certificateFailure(e: Throwable) = e is javax.net.ssl.SSLPeerUnverifiedException || e is javax.net.ssl.SSLException &&
+    generateSequence(e.cause) { it.cause }.take(16).any { it is java.security.cert.CertificateException || it is java.security.cert.CertPathValidatorException }

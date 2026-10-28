@@ -17,6 +17,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -204,7 +205,7 @@ class LoadingTest {
         val first = Dl.Job(n).apply { waiting = true }
         Dl.jobs += first; Dl.jobs += Dl.Job(Now("queued", null, "Queued title", "", n.tracks))
         a.call("push", { a.call("downloads") }); assertTrue(a.has("Waiting for connection")); assertTrue(a.has("Queued"))
-        first.error = "Couldn't download (HTTP 404)"; a.call("downloads")
+        first.error = Dl.Halt.Failed(404); a.call("downloads")
         assertTrue(a.has("Couldn't download (HTTP 404)")); a.button("Retry").performClick(); assertNull(first.error)
         views(a.content()).first { it.contentDescription == "Cancel download of Download" }.performClick()
         (org.robolectric.shadows.ShadowDialog.getLatestDialog() as androidx.appcompat.app.AlertDialog)
@@ -355,8 +356,8 @@ class LoadingTest {
             await { calls.size == 2 }
             assertEquals(listOf("failed", "next"), calls.toList())
             val job = Dl.job(failed.key)!!
-            assertTrue(job.error!!.contains("404")); assertEquals(next.key, Dl.next!!.n.key)
-            a.call("push", { a.call("downloads") }); assertTrue(a.has(job.error!!))
+            assertEquals(404, (job.error as Dl.Halt.Failed).code); assertEquals(next.key, Dl.next!!.n.key)
+            a.call("push", { a.call("downloads") }); assertTrue(a.has("Couldn't download (HTTP 404)"))
             secondRelease.countDown(); await { Dl.idle && Dl.job(next.key) == null }
             assertSame(job, Dl.job(failed.key)); assertEquals("audio", Abs.file(next.item, next.tracks.single()).readText())
             s.removeContext("/api/items/failed-job/file/audio/download")
@@ -369,6 +370,37 @@ class LoadingTest {
         } finally {
             secondRelease.countDown(); Dl.clear(); await { Dl.idle }; service.destroy()
             listOf(failed, next).forEach { Abs.remove(it.tracks.map { t -> Abs.file(it.item, t) }) }
+        }
+    }
+
+    @Test fun untrustedCertificateStopsADownloadWithItsOwnMessageButADroppedTlsConnectionWaits() = fixture { a, _ ->
+        val dir = java.nio.file.Files.createTempDirectory("tls").toFile()
+        val https = untrustedHttps(dir).apply { route("/") { "audio" }; start() }
+        // Accepts and hangs up before the TLS handshake: what a network drop looks like.
+        val dropper = java.net.ServerSocket(0, 50, java.net.InetAddress.getByName("127.0.0.1"))
+        thread(isDaemon = true) { while (!dropper.isClosed) runCatching { dropper.accept().close() } }
+        fun now(id: String) = Now(id, null, id, "", listOf(Track("audio", ".mp3", 5, 60.0, 0.0)))
+        val untrusted = now("untrusted-job"); val dropped = now("dropped-job")
+        // A job downloads from the server it was queued for; the account (and its token) stay on the fixture server.
+        val account = Abs.server
+        fun queue(n: Now, base: String) {
+            Abs.p.edit().putString("server", base).commit()
+            try { Dl.add(a, n) } finally { Abs.p.edit().putString("server", account).commit() }
+        }
+        queue(untrusted, "https://127.0.0.1:" + https.address.port); queue(dropped, "https://127.0.0.1:" + dropper.localPort)
+        val service = Robolectric.buildService(DlService::class.java).create()
+        try {
+            service.get().onStartCommand(null, 0, 1)
+            await { Dl.job(untrusted.key)?.error != null && Dl.job(dropped.key)?.waiting == true }
+            assertSame(Dl.Halt.Tls, Dl.job(untrusted.key)!!.error)
+            assertNull(Dl.job(dropped.key)!!.error); assertSame(dropped.key, Dl.next!!.n.key)
+            a.call("push", { a.call("downloads") })
+            assertTrue(a.has("Couldn't download (Couldn't connect securely to the server. Check its certificate.)"))
+            assertTrue(a.has("Waiting for connection"))
+        } finally {
+            Dl.clear(); await { Dl.idle }; service.destroy()
+            https.stop(0); dropper.close(); dir.deleteRecursively()
+            listOf(untrusted, dropped).forEach { Abs.remove(it.tracks.map { t -> Abs.file(it.item, t) }) }
         }
     }
 

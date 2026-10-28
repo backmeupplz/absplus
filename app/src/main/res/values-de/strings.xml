@@ -172,4 +172,5 @@
     <string name="err_invalid_login">Ungültige Antwort bei der Anmeldung</string>
     <string name="unknown_item">Unbekannter Titel</string>
     <string name="err_unreachable">Der Server ist nicht erreichbar. Prüfe die Adresse und deine Verbindung.</string>
+    <string name="err_tls">Keine sichere Verbindung zum Server möglich. Prüfe sein Zertifikat.</string>
 </resources>

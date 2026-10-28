@@ -148,6 +148,31 @@ struct DownloadRetryFixture: View {
         var privateError = DownloadRetry()
         privateError.fail(Msg(errorDescription: "secret-request-url"), code: 0, retryAfter: nil)
         assert(!String(decoding: try! JSONEncoder().encode(privateError), as: UTF8.self).contains("secret-request-url"))
+        // Failures are stored as reasons and rendered in the current language whenever they're shown.
+        assert(privateError.failure == .interrupted)
+        var untrusted = DownloadRetry()
+        untrusted.fail(URLError(.serverCertificateUntrusted), code: 0, retryAfter: nil)
+        assert(untrusted.failure == .tls && untrusted.error != nil && untrusted.error != privateError.error)
+        var notFound = DownloadRetry()
+        notFound.fail(nil, code: 404, retryAfter: nil)
+        assert(notFound.failure == .http(404) && !String(decoding: try! JSONEncoder().encode(notFound), as: UTF8.self).contains("Retry"))
+        func legacy(_ json: String) -> DownloadRetry { try! JSONDecoder().decode(DownloadRetry.self, from: Data(json.utf8)) }
+        assert(legacy(#"{"attempts":5,"refreshToken":false,"error":"HTTP 404. Tap Retry to continue."}"#).failure == .http(404))
+        assert(legacy(#"{"attempts":0,"refreshToken":false,"error":"Sign in again. Tap Retry to continue."}"#).failure == .expired)
+        assert(legacy(#"{"attempts":0,"refreshToken":false,"error":"Transfer interrupted or file unavailable. Tap Retry to continue."}"#).failure == .interrupted)
+        var dropped = DownloadRetry()
+        dropped.fail(URLError(.secureConnectionFailed), code: 0, retryAfter: nil)
+        assert(dropped.failure == .interrupted)
+        // A client certificate problem isn't the server's certificate: no "check the server's certificate" advice.
+        for code in [URLError.Code.clientCertificateRejected, .clientCertificateRequired] {
+            var client = DownloadRetry()
+            client.fail(URLError(code), code: 0, retryAfter: nil)
+            assert(client.failure == .interrupted)
+        }
+        // Stored by an older build while the app was in Russian, read back in whatever language is current now.
+        assert(legacy(#"{"attempts":0,"refreshToken":false,"error":"Войдите снова. Нажмите «Повторить», чтобы продолжить."}"#).failure == .expired)
+        assert(legacy(#"{"attempts":0,"refreshToken":false,"error":"Erneut anmelden. Tippe auf „Wiederholen“, um fortzufahren."}"#).failure == .expired)
+        assert(legacy(#"{"attempts":1,"refreshToken":true,"next":0}"#).failure == nil)
         let sibling = Now(item: n.item, ep: "sibling", title: "Sibling", author: "", tracks: [Track(ino: "sibling", ext: ".mp3", size: 7, duration: 60, start: 0)])
         try! Data("fixture".utf8).write(to: app.file(sibling.item, sibling.tracks[0]))
         app.remove(n)

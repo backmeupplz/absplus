@@ -190,4 +190,5 @@
     <string name="err_invalid_login">Nieprawidłowa odpowiedź serwera przy logowaniu</string>
     <string name="unknown_item">Nieznana pozycja</string>
     <string name="err_unreachable">Nie udało się połączyć z serwerem. Sprawdź adres i połączenie.</string>
+    <string name="err_tls">Nie udało się nawiązać bezpiecznego połączenia z serwerem. Sprawdź jego certyfikat.</string>
 </resources>

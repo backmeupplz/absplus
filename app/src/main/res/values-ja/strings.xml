@@ -163,4 +163,5 @@
     <string name="err_invalid_login">ログイン応答が無効です</string>
     <string name="unknown_item">不明な項目</string>
     <string name="err_unreachable">サーバーに接続できませんでした。アドレスと接続状況を確認してください。</string>
+    <string name="err_tls">サーバーと安全に接続できませんでした。サーバーの証明書を確認してください。</string>
 </resources>

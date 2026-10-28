@@ -218,4 +218,5 @@
     <string name="err_invalid_login">Invalid login response</string>
     <string name="unknown_item">Unknown item</string>
     <string name="err_unreachable">Couldn\'t reach the server. Check the address and your connection.</string>
+    <string name="err_tls">Couldn\'t connect securely to the server. Check its certificate.</string>
 </resources>

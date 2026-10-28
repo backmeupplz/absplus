@@ -181,4 +181,5 @@
     <string name="err_invalid_login">Resposta de início de sessão inválida</string>
     <string name="unknown_item">Item desconhecido</string>
     <string name="err_unreachable">Não foi possível contactar o servidor. Verifique o endereço e a sua ligação.</string>
+    <string name="err_tls">Não foi possível estabelecer uma ligação segura ao servidor. Verifique o certificado.</string>
 </resources>

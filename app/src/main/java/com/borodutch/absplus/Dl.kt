@@ -38,8 +38,17 @@ object Dl {
         fun done(t: Track) = file(t).isFile && file(t).length() == t.size
         val total = n.tracks.sumOf { it.size }
         @Volatile var got = 0L
-        @Volatile var error: String? = null
+        @Volatile var error: Halt? = null
         @Volatile var waiting = false // couldn't reach the server, will retry
+    }
+
+    /** Why a title stopped. Kept as a reason, not text, so it shows in the language of the moment. */
+    sealed class Halt {
+        abstract fun text(c: Context): String
+        object Paused : Halt() { override fun text(c: Context) = c.getString(R.string.dl_paused) }
+        object SignIn : Halt() { override fun text(c: Context) = c.getString(R.string.dl_sign_in_again) }
+        object Tls : Halt() { override fun text(c: Context) = c.getString(R.string.dl_failed, c.getString(R.string.err_tls)) }
+        class Failed(val code: Int) : Halt() { override fun text(c: Context) = c.getString(R.string.dl_failed, c.errorText(HttpErr(code))) }
     }
 
     val jobs = CopyOnWriteArrayList<Job>()
@@ -72,7 +81,7 @@ object Dl {
     /** (re)starts the background service when there is something to download */
     fun start(c: Context) {
         if (jobs.isNotEmpty()) runCatching { ContextCompat.startForegroundService(c, Intent(c, DlService::class.java)) }.onFailure {
-            jobs.firstOrNull()?.error = c.getString(R.string.dl_paused)
+            jobs.firstOrNull()?.error = Halt.Paused
             onChange?.invoke(c.getString(R.string.dl_could_not_start))
         }
     }
@@ -120,11 +129,14 @@ object Dl {
                     wait = 2_000
                 } catch (_: Stop) {
                 } catch (e: Expired) { // keep the paused entry retryable
-                    j.error = s.getString(R.string.dl_sign_in_again)
+                    j.error = Halt.SignIn
                     synchronized(this) { worker = null }
                     break
                 } catch (e: HttpErr) {
-                    if (e.code in 400..499 && e.code !in setOf(401, 408, 429)) { j.error = s.getString(R.string.dl_failed, s.errorText(e)); onChange?.invoke(j.error) }
+                    if (e.code in 400..499 && e.code !in setOf(401, 408, 429)) { val h = Halt.Failed(e.code); j.error = h; onChange?.invoke(h.text(s)) }
+                    else wait = pause(j, wait)
+                } catch (e: javax.net.ssl.SSLException) { // a rejected certificate won't fix itself; a dropped TLS connection might
+                    if (certificateFailure(e)) { j.error = Halt.Tls; onChange?.invoke(Halt.Tls.text(s)) }
                     else wait = pause(j, wait)
                 } catch (e: IOException) {
                     wait = pause(j, wait)

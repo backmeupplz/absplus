@@ -172,4 +172,5 @@
     <string name="err_invalid_login">लॉगिन रिस्पॉन्स अमान्य है</string>
     <string name="unknown_item">अज्ञात आइटम</string>
     <string name="err_unreachable">सर्वर तक नहीं पहुँच सके। पता और अपना कनेक्शन जाँचें।</string>
+    <string name="err_tls">सर्वर से सुरक्षित कनेक्शन नहीं बन सका। उसका सर्टिफ़िकेट जाँचें।</string>
 </resources>

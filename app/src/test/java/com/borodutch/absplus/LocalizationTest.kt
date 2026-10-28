@@ -102,6 +102,43 @@ class LocalizationTest {
         assertTrue(de.getString(R.string.err_unreachable) != context("en-US").getString(R.string.err_unreachable))
     }
 
+    @Test fun certificateFailuresHaveTheirOwnMessage() {
+        val de = context("de")
+        val tls = de.getString(R.string.err_tls)
+        assertTrue(tls != de.getString(R.string.err_unreachable) && tls != context("en-US").getString(R.string.err_tls))
+        assertEquals(tls, de.errorText(javax.net.ssl.SSLHandshakeException("Trust anchor for certification path not found").initCause(
+            java.security.cert.CertificateException(java.security.cert.CertPathValidatorException("Trust anchor for certification path not found")))))
+        assertEquals(tls, de.errorText(javax.net.ssl.SSLHandshakeException("untrusted").initCause(java.security.cert.CertPathValidatorException())))
+        assertEquals(tls, de.errorText(javax.net.ssl.SSLPeerUnverifiedException("Hostname 10.0.0.2 not verified")))
+        assertEquals(tls, de.errorText(javax.net.ssl.SSLException("handshake", java.security.cert.CertificateExpiredException())))
+        // A TLS connection cut mid-transfer or mid-handshake is a connection problem, not a certificate one.
+        assertEquals(de.getString(R.string.err_unreachable), de.errorText(javax.net.ssl.SSLException("Read error: Connection reset by peer")))
+        assertEquals(de.getString(R.string.err_unreachable), de.errorText(javax.net.ssl.SSLHandshakeException("Connection closed by peer")))
+        // A cause cycle ends the walk instead of hanging.
+        val a = javax.net.ssl.SSLException("a"); val b = java.io.IOException("b"); a.initCause(b); b.initCause(a)
+        assertEquals(de.getString(R.string.err_unreachable), de.errorText(a))
+
+        // A real sign-in to a server whose self-signed certificate the device doesn't trust.
+        val dir = java.nio.file.Files.createTempDirectory("tls").toFile()
+        val server = untrustedHttps(dir)
+        server.createContext("/login") { x -> x.sendResponseHeaders(500, -1); x.close() }
+        server.start()
+        try {
+            Abs.init(RuntimeEnvironment.getApplication()); Abs.logout()
+            val e = runCatching { Abs.login("https://127.0.0.1:" + server.address.port, "fixture", "fixture", true) }.exceptionOrNull()!!
+            assertEquals(e.toString(), tls, de.errorText(e))
+        } finally { server.stop(0); dir.deleteRecursively() }
+    }
+
+    @Test fun storedDownloadErrorsFollowTheCurrentLanguage() {
+        val en = context("en-US"); val de = context("de")
+        for (h in listOf(Dl.Halt.Paused, Dl.Halt.SignIn, Dl.Halt.Tls, Dl.Halt.Failed(404))) assertTrue(h.text(en) != h.text(de))
+        assertEquals(de.getString(R.string.dl_failed, de.getString(R.string.err_tls)), Dl.Halt.Tls.text(de))
+        assertEquals("Couldn't download (HTTP 404)", Dl.Halt.Failed(404).text(en))
+        assertEquals(de.getString(R.string.dl_failed, "HTTP 404"), Dl.Halt.Failed(404).text(de))
+        assertEquals(de.getString(R.string.dl_sign_in_again), Dl.Halt.SignIn.text(de))
+    }
+
     @Test fun sizeUnitsAndNameListsFollowTheLanguage() {
         // Main.mb and the share confirmation use these with the UI context's locale.
         fun size(tag: String) = android.text.format.Formatter.formatShortFileSize(context(tag), 5_000_000)

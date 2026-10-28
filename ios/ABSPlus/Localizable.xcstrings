@@ -16471,6 +16471,144 @@
         }
       }
     },
+    "Secure connection failed. Check the server's certificate" : {
+      "comment" : "Download failure reason: the server's TLS certificate was rejected (no final period: \". Tap Retry to continue.\" follows)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فشل الاتصال الآمن. تحقّق من شهادة الخادم"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichere Verbindung fehlgeschlagen. Prüfe das Zertifikat des Servers"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure connection failed. Check the server's certificate"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falló la conexión segura. Comprueba el certificado del servidor"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec de la connexion sécurisée. Vérifiez le certificat du serveur"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "सुरक्षित कनेक्शन विफल रहा। सर्वर का सर्टिफ़िकेट जाँचें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koneksi aman gagal. Periksa sertifikat server"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione sicura non riuscita. Controlla il certificato del server"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全な接続に失敗しました。サーバーの証明書を確認してください"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안 연결에 실패했습니다. 서버 인증서를 확인하세요"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beveiligde verbinding mislukt. Controleer het certificaat van de server"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nie udało się nawiązać bezpiecznego połączenia. Sprawdź certyfikat serwera"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falha na conexão segura. Verifique o certificado do servidor"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falha na ligação segura. Verifique o certificado do servidor"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось установить защищённое соединение. Проверьте сертификат сервера"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Säker anslutning misslyckades. Kontrollera serverns certifikat"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเชื่อมต่อที่ปลอดภัยล้มเหลว ตรวจสอบใบรับรองของเซิร์ฟเวอร์"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Güvenli bağlantı kurulamadı. Sunucunun sertifikasını kontrol edin"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не вдалося встановити захищене з’єднання. Перевірте сертифікат сервера"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kết nối an toàn không thành công. Hãy kiểm tra chứng chỉ của máy chủ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全连接失败。请检查服务器证书"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全連線失敗。請檢查伺服器憑證"
+          }
+        }
+      }
+    },
     "Send feedback" : {
       "comment" : "Settings link: opens an email to the developer",
       "extractionState" : "manual",

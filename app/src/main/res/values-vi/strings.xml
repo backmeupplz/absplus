@@ -163,4 +163,5 @@
     <string name="err_invalid_login">Phản hồi đăng nhập không hợp lệ</string>
     <string name="unknown_item">Mục không xác định</string>
     <string name="err_unreachable">Không thể kết nối tới máy chủ. Hãy kiểm tra địa chỉ và kết nối mạng của bạn.</string>
+    <string name="err_tls">Không thể kết nối an toàn tới máy chủ. Hãy kiểm tra chứng chỉ của máy chủ.</string>
 </resources>

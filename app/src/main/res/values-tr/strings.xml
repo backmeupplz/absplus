@@ -172,4 +172,5 @@
     <string name="err_invalid_login">Geçersiz giriş yanıtı</string>
     <string name="unknown_item">Bilinmeyen içerik</string>
     <string name="err_unreachable">Sunucuya ulaşılamadı. Adresi ve bağlantınızı kontrol edin.</string>
+    <string name="err_tls">Sunucuyla güvenli bağlantı kurulamadı. Sertifikasını kontrol edin.</string>
 </resources>

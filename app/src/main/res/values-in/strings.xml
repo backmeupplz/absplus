@@ -163,4 +163,5 @@
     <string name="err_invalid_login">Respons login tidak valid</string>
     <string name="unknown_item">Item tidak dikenal</string>
     <string name="err_unreachable">Server tidak dapat dijangkau. Periksa alamat dan koneksi Anda.</string>
+    <string name="err_tls">Tidak dapat terhubung dengan aman ke server. Periksa sertifikatnya.</string>
 </resources>

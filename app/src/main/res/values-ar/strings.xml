@@ -208,4 +208,5 @@
     <string name="err_invalid_login">استجابة تسجيل الدخول غير صالحة</string>
     <string name="unknown_item">عنصر غير معروف</string>
     <string name="err_unreachable">تعذّر الوصول إلى الخادم. تحقّق من العنوان ومن اتصالك.</string>
+    <string name="err_tls">تعذّر الاتصال بالخادم اتصالًا آمنًا. تحقّق من شهادته.</string>
 </resources>

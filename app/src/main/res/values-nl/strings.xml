@@ -172,4 +172,5 @@
     <string name="err_invalid_login">Ongeldig antwoord bij inloggen</string>
     <string name="unknown_item">Onbekende titel</string>
     <string name="err_unreachable">De server is niet bereikbaar. Controleer het adres en je verbinding.</string>
+    <string name="err_tls">Kan geen beveiligde verbinding met de server maken. Controleer het certificaat.</string>
 </resources>

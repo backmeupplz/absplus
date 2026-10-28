@@ -181,4 +181,5 @@
     <string name="err_invalid_login">Réponse de connexion non valide</string>
     <string name="unknown_item">Titre inconnu</string>
     <string name="err_unreachable">Impossible de joindre le serveur. Vérifiez l\'adresse et votre connexion.</string>
+    <string name="err_tls">Impossible d\'établir une connexion sécurisée avec le serveur. Vérifiez son certificat.</string>
 </resources>

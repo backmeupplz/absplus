@@ -181,4 +181,5 @@
     <string name="err_invalid_login">Risposta di accesso non valida</string>
     <string name="unknown_item">Titolo sconosciuto</string>
     <string name="err_unreachable">Impossibile raggiungere il server. Controlla l\'indirizzo e la connessione.</string>
+    <string name="err_tls">Impossibile stabilire una connessione sicura con il server. Controlla il suo certificato.</string>
 </resources>
