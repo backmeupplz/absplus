@@ -1,5 +1,6 @@
 """Checks for the shared release scripts: python3 -m unittest discover -s .github/scripts"""
-import os, sys, unittest
+import contextlib, io, json, os, subprocess, sys, unittest
+from unittest import mock
 
 os.environ.setdefault("APP_STORE_APP_ID", "1")
 os.environ.setdefault("ASC_KEY_ID", "KEY")
@@ -97,6 +98,24 @@ class Scripts(unittest.TestCase):
     def test_fdroid_same_values_change_nothing(self):
         self.assertEqual(fdroid.rewrite(METADATA, "0.4.3", "7", "793ee7cd8fe0103fb4857c13a73bc0c4af1a8926", "Tags",
                                         "https://github.com/backmeupplz/meshtastic-plus/releases/download/v%v/meshplus.apk"), METADATA)
+
+    def test_fdroid_push_failure_reports_git_output_without_the_token(self):
+        def urlopen(url):
+            body = json.dumps({"state": "opened", "iid": 123, "web_url": "https://gitlab.com/mr"}) if "merge_requests" in url else METADATA
+            return io.BytesIO(body.encode())
+        def run(argv, cwd, **kw):
+            self.assertTrue(kw["capture_output"])
+            if "push" not in argv:
+                if "sparse-checkout" in argv:
+                    os.makedirs(os.path.join(cwd, "metadata"))
+                return subprocess.CompletedProcess(argv, 0, "", "")
+            return subprocess.CompletedProcess(argv, 1, "", "remote: HTTP Basic: Access denied for s3cret-token\nfatal: Authentication failed for 'https://gitlab.com/backmeupplz/fdroiddata.git/'\n")
+        env = {"GITLAB_TOKEN": "s3cret-token", "FDROID_MR": "123", "FDROID_APP_ID": "com.example", "FDROID_FORK": "backmeupplz/fdroiddata", "FDROID_BRANCH": "com.example"}
+        with mock.patch.dict(os.environ, env), mock.patch("sys.argv", ["fdroid.py", "0.4.4", "8", "a" * 40]), \
+                mock.patch.object(fdroid.urllib.request, "urlopen", urlopen), mock.patch.object(fdroid.subprocess, "run", run), \
+                contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as exit:
+            fdroid.main()
+        self.assertEqual(exit.exception.code, "git push failed with status 1: remote: HTTP Basic: Access denied for *** | fatal: Authentication failed for 'https://gitlab.com/backmeupplz/fdroiddata.git/'")
 
     def test_es256_signature_from_der(self):
         r, s = b"\x00" + b"\x80" * 32, b"\x01" * 31  # a padded r and a short s
