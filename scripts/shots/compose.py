@@ -6,7 +6,7 @@
 # screenshots in <raw dir>/<device>/<app language>/<n>-<name>.png (n = 1 to 6, see TARGETS for the devices; the iPhone
 # ones come from ios/store-shots.sh). A device with no folder is skipped. Writes JPEGs to
 #   appstore/screenshots/<locale>/<n>.jpg                     iPhone 6.9" (1320x2868), uploaded by listings.py
-#   appstore/screenshots/<locale>/duo-outer|duo-inner/<n>.jpg  iPhone Duo (1398x2034 and 2007x2853), kept in the repo
+#   appstore/screenshots/<locale>/duo-outer|duo-inner/<n>.jpg  iPhone Duo (1398x2034 and 2853x2007), kept in the repo
 #   fastlane/metadata/android/<Play code>/images/{phone,sevenInch,tenInch}Screenshots/<n>.jpg and featureGraphic.jpg
 # and prints a JSON report; exits 1 if any check fails. Shared with Quilcast's scripts/shots/compose.py: the checks and
 # the Chrome runner below the frames are the same.
@@ -21,7 +21,7 @@ QUALITY = 82
 TARGETS = {
     'ios': (1320, 2868, 'ios'),  # iPhone 6.9"
     'duo-outer': (1398, 2034, 'duo'),  # iPhone Duo cover display
-    'duo-inner': (2007, 2853, 'duo-inner'),  # iPhone Duo inner display
+    'duo-inner': (2853, 2007, 'duo-inner'),  # iPhone Duo inner display, landscape: the app shows landscape on it
     'phone': (1080, 2160, 'phone'),  # Play phone
     'tab7': (1200, 1920, 'tab7'),  # Play 7" tablet
     'tab10': (1600, 2560, 'tab10'),  # Play 10" tablet
@@ -84,16 +84,17 @@ body {{ background: {BG}; font-family: {fonts}; color: #fff; position: relative;
 
 def shot_frame(target, locale, rtl, caption, img):
     W, H, _ = TARGETS[target]
-    m = round(W * 0.06)
-    cap = round(H * 0.15)  # caption area: from the top edge to here
-    fs = round(W * (0.072 if target in ('ios', 'phone', 'duo-outer') else 0.058))
+    short = min(W, H)
+    m = round(short * 0.06)
+    cap = round(H * (0.15 if H > W else 0.21))  # caption area: from the top edge to here
+    fs = round(short * (0.072 if target in ('ios', 'phone', 'duo-outer') else 0.058))
     lh = 1.4 if LOCALES[locale][0].startswith('zh') else 1.18  # PingFang's glyphs run taller than a 1.18 line
     # the whole screenshot, as large as fits under the caption; the image's own box hugs it. Strict line breaking keeps
     # small kana off the start of a line, and auto-phrase breaks Japanese between phrases, not inside a word
     body = f'''<div class="area" style="position:absolute; left:{m}px; right:{m}px; top:{round(m * 1.1)}px; height:{cap - round(m * 1.1)}px; display:flex; align-items:center; justify-content:center;">
 <div class="cap" data-box="caption" style="display:inline-block; font-size:{fs}px; line-height:{lh}; font-weight:750; letter-spacing:-0.01em; text-align:center; text-wrap:balance; line-break:strict; word-break:auto-phrase; max-width:100%;">{text(caption)}</div></div>
 <div style="position:absolute; left:{m}px; right:{m}px; top:{cap + GAP}px; bottom:{m}px; display:flex; align-items:flex-start; justify-content:center;">
-<img data-box="screenshot" src="file://{img}" style="display:block; max-width:100%; max-height:100%; border-radius:{round(W * 0.04)}px; box-shadow:0 {round(m * 0.3)}px {round(m * 0.9)}px rgb(10 0 60 / 0.45);"></div>'''
+<img data-box="screenshot" src="file://{img}" style="display:block; max-width:100%; max-height:100%; border-radius:{round(short * 0.04)}px; box-shadow:0 {round(m * 0.3)}px {round(m * 0.9)}px rgb(10 0 60 / 0.45);"></div>'''
     return page(locale, rtl, body, W, H)
 
 
