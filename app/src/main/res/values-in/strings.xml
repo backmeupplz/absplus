@@ -103,8 +103,6 @@
     <plurals name="dl_more">
         <item quantity="other">%d lagi</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Unduhan dijeda. Ketuk Coba lagi.</string>
     <string name="dl_could_not_start">Tidak dapat memulai unduhan. Coba lagi.</string>
     <string name="dl_sign_in_again">Masuk lagi untuk melanjutkan unduhan</string>

@@ -117,8 +117,6 @@
         <item quantity="many">%d más en cola</item>
         <item quantity="other">%d más en cola</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Descarga en pausa. Toca Reintentar.</string>
     <string name="dl_could_not_start">No se pudo iniciar la descarga. Inténtalo de nuevo.</string>
     <string name="dl_sign_in_again">Vuelve a iniciar sesión para reanudar la descarga</string>

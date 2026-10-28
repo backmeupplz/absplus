@@ -138,8 +138,6 @@
         <item quantity="many">+%d في الانتظار</item>
         <item quantity="other">+%d في الانتظار</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">تم إيقاف التنزيل مؤقتًا. اضغط على «إعادة المحاولة».</string>
     <string name="dl_could_not_start">تعذّر بدء التنزيل. حاول مرة أخرى.</string>
     <string name="dl_sign_in_again">سجّل الدخول مرة أخرى لاستئناف التنزيل</string>

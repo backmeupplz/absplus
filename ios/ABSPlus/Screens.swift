@@ -596,7 +596,7 @@ struct EpisodeRow: View {
 
     var body: some View {
         let p = app.pct(n.key)
-        let meta = [date, fmt(n.duration), p.map { $0 >= 1 ? String(localized: "Finished", comment: "Listening status: the title was listened to the end") : "\(Int($0 * 100))%" }].compactMap { $0 }
+        let meta = [date, fmt(n.duration), p.map { $0 >= 1 ? String(localized: "Finished", comment: "Listening status: the title was listened to the end") : $0.formatted(.percent.precision(.fractionLength(0)).rounded(rule: .down)) }].compactMap { $0 }
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(n.title).font(.subheadline.weight(.semibold)).lineLimit(2)
@@ -639,7 +639,7 @@ struct ShareSheet: View {
                     }
                     Button("Link account", systemImage: "person.badge.plus") { linking = true }
                 } header: {
-                    Text("“\(name)”")
+                    Text(verbatim: name)
                 } footer: {
                     Text(app.accounts.isEmpty
                          ? "Link another account on this server to keep your progress on this title in sync with it."
@@ -654,7 +654,7 @@ struct ShareSheet: View {
                     Button("Save") { if added.isEmpty { save() } else { confirm = true } }.disabled(app.accounts.isEmpty)
                 }
             }
-            .alert("Share progress of “\(name)” with \(added.joined(separator: ", "))?", isPresented: $confirm) {
+            .alert("Share progress of “\(name)” with \(added.formatted(.list(type: .and)))?", isPresented: $confirm) {
                 Button("Cancel", role: .cancel) {}
                 Button("Share") {
                     save()

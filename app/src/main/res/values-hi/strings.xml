@@ -110,8 +110,6 @@
         <item quantity="one">%d और</item>
         <item quantity="other">%d और</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">डाउनलोड रुका हुआ है। “फिर से कोशिश करें” पर टैप करें।</string>
     <string name="dl_could_not_start">डाउनलोड शुरू नहीं हो सका। फिर से कोशिश करें।</string>
     <string name="dl_sign_in_again">डाउनलोड फिर से शुरू करने के लिए दोबारा साइन इन करें</string>

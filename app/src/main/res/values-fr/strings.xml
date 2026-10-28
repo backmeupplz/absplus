@@ -117,8 +117,6 @@
         <item quantity="many">%d autres en attente</item>
         <item quantity="other">%d autres en attente</item>
     </plurals>
-    <string name="size_mb">%1$d Mo</string>
-    <string name="size_gb">%1$.1f Go</string>
     <string name="dl_paused">Téléchargement suspendu. Touchez Réessayer.</string>
     <string name="dl_could_not_start">Impossible de lancer le téléchargement. Réessayez.</string>
     <string name="dl_sign_in_again">Reconnectez-vous pour reprendre le téléchargement</string>

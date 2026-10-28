@@ -117,8 +117,6 @@
         <item quantity="many">altri %d in coda</item>
         <item quantity="other">altri %d in coda</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Download in pausa. Tocca Riprova.</string>
     <string name="dl_could_not_start">Impossibile avviare il download. Riprova.</string>
     <string name="dl_sign_in_again">Accedi di nuovo per riprendere il download</string>

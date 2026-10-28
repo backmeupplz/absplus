@@ -136,9 +136,6 @@
         <item quantity="one">%d more</item>
         <item quantity="other">%d more</item>
     </plurals>
-    <!-- File sizes -->
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Download paused. Tap Retry.</string>
     <string name="dl_could_not_start">Could not start download. Try again.</string>
     <string name="dl_sign_in_again">Sign in again to resume download</string>

@@ -124,8 +124,6 @@
         <item quantity="many">jeszcze %d</item>
         <item quantity="other">jeszcze %d</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Pobieranie wstrzymane. Dotknij „Ponów”.</string>
     <string name="dl_could_not_start">Nie udało się rozpocząć pobierania. Spróbuj ponownie.</string>
     <string name="dl_sign_in_again">Zaloguj się ponownie, aby wznowić pobieranie</string>

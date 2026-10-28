@@ -103,8 +103,6 @@
     <plurals name="dl_more">
         <item quantity="other">และอีก %d รายการ</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">หยุดดาวน์โหลดชั่วคราว แตะ “ลองอีกครั้ง”</string>
     <string name="dl_could_not_start">เริ่มดาวน์โหลดไม่ได้ โปรดลองอีกครั้ง</string>
     <string name="dl_sign_in_again">ลงชื่อเข้าใช้อีกครั้งเพื่อดาวน์โหลดต่อ</string>

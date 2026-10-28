@@ -110,8 +110,6 @@
         <item quantity="one">noch %d</item>
         <item quantity="other">noch %d</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Download pausiert. Tippe auf „Wiederholen“.</string>
     <string name="dl_could_not_start">Download konnte nicht gestartet werden. Versuch es noch mal.</string>
     <string name="dl_sign_in_again">Melde dich erneut an, um den Download fortzusetzen</string>

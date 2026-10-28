@@ -110,8 +110,6 @@
         <item quantity="one">%d till</item>
         <item quantity="other">%d till</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Nedladdningen har pausats. Tryck på Försök igen.</string>
     <string name="dl_could_not_start">Det gick inte att starta nedladdningen. Försök igen.</string>
     <string name="dl_sign_in_again">Logga in igen för att återuppta nedladdningen</string>

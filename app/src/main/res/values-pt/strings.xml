@@ -117,8 +117,6 @@
         <item quantity="many">mais %d</item>
         <item quantity="other">mais %d</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Download pausado. Toque em “Tentar novamente”.</string>
     <string name="dl_could_not_start">Não foi possível iniciar o download. Tente novamente.</string>
     <string name="dl_sign_in_again">Faça login novamente para retomar o download</string>

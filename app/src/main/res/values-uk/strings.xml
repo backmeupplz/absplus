@@ -124,8 +124,6 @@
         <item quantity="many">ще %d</item>
         <item quantity="other">ще %d</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Завантаження призупинено. Торкніться «Повторити».</string>
     <string name="dl_could_not_start">Не вдалося почати завантаження. Спробуйте ще раз.</string>
     <string name="dl_sign_in_again">Увійдіть знову, щоб продовжити завантаження</string>

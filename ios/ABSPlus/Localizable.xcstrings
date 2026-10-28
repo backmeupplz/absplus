@@ -4831,25 +4831,25 @@
               "few" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Отменить все %lld загрузки?"
+                  "value" : "Отменить все %lld скачивания?"
                 }
               },
               "many" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Отменить все %lld загрузок?"
+                  "value" : "Отменить все %lld скачиваний?"
                 }
               },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Отменить %lld загрузку?"
+                  "value" : "Отменить %lld скачивание?"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Отменить все %lld загрузки?"
+                  "value" : "Отменить все %lld скачивания?"
                 }
               }
             }
@@ -6723,7 +6723,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Загрузки"
+            "value" : "Скачивания"
           }
         },
         "sv" : {
@@ -10311,7 +10311,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Выйти? Загрузки сохранятся."
+            "value" : "Выйти? Скачанное сохранится."
           }
         },
         "sv" : {
@@ -11001,7 +11001,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Нет загрузок"
+            "value" : "Нет скачанного"
           }
         },
         "sv" : {
@@ -14951,25 +14951,25 @@
               "few" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Удалить все %lld загрузки (%@) с этого устройства? На сервере ничего не удалится."
+                  "value" : "Удалить всё скачанное (%lld шт., %@) с этого устройства? На сервере ничего не удалится."
                 }
               },
               "many" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Удалить все %lld загрузок (%@) с этого устройства? На сервере ничего не удалится."
+                  "value" : "Удалить всё скачанное (%lld шт., %@) с этого устройства? На сервере ничего не удалится."
                 }
               },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Удалить %lld загрузку (%@) с этого устройства? На сервере ничего не удалится."
+                  "value" : "Удалить всё скачанное (%lld шт., %@) с этого устройства? На сервере ничего не удалится."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Удалить все %lld загрузки (%@) с этого устройства? На сервере ничего не удалится."
+                  "value" : "Удалить всё скачанное (%lld шт., %@) с этого устройства? На сервере ничего не удалится."
                 }
               }
             }
@@ -15182,7 +15182,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Удалить загрузку"
+            "value" : "Удалить скачанную копию"
           }
         },
         "sv" : {
@@ -15458,7 +15458,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Удалить загрузку «%@»?"
+            "value" : "Удалить скачанную копию «%@»?"
           }
         },
         "sv" : {
@@ -18944,7 +18944,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Смахните влево, чтобы удалить загрузку. На сервере ничего не удалится."
+            "value" : "Смахните влево, чтобы удалить скачанную копию. На сервере ничего не удалится."
           }
         },
         "sv" : {
@@ -21612,19 +21612,6 @@
           }
         }
       }
-    },
-    "“%@”" : {
-      "comment" : "Share sheet section header: %@ = book or podcast title in quotes. Pure data.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“%@”"
-          }
-        }
-      },
-      "shouldTranslate" : false
     }
   },
   "version" : "1.0"

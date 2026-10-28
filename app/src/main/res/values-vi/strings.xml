@@ -103,8 +103,6 @@
     <plurals name="dl_more">
         <item quantity="other">và %d mục khác</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Đã tạm dừng tải xuống. Nhấn Thử lại.</string>
     <string name="dl_could_not_start">Không thể bắt đầu tải xuống. Hãy thử lại.</string>
     <string name="dl_sign_in_again">Đăng nhập lại để tiếp tục tải xuống</string>

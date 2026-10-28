@@ -110,8 +110,6 @@
         <item quantity="one">+%d sırada</item>
         <item quantity="other">+%d sırada</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">İndirme duraklatıldı. “Tekrar dene”ye dokunun.</string>
     <string name="dl_could_not_start">İndirme başlatılamadı. Tekrar deneyin.</string>
     <string name="dl_sign_in_again">İndirmeye devam etmek için tekrar giriş yapın</string>

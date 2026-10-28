@@ -103,8 +103,6 @@
     <plurals name="dl_more">
         <item quantity="other">ほか%d件</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">ダウンロードが一時停止しました。「再試行」をタップしてください。</string>
     <string name="dl_could_not_start">ダウンロードを開始できませんでした。もう一度お試しください。</string>
     <string name="dl_sign_in_again">ダウンロードを再開するには、もう一度ログインしてください</string>

@@ -4,12 +4,14 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
+import android.icu.text.ListFormatter
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
 import android.text.format.DateUtils
+import android.text.format.Formatter
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -813,7 +815,7 @@ class Main : AppCompatActivity() {
         if (known) p.setProgressCompat((Dl.pct(j) * 1000).toInt(), true)
     }
 
-    private fun mb(b: Long) = if (b >= 1 shl 30) getString(R.string.size_gb, b / 1073741824.0) else getString(R.string.size_mb, b shr 20)
+    private fun mb(b: Long) = Formatter.formatShortFileSize(this, b) // units in the UI language, like iOS
 
     // --- tiles & rows
 
@@ -1104,7 +1106,7 @@ class Main : AppCompatActivity() {
                 val sel = accts.filterIndexed { i, _ -> checked[i] }.toSet()
                 val added = sel - cur
                 if (added.isEmpty()) Abs.setShares(id, sel)
-                else confirm(getString(R.string.share_confirm, name, added.joinToString())) {
+                else confirm(getString(R.string.share_confirm, name, ListFormatter.getInstance(resources.configuration.locales[0]).format(added))) {
                     Abs.setShares(id, sel)
                     toast(getString(R.string.toast_progress_shared))
                 }
@@ -1261,7 +1263,7 @@ class Main : AppCompatActivity() {
         miniTitle = text("", M.attr.textAppearanceTitleSmall, 1)
         miniSub = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
         miniPlay = icon(R.drawable.i_play_arrow_fill, getString(R.string.action_play)) { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }
-        miniProg = LinearProgressIndicator(this).apply { max = 1000; trackThickness = dp(2) }
+        miniProg = LinearProgressIndicator(this).apply { max = 1000; trackThickness = dp(2); layoutDirection = View.LAYOUT_DIRECTION_LTR } // a timeline, so not mirrored
         return MaterialCardView(this, null, M.attr.materialCardViewFilledStyle).apply {
             addView(col(row(miniCover, col(miniTitle, miniSub).pad(12, 0).lp(0, -2, 1f), miniPlay).pad(8, 6), miniProg))
             setOnClickListener { openSheet() }
@@ -1302,13 +1304,14 @@ class Main : AppCompatActivity() {
             contentDescription = getString(R.string.playback_position)
             valueTo = max(1f, n.duration.toFloat())
             setLabelFormatter { Abs.fmt(it.toDouble()) }
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
             addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
                 override fun onStartTrackingTouch(s: Slider) { dragging = true }
                 override fun onStopTrackingTouch(s: Slider) { dragging = false; seek(s.value.toDouble()) }
             })
         }
         val el = text("", M.attr.textAppearanceLabelMedium, muted = true)
-        val rem = text("", M.attr.textAppearanceLabelMedium, muted = true)
+        val rem = text("", M.attr.textAppearanceLabelMedium, muted = true).apply { textDirection = View.TEXT_DIRECTION_LTR } // "-1:02:03", not "1:02:03-"
         val play = icon(R.drawable.i_play_arrow_fill, getString(R.string.action_play), M.attr.materialIconButtonFilledStyle) { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }.apply {
             iconSize = dp(36)
             iconPadding = 0
@@ -1331,10 +1334,11 @@ class Main : AppCompatActivity() {
             play.lp(dp(80), dp(80), m = 12),
             icon(R.drawable.i_forward_30, getString(R.string.action_forward_30)) { ctl?.seekForward() }.apply { iconSize = dp(32) },
             View(this).lp(dp(72), 1),
-        ).apply { gravity = Gravity.CENTER }
+        ).apply { gravity = Gravity.CENTER; layoutDirection = View.LAYOUT_DIRECTION_LTR }
+        // Media controls and the timeline stay left to right in RTL languages (Material bidirectionality guidance).
         val body = col(
             BottomSheetDragHandleView(this), cover, title.pad(16, 4), sub.pad(16, 0),
-            slider.lp(m = 0).pad(8, 12), row(el.lp(0, -2, 1f), rem).pad(24, 0), controls.pad(0, 12),
+            slider.lp(m = 0).pad(8, 12), row(el.lp(0, -2, 1f), rem).apply { layoutDirection = View.LAYOUT_DIRECTION_LTR }.pad(24, 0), controls.pad(0, 12),
         ).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, 0, 0, dp(24)) }
         d.setContentView(NestedScrollView(this).apply { addView(body) })
         d.behavior.state = BottomSheetBehavior.STATE_EXPANDED

@@ -102,6 +102,19 @@ class LocalizationTest {
         assertTrue(de.getString(R.string.err_unreachable) != context("en-US").getString(R.string.err_unreachable))
     }
 
+    @Test fun sizeUnitsAndNameListsFollowTheLanguage() {
+        // Main.mb and the share confirmation use these with the UI context's locale.
+        fun size(tag: String) = android.text.format.Formatter.formatShortFileSize(context(tag), 5_000_000)
+        assertTrue(size("en-US"), "MB" in size("en-US"))
+        assertTrue(size("ru"), "МБ" in size("ru"))
+        assertTrue(size("uk"), "МБ" in size("uk"))
+        assertTrue(size("ar"), "MB" !in size("ar"))
+        fun names(tag: String) = android.icu.text.ListFormatter.getInstance(context(tag).resources.configuration.locales[0]).format(listOf("Alice", "Bob"))
+        assertEquals("Alice and Bob", names("en-US"))
+        assertEquals("Alice и Bob", names("ru"))
+        assertTrue(names("ar"), "و" in names("ar") && "and" !in names("ar"))
+    }
+
     @Test fun arabicIsRightToLeft() {
         val app = RuntimeEnvironment.getApplication()
         assertTrue(app.applicationInfo.flags and ApplicationInfo.FLAG_SUPPORTS_RTL != 0)

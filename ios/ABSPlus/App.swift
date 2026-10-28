@@ -198,10 +198,13 @@ struct MiniPlayer: View {
                 }
                 Spacer(minLength: 0)
                 if player.buffering { ProgressView().accessibilityLabel("Buffering audio") }
-                Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").font(.title3) }
-                    .accessibilityLabel(player.playing ? "Pause" : "Play")
-                Button { player.skip(30) } label: { Image(systemName: "goforward.30").font(.title3) }
-                    .accessibilityLabel("Forward 30 seconds")
+                HStack(spacing: 10) {
+                    Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").font(.title3) }
+                        .accessibilityLabel(player.playing ? "Pause" : "Play")
+                    Button { player.skip(30) } label: { Image(systemName: "goforward.30").font(.title3) }
+                        .accessibilityLabel("Forward 30 seconds")
+                }
+                .environment(\.layoutDirection, .leftToRight) // media controls aren't mirrored in RTL languages
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 12)
@@ -264,10 +267,12 @@ struct FullPlayer: View {
             HStack {
                 Text(fmt(t))
                 Spacer()
-                Text("-" + fmt(n.duration - t))
+                Text(verbatim: "\u{2066}-" + fmt(n.duration - t) + "\u{2069}") // isolated LTR: "-1:02:03", not "1:02:03-"
             }
             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
         }
+        // Media controls and the timeline stay left to right in RTL languages (Material/HIG bidirectionality guidance).
+        .environment(\.layoutDirection, .leftToRight)
         HStack {
             Button(String(format: "%g×", player.speed)) { player.nextSpeed() }
                 .font(.headline.monospacedDigit()).frame(width: 64)
@@ -288,5 +293,6 @@ struct FullPlayer: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.tint)
+        .environment(\.layoutDirection, .leftToRight)
     }
 }

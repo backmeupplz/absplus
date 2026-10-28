@@ -6,7 +6,7 @@
     <string name="tab_favorites">Избранное</string>
     <string name="title_downloaded">Скачанное</string>
     <string name="title_settings">Настройки</string>
-    <string name="title_downloads">Загрузки</string>
+    <string name="title_downloads">Скачивания</string>
     <string name="banner_offline">Нет сети · доступно сохранённое</string>
     <string name="action_retry">Повторить</string>
     <string name="status_connecting">Подключение…</string>
@@ -39,7 +39,7 @@
     <string name="action_sign_in">Войти</string>
     <string name="status_signing_in">Вход…</string>
     <string name="tagline">Компактный и быстрый плеер для Audiobookshelf</string>
-    <string name="confirm_logout">Выйти? Загрузки сохранятся.</string>
+    <string name="confirm_logout">Выйти? Скачанное сохранится.</string>
     <string name="section_continue_listening">Продолжить прослушивание</string>
     <string name="empty_continue_listening">Пока нечего продолжить.</string>
     <string name="section_recently_played">Недавно прослушанное</string>
@@ -95,24 +95,24 @@
     <string name="section_downloading">Скачивается</string>
     <string name="action_cancel_all">Отменить все</string>
     <plurals name="confirm_cancel_all">
-        <item quantity="one">Отменить %d загрузку?</item>
-        <item quantity="few">Отменить все %d загрузки?</item>
-        <item quantity="many">Отменить все %d загрузок?</item>
-        <item quantity="other">Отменить все %d загрузки?</item>
+        <item quantity="one">Отменить %d скачивание?</item>
+        <item quantity="few">Отменить все %d скачивания?</item>
+        <item quantity="many">Отменить все %d скачиваний?</item>
+        <item quantity="other">Отменить все %d скачивания?</item>
     </plurals>
     <string name="section_on_this_device">На этом устройстве</string>
     <string name="action_remove_all">Удалить все</string>
     <plurals name="confirm_remove_all">
-        <item quantity="one">Удалить %1$d загрузку (%2$s) с этого устройства? На сервере ничего не удалится.</item>
-        <item quantity="few">Удалить все %1$d загрузки (%2$s) с этого устройства? На сервере ничего не удалится.</item>
-        <item quantity="many">Удалить все %1$d загрузок (%2$s) с этого устройства? На сервере ничего не удалится.</item>
-        <item quantity="other">Удалить все %1$d загрузки (%2$s) с этого устройства? На сервере ничего не удалится.</item>
+        <item quantity="one">Удалить всё скачанное (%1$d шт., %2$s) с этого устройства? На сервере ничего не удалится.</item>
+        <item quantity="few">Удалить всё скачанное (%1$d шт., %2$s) с этого устройства? На сервере ничего не удалится.</item>
+        <item quantity="many">Удалить всё скачанное (%1$d шт., %2$s) с этого устройства? На сервере ничего не удалится.</item>
+        <item quantity="other">Удалить всё скачанное (%1$d шт., %2$s) с этого устройства? На сервере ничего не удалится.</item>
     </plurals>
-    <string name="confirm_remove_download">Удалить загрузку «%1$s» с этого устройства?</string>
-    <string name="confirm_remove_download_short">Удалить загрузку «%1$s»?</string>
+    <string name="confirm_remove_download">Удалить скачанную копию «%1$s» с этого устройства?</string>
+    <string name="confirm_remove_download_short">Удалить скачанную копию «%1$s»?</string>
     <string name="confirm_cancel_download">Отменить скачивание «%1$s»?</string>
     <string name="action_cancel_download_of">Отменить скачивание «%1$s»</string>
-    <string name="action_remove_download_of">Удалить загрузку «%1$s»</string>
+    <string name="action_remove_download_of">Удалить скачанную копию «%1$s»</string>
     <string name="action_download_of">Скачать «%1$s»</string>
     <string name="action_play_title">Слушать «%1$s»</string>
     <string name="dl_queued">В очереди</string>
@@ -124,13 +124,11 @@
         <item quantity="many">ещё %d</item>
         <item quantity="other">ещё %d</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Скачивание приостановлено. Нажмите «Повторить».</string>
     <string name="dl_could_not_start">Не удалось начать скачивание. Повторите попытку.</string>
     <string name="dl_sign_in_again">Войдите снова, чтобы продолжить скачивание</string>
     <string name="dl_failed">Не удалось скачать (%1$s)</string>
-    <string name="dl_channel">Загрузки</string>
+    <string name="dl_channel">Скачивания</string>
     <string name="action_download">Скачать</string>
     <string name="toast_downloading">Скачивание…</string>
     <string name="action_add_favorite">Добавить в избранное</string>

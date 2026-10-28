@@ -110,8 +110,6 @@
         <item quantity="one">nog %d</item>
         <item quantity="other">nog %d</item>
     </plurals>
-    <string name="size_mb">%1$d MB</string>
-    <string name="size_gb">%1$.1f GB</string>
     <string name="dl_paused">Download gepauzeerd. Tik op Opnieuw.</string>
     <string name="dl_could_not_start">Kan download niet starten. Probeer het opnieuw.</string>
     <string name="dl_sign_in_again">Log opnieuw in om de download te hervatten</string>

@@ -176,7 +176,8 @@ class AccessibilityTest {
         }
     }
 
-    @Test fun miniAndExpandedPlayerFollowPlaybackStateAndLabelSpeedAndSeek() {
+    /** Runs [block] with the activity bound to an in-process 2-minute fixture player paused at 0:30. */
+    private fun withPlayer(block: (FixturePlayer) -> Unit) {
         val player = FixturePlayer()
         val session = MediaSession.Builder(activity, player).build()
         val future = MediaController.Builder(activity, session.token).buildAsync()
@@ -187,32 +188,57 @@ class AccessibilityTest {
         Abs.bindPlayback(Now("fixture-book", null, "A book", "Author", listOf(Track("audio", ".mp3", 0, 120.0, 0.0))), Abs.scope(playback = true))
         try {
             call("updatePlayer")
-            val mini = field("miniPlay").get(activity) as MaterialButton
-            assertEquals("Play", mini.contentDescription)
-            call("openSheet")
-            val sheet = ShadowDialog.getLatestDialog().window!!.decorView
-            val expanded = named(sheet, "Play")
-            named(sheet, "Rewind 30 seconds")
-            named(sheet, "Forward 30 seconds")
-            val slider = named(sheet, "Playback position") as Slider
-            assertEquals(30f, slider.value, 0f)
-            named(sheet, "Playback speed, 1×")
-            player.update(true, 1.5f)
-            shadowOf(Looper.getMainLooper()).idle()
-            call("updatePlayer")
-            assertEquals("Pause", mini.contentDescription)
-            assertEquals("Pause", expanded.contentDescription)
-            named(sheet, "Playback speed, 1.5×")
-            player.update(false)
-            shadowOf(Looper.getMainLooper()).idle()
-            call("updatePlayer")
-            assertEquals("Play", mini.contentDescription)
-            assertEquals("Play", expanded.contentDescription)
+            block(player)
         } finally {
             field("ctl").set(activity, null)
             media.release()
             session.release()
             player.release()
         }
+    }
+
+    @Test fun miniAndExpandedPlayerFollowPlaybackStateAndLabelSpeedAndSeek() = withPlayer { player ->
+        val mini = field("miniPlay").get(activity) as MaterialButton
+        assertEquals("Play", mini.contentDescription)
+        call("openSheet")
+        val sheet = ShadowDialog.getLatestDialog().window!!.decorView
+        val expanded = named(sheet, "Play")
+        named(sheet, "Rewind 30 seconds")
+        named(sheet, "Forward 30 seconds")
+        val slider = named(sheet, "Playback position") as Slider
+        assertEquals(30f, slider.value, 0f)
+        named(sheet, "Playback speed, 1×")
+        player.update(true, 1.5f)
+        shadowOf(Looper.getMainLooper()).idle()
+        call("updatePlayer")
+        assertEquals("Pause", mini.contentDescription)
+        assertEquals("Pause", expanded.contentDescription)
+        named(sheet, "Playback speed, 1.5×")
+        player.update(false)
+        shadowOf(Looper.getMainLooper()).idle()
+        call("updatePlayer")
+        assertEquals("Play", mini.contentDescription)
+        assertEquals("Play", expanded.contentDescription)
+    }
+
+    /** Arabic mirrors the app, but media controls and the timeline keep the usual left-to-right order. */
+    @Config(qualifiers = "ar-ldrtl")
+    @Test fun arabicPlayerKeepsMediaControlsAndTimelineLeftToRight() = withPlayer {
+        call("openSheet")
+        shadowOf(Looper.getMainLooper()).idle()
+        val sheet = ShadowDialog.getLatestDialog().window!!.decorView
+        val rewind = named(sheet, activity.getString(R.string.action_rewind_30))
+        val forward = named(sheet, activity.getString(R.string.action_forward_30))
+        val slider = named(sheet, activity.getString(R.string.playback_position))
+        assertEquals(View.LAYOUT_DIRECTION_RTL, (rewind.parent.parent as View).layoutDirection)
+        assertEquals(View.LAYOUT_DIRECTION_LTR, rewind.layoutDirection)
+        assertTrue("back 30 left of forward 30", rewind.left < forward.left)
+        assertEquals(View.LAYOUT_DIRECTION_LTR, slider.layoutDirection)
+        // (?U): Arabic formats the digits as ٠:٠٠:٣٠; the order is what matters here
+        val times = views(sheet).filterIsInstance<TextView>().filter { it.text.matches(Regex("(?U)-?\\d+:\\d\\d:\\d\\d")) }
+        assertEquals(listOf(Abs.fmt(30.0), "-" + Abs.fmt(90.0)), times.sortedBy { it.left }.map { it.text.toString() })
+        times.forEach { assertEquals(View.LAYOUT_DIRECTION_LTR, it.layoutDirection) }
+        assertEquals(View.TEXT_DIRECTION_LTR, times.single { it.text.startsWith("-") }.textDirection)
+        assertEquals(View.LAYOUT_DIRECTION_LTR, (field("miniProg").get(activity) as View).layoutDirection)
     }
 }
