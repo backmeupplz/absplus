@@ -62,7 +62,7 @@ extension Abs {
             try JSONEncoder().encode(progressDisk).write(to: progressFile, options: .atomic)
             return true
         } catch {
-            say(Msg(errorDescription: "Could not save listening progress: \(error.localizedDescription)"))
+            say(Msg(errorDescription: String(localized: "Could not save listening progress: \(error.localizedDescription)", comment: "Toast; %@ = system error description")))
             return false
         }
     }

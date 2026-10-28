@@ -27,14 +27,14 @@ struct DownloadRetry: Codable {
 
     mutating func fail(_ cause: Error?, code: Int, retryAfter: String?, now: Date = Date()) {
         // Error descriptions can contain request URLs or authorization data. Persist only fixed messages.
-        let reason = code >= 300 ? "HTTP \(code)" : cause is Expired ? "Sign in again" : "Transfer interrupted or file unavailable"
+        let reason = code >= 300 ? "HTTP \(code)" : cause is Expired ? String(localized: "Sign in again", comment: "Download failure reason: the session expired") : String(localized: "Transfer interrupted or file unavailable", comment: "Download failure reason")
         if Self.transient(cause, code: code), attempts < 5 {
             attempts += 1
             next = now.addingTimeInterval(max(min(60, pow(2, Double(attempts))), Self.retryAfter(retryAfter, now: now)))
             error = nil
         } else {
             next = nil
-            error = "\(reason). Tap Retry to continue."
+            error = String(localized: "\(reason). Tap Retry to continue.", comment: "Download error after automatic retries; %@ = reason (e.g. HTTP 404). \"Retry\" is the button label")
         }
     }
 }

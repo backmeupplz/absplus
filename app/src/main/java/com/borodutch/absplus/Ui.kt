@@ -42,12 +42,12 @@ object Covers {
         // A distinct bind token also protects against A → B → A reuse and server switches.
         val binding = Any()
         iv.setTag(R.id.cover_request, binding)
-        if (server.isBlank() || id.isBlank()) { iv.setImageResource(R.drawable.i_auto_stories); iv.contentDescription = "No cover available"; return }
+        if (server.isBlank() || id.isBlank()) { iv.setImageResource(R.drawable.i_auto_stories); iv.contentDescription = iv.context.getString(R.string.cover_none); return }
         val key = "$epoch|$owner|$id"
-        mem.get(key)?.let { iv.setImageBitmap(it); iv.contentDescription = "Cover"; return }
+        mem.get(key)?.let { iv.setImageBitmap(it); iv.contentDescription = iv.context.getString(R.string.cover); return }
         iv.setImageResource(R.drawable.i_auto_stories)
-        iv.contentDescription = "Loading cover"
-        if (key in missing) { iv.contentDescription = "No cover available"; return }
+        iv.contentDescription = iv.context.getString(R.string.cover_loading)
+        if (key in missing) { iv.contentDescription = iv.context.getString(R.string.cover_none); return }
         synchronized(pending) {
             val waiting = pending[key]
             if (waiting != null) { waiting += java.lang.ref.WeakReference(iv) to binding; return }
@@ -83,8 +83,8 @@ object Covers {
             targets.forEach { (ref, token) -> ref.get()?.let { target ->
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                     if (epoch == Abs.mediaEpoch && target.tag == Binding(epoch, id) && target.getTag(R.id.cover_request) === token) {
-                        if (b != null) { target.setImageBitmap(b); target.contentDescription = "Cover" }
-                        else target.contentDescription = if (key in missing) "No cover available" else "Cover unavailable"
+                        if (b != null) { target.setImageBitmap(b); target.contentDescription = target.context.getString(R.string.cover) }
+                        else target.contentDescription = target.context.getString(if (key in missing) R.string.cover_none else R.string.cover_unavailable)
                     }
                 }
             } }
@@ -157,3 +157,17 @@ fun <T : View> T.lp(w: Int = -1, h: Int = -2, weight: Float = 0f, m: Int = 0): T
 }
 
 fun <T : View> T.pad(h: Int, v: Int = h): T = apply { setPadding(context.dp(h), context.dp(v), context.dp(h), context.dp(v)) }
+
+/** The message to show for [e], in the user's language when it is one of ours. */
+fun Context.errorText(e: Throwable): String = when (e) {
+    is Failure -> getString(e.res)
+    is Expired -> getString(R.string.err_expired)
+    is HttpErr -> when (e.code) {
+        401 -> getString(R.string.err_unauthorized)
+        403 -> getString(R.string.err_forbidden)
+        else -> getString(R.string.err_http, e.code)
+    }
+    is java.net.UnknownHostException, is java.net.ConnectException, is java.net.NoRouteToHostException,
+    is java.net.SocketTimeoutException, is javax.net.ssl.SSLException -> getString(R.string.err_unreachable)
+    else -> e.message ?: e.toString()
+}

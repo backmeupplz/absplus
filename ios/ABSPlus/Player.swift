@@ -159,7 +159,7 @@ import UIKit
         guard let n = now, p.currentItem != nil, let generation = scope, valid(generation) else { return }
         if Date().timeIntervalSince(lastRetry) < 30 {
             buffering = false
-            playbackError = "Playback failed: \(e?.localizedDescription ?? "unknown error")"
+            playbackError = String(localized: "Playback failed: \(e?.localizedDescription ?? String(localized: "unknown error", comment: "Fallback reason in \"Playback failed: %@\""))", comment: "Player error; %@ = reason")
             source.toast = playbackError
             return
         }
@@ -262,7 +262,7 @@ import UIKit
             guard requestID == request, valid(generation), account == source.accountGeneration else { return }
             let n: Now
             if let ep = c.ep {
-                guard let e = it.media.episodes?.first(where: { $0.id == ep }), let af = e.audioFile else { throw Msg(errorDescription: "Episode not found") }
+                guard let e = it.media.episodes?.first(where: { $0.id == ep }), let af = e.audioFile else { throw Msg(errorDescription: String(localized: "Episode not found", comment: "Playback error: the podcast episode no longer exists on the server")) }
                 n = Now(item: c.id, ep: ep, title: e.title ?? "", author: it.card.title, tracks: [af.track(0)])
             } else {
                 n = Now(item: c.id, ep: nil, title: c.title, author: c.sub, tracks: (it.media.tracks ?? []).map { $0.track() })
@@ -292,7 +292,7 @@ import UIKit
     }
 
     private func prepare(_ n: Now, _ request: UUID, generation: UUID) async {
-        if n.tracks.isEmpty { source.toast = "No audio"; return }
+        if n.tracks.isEmpty { source.toast = String(localized: "No audio", comment: "Toast: the title has no audio files"); return }
         let account = source.accountGeneration
         let ps = await source.positions(n)
         guard requestID == request, valid(generation), account == source.accountGeneration, !ps.isEmpty else { return }
@@ -373,7 +373,7 @@ import UIKit
                     index = [:]
                     buffering = false
                     playing = false
-                    playbackError = "Playback could not authenticate. Sign in or retry playback."
+                    playbackError = String(localized: "Playback could not authenticate. Sign in or retry playback.", comment: "Player error")
                     source.toast = playbackError
                     info()
                     return

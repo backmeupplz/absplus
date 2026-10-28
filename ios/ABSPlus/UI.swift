@@ -119,7 +119,7 @@ struct Tile: View {
                     }
                 }
             ProgressView(value: min(p, 1)).opacity(p > 0 ? 1 : 0)
-            Text(card.title.isEmpty ? "Loading title…" : card.title).font(.footnote.weight(.semibold)).lineLimit(2)
+            Text(card.title.isEmpty ? String(localized: "Loading title…", comment: "Placeholder while a favorite's title is fetched from the server") : card.title).font(.footnote.weight(.semibold)).lineLimit(2)
             Text(card.sub).font(.caption).foregroundStyle(.secondary).lineLimit(1)
         }
         .contentShape(.rect)
@@ -191,7 +191,7 @@ struct DlButton: View {
         let busy = !done && app.queued(n) && !failed
         Button {
             if done || busy { ask = true } else {
-                app.toast = "Downloading…"
+                app.toast = String(localized: "Downloading…", comment: "Toast after tapping the download button")
                 Task { await app.download(n) }
             }
         } label: {
@@ -230,9 +230,9 @@ struct DlRing: View {
 /// "45% · 47 MB of 105 MB", or "Waiting" until the first bytes arrive
 @MainActor func dlStatus(_ n: Now) -> String {
     if let error = app.downloadError(n) { return error }
-    if app.downloadWaiting(n) { return "Waiting to retry…" }
+    if app.downloadWaiting(n) { return String(localized: "Waiting to retry…", comment: "Download status: a failed file will be retried automatically") }
     let (have, total) = app.dlBytes(n)
-    return have > 0 && total > 0 ? "\(Int(Double(have) / Double(total) * 100))% · \(bytes(have)) of \(bytes(total))" : "Waiting"
+    return have > 0 && total > 0 ? String(localized: "\(Int(Double(have) / Double(total) * 100))% · \(bytes(have)) of \(bytes(total))", comment: "Download status; %1$lld = percent done, %2$@ = bytes received, %3$@ = total size (e.g. 45% · 47 MB of 105 MB)") : String(localized: "Waiting", comment: "Download status: queued, no bytes received yet")
 }
 
 /// The title downloading now, above the player; tapping it opens Downloads.
@@ -248,7 +248,7 @@ struct DlBar: View {
                     Cover(id: n.item, radius: 6).frame(width: 32, height: 32)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(n.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                        Text(dlStatus(n) + (more > 0 ? " · \(more) more" : "")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Text(dlStatus(n) + (more > 0 ? " · " + String(localized: "\(more) more", comment: "Download bar: number of other titles still queued; %lld = count") : "")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         ProgressView(value: total > 0 ? min(1, Double(have) / Double(total)) : 0)
                     }
                     Image(systemName: "arrow.down.circle").foregroundStyle(.secondary)

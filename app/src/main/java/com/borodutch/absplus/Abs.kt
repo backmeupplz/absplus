@@ -62,6 +62,8 @@ class Pos(val who: String, val time: Double, val at: Long)
 class HttpErr(val code: Int) : IOException(when (code) { 401 -> "Unauthorized (401)"; 403 -> "Not allowed (403)"; else -> "HTTP $code" })
 class StaleSession : Expired()
 open class Expired : IOException("Session expired, please log in again")
+/** An error whose message the user sees: [res] is its translation, [message] the English text. */
+class Failure(val res: Int, message: String) : IOException(message)
 
 /** Server API, accounts, downloads, progress. Everything lives in one SharedPreferences file. */
 class StaleScope : Expired()
@@ -227,7 +229,7 @@ object Abs {
     private fun credentials(u: JSONObject, base: String): Pair<String, String> {
         val name = u.getString("username")
         val access = u.str("accessToken").ifEmpty { u.str("token") }
-        if (name.isBlank() || access.isEmpty()) throw IOException("Invalid login response")
+        if (name.isBlank() || access.isEmpty()) throw Failure(R.string.err_invalid_login, "Invalid login response")
         val userId = u.str("id").takeIf { it.isNotBlank() }
         return name to JSONObject().put("a", access).put("r", u.str("refreshToken")).put("server", base)
             .put("id", java.util.UUID.randomUUID().toString()).put("userId", userId)
@@ -238,9 +240,9 @@ object Abs {
     fun login(url: String, user: String, pass: String, main: Boolean, attempt: LoginAttempt = beginLogin()): String {
         val base = if (main) url.trim().trimEnd('/').let { if ("://" in it) it else "https://$it" }
             else inSession(attempt.epoch) { if (me == null) throw Expired(); server }
-        val parsed = URL(base)
+        val parsed = try { URL(base) } catch (_: java.net.MalformedURLException) { throw Failure(R.string.err_invalid_url, "Invalid server URL") }
         if (parsed.protocol !in listOf("http", "https") || parsed.host.isBlank() || parsed.userInfo != null || parsed.query != null || parsed.ref != null)
-            throw IOException("Invalid server URL")
+            throw Failure(R.string.err_invalid_url, "Invalid server URL")
         fun check() {
             checkSession(attempt.epoch)
             if (attempt.cancelled || attempt.revision != loginRevision) throw StaleSession()
@@ -251,9 +253,11 @@ object Abs {
             http("POST", "/login", body, mapOf("x-return-tokens" to "true"), base)
         } catch (e: HttpErr) {
             synchronized(mediaLock) { check() }
-            throw if (e.code == 401) IOException("Wrong username or password") else e
+            throw if (e.code == 401) Failure(R.string.err_wrong_password, "Wrong username or password") else e
         }
-        val (name, tok) = credentials(JSONObject(r).getJSONObject("user"), base)
+        // anything but an Audiobookshelf login reply (e.g. some other web page at that address)
+        val (name, tok) = try { credentials(JSONObject(r).getJSONObject("user"), base) }
+            catch (_: org.json.JSONException) { throw Failure(R.string.err_invalid_login, "Invalid login response") }
         return synchronized(mediaLock) {
             check()
             if (main) {
@@ -541,14 +545,15 @@ object Abs {
     fun downloads() = if (mediaServer == null || me == null) emptyList() else File(mediaDir, "audio").listFiles { f -> f.isDirectory && f.list()?.any { !it.endsWith(".part") } == true }?.toList() ?: emptyList()
 
     /** title/author from the item page's cached json */
-    fun cachedCard(id: String) = runCatching { Card.item(JSONObject(cached("/api/items/$id?expanded=1")!!)) }.getOrElse { Card(id, "Unknown item", "") }
+    /** [unknown] is the title shown when the item's details aren't cached (translated by the caller). */
+    fun cachedCard(id: String, unknown: String) = runCatching { Card.item(JSONObject(cached("/api/items/$id?expanded=1")!!)) }.getOrElse { Card(id, unknown, "") }
 
     class DlRow(val card: Card, val files: List<File>, val remove: () -> Unit) { val size get() = files.sumOf { it.length() } }
 
     /** a row per downloaded book and per downloaded podcast episode; podcast files the cached json can't name stay on the podcast's row */
-    fun downloadRows(): List<DlRow> = downloads().flatMap { d ->
+    fun downloadRows(unknown: String): List<DlRow> = downloads().flatMap { d ->
         val files = d.listFiles { f -> !f.name.endsWith(".part") }.orEmpty().toList()
-        val item = cachedCard(d.name)
+        val item = cachedCard(d.name, unknown)
         val eps = runCatching { JSONObject(cached("/api/items/${d.name}?expanded=1")!!).getJSONObject("media").getJSONArray("episodes") }.getOrNull()
             ?: return@flatMap listOf(DlRow(item, files) { removeAll(d) })
         val rows = (0 until eps.length()).map { eps.getJSONObject(it) }.mapNotNull { e ->
@@ -601,10 +606,10 @@ object Abs {
     fun positions(n: Now, captured: Scope = scope()): List<Pos> {
         val request = inScope(captured) { scope() }
         val saved = inScope(request) { progressSync.local()[n.key] }
-        val local = saved?.let { Pos("You", if (it.optBoolean("isFinished")) 0.0 else it.optDouble("currentTime"), it.optLong("lastUpdate")) }
-            ?: p.getString("pos:${n.key}", null)?.split(',')?.let { Pos("You", it[0].toDouble(), it[1].toLong()) }
-        val mine = listOfNotNull(local, me?.takeUnless { offline }?.let { remote(it, n.key, request) }?.let { Pos("You", it.time, it.at) })
-            .maxByOrNull { it.at } ?: Pos("You", 0.0, 0)
+        val local = saved?.let { Pos("", if (it.optBoolean("isFinished")) 0.0 else it.optDouble("currentTime"), it.optLong("lastUpdate")) }
+            ?: p.getString("pos:${n.key}", null)?.split(',')?.let { Pos("", it[0].toDouble(), it[1].toLong()) }
+        val mine = listOfNotNull(local, me?.takeUnless { offline }?.let { remote(it, n.key, request) }?.let { Pos("", it.time, it.at) })
+            .maxByOrNull { it.at } ?: Pos("", 0.0, 0)
         val result = listOf(mine) + inScope(request) { if (offline) emptySet() else shares(n.item) }.mapNotNull { remote(it, n.key, request) }
             .filter { it.at > mine.at && abs(it.time - mine.time) > 30 }
         return inScope(request) { result }

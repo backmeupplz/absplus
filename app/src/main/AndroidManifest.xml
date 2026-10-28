@@ -13,6 +13,7 @@
         android:theme="@style/App"
         android:usesCleartextTraffic="true"
         android:allowBackup="false"
+        android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true">
         <activity android:name=".Main" android:exported="true" android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">

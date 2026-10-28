@@ -129,7 +129,7 @@ struct LibraryView: View {
         .scrollPosition(id: $visibleTitle)
         .onChange(of: "\(sel):\(app.offline):\(query)") { visibleTitle = nil }
         .id("\(sel):\(app.offline):\(query)") // only a new list context resets the viewport
-        .navigationTitle(app.offline ? "Downloaded" : libs.first { $0.id == sel }?.name ?? "Library")
+        .navigationTitle(app.offline ? String(localized: "Downloaded", comment: "Library screen title when offline: titles downloaded on this device") : libs.first { $0.id == sel }?.name ?? String(localized: "Library", comment: "Library tab and screen title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarTitleMenu {
             if !app.offline {
@@ -193,7 +193,7 @@ struct SeriesView: View {
                         ForEach(ss, id: \.id) { s in
                             let cards = avail(s.books.map(\.card))
                             NavigationLink(value: Route.shelf(s.name, s.books.map(\.card), ratio(l.id))) {
-                                Row(card: Card(id: cards.first?.id ?? "", title: s.name, sub: ""), meta: "\(cards.count) book\(cards.count == 1 ? "" : "s")")
+                                Row(card: Card(id: cards.first?.id ?? "", title: s.name, sub: ""), meta: String(localized: "\(cards.count) books", comment: "Series row subtitle; %lld = number of books in the series"))
                             }
                         }
                     } header: {
@@ -296,7 +296,7 @@ struct SettingsView: View {
                             .buttonStyle(.borderless).accessibilityLabel("Unlink \(a)")
                     } label: {
                         Text(a)
-                        Text("Shared on \(n) title\(n == 1 ? "" : "s")")
+                        Text("Shared on \(n) titles")
                     }
                 }
                 Button("Link account", systemImage: "person.badge.plus") { linking = true }
@@ -307,7 +307,7 @@ struct SettingsView: View {
             }
             Section("Storage") {
                 NavigationLink(value: Route.downloads) {
-                    LabeledContent("Downloads", value: "\(dls.count) item\(dls.count == 1 ? "" : "s") · \(bytes(total))" + (app.dlq.isEmpty ? "" : " · \(app.dlq.count) downloading"))
+                    LabeledContent("Downloads", value: String(localized: "\(dls.count) items", comment: "Number of downloaded items; %lld = count") + " · \(bytes(total))" + (app.dlq.isEmpty ? "" : " · " + String(localized: "\(app.dlq.count) downloading", comment: "Number of titles currently downloading; %lld = count")))
                 }
             }
             Section("About") {
@@ -378,8 +378,8 @@ struct LinkAccount: View {
             defer { busy = false }
             do {
                 let n = try await app.login(app.server, user, pass, main: false)
-                if n == app.me { err = "That's you" } else {
-                    app.toast = "Linked \(n)"
+                if n == app.me { err = String(localized: "That's you", comment: "Error: tried to link the account that is already signed in") } else {
+                    app.toast = String(localized: "Linked \(n)", comment: "Toast after linking an account; %@ = username")
                     dismiss()
                     then()
                 }
@@ -436,7 +436,7 @@ struct DownloadsView: View {
                             .swipeActions { Button("Remove", role: .destructive) { d.remove() } }
                     }
                 } header: {
-                    Text("\(items.count) item\(items.count == 1 ? "" : "s") · \(bytes(total))")
+                    Text(String(localized: "\(items.count) items", comment: "Number of downloaded items; %lld = count") + " · \(bytes(total))")
                 } footer: {
                     Text("Swipe left to remove a download. Nothing is deleted on the server.")
                 }
@@ -537,8 +537,8 @@ struct ItemView: View {
         if book {
             let n = Now(item: c.id, ep: nil, title: c.title, author: c.sub, tracks: (it.media.tracks ?? []).map { $0.track() })
             let p = app.pct(c.id) ?? 0
-            let meta = [fmt(n.duration), n.tracks.count > 1 ? "\(n.tracks.count) files" : nil,
-                        p >= 1 ? "Finished" : p > 0 ? "\(Int(p * 100))% done" : nil].compactMap { $0 }
+            let meta = [fmt(n.duration), n.tracks.count > 1 ? String(localized: "\(n.tracks.count) files", comment: "Book info: number of audio files; %lld = count") : nil,
+                        p >= 1 ? String(localized: "Finished", comment: "Listening status: the title was listened to the end") : p > 0 ? String(localized: "\(Int(p * 100))% done", comment: "Book info: listening progress; %lld = percent") : nil].compactMap { $0 }
             Text(meta.joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
             HStack(spacing: 12) {
                 Button { playback.play(n) } label: {
@@ -596,7 +596,7 @@ struct EpisodeRow: View {
 
     var body: some View {
         let p = app.pct(n.key)
-        let meta = [date, fmt(n.duration), p.map { $0 >= 1 ? "Finished" : "\(Int($0 * 100))%" }].compactMap { $0 }
+        let meta = [date, fmt(n.duration), p.map { $0 >= 1 ? String(localized: "Finished", comment: "Listening status: the title was listened to the end") : "\(Int($0 * 100))%" }].compactMap { $0 }
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(n.title).font(.subheadline.weight(.semibold)).lineLimit(2)
@@ -658,7 +658,7 @@ struct ShareSheet: View {
                 Button("Cancel", role: .cancel) {}
                 Button("Share") {
                     save()
-                    app.toast = "Progress shared"
+                    app.toast = String(localized: "Progress shared", comment: "Toast after sharing listening progress with linked accounts")
                 }
             } message: {
                 Text("Listening here will update their progress too, and you'll be offered their position when they're ahead.")

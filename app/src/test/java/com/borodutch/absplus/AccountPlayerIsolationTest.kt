@@ -177,7 +177,7 @@ class AccountPlayerIsolationTest {
             } finally { activity.pause().stop().destroy() }
             assertEquals(16044, bytes.length().toInt())
             host.login("A")
-            assertEquals(root, Abs.mediaDir); assertEquals("A private title", Abs.cachedCard("book").title)
+            assertEquals(root, Abs.mediaDir); assertEquals("A private title", Abs.cachedCard("book", "").title)
             assertTrue(Abs.done("book", track)); assertEquals("file", Abs.uri("book", track).scheme)
             assertFalse(Abs.done("legacy", track)); assertTrue(quarantined.exists()); assertTrue(unscoped.exists())
             assertTrue(legacyJSON.readText().contains("A private title"))

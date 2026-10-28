@@ -123,8 +123,8 @@ class RetainedTest {
             Dl.clear()
             Abs.offline = true
             assertEquals(setOf("book", "pod"), Abs.downloads().map { it.name }.toSet())
-            assertEquals("Book", Abs.cachedCard("book").title)
-            assertEquals("Podcast", Abs.cachedCard("pod").title)
+            assertEquals("Book", Abs.cachedCard("book", "").title)
+            assertEquals("Podcast", Abs.cachedCard("pod", "").title)
             assertTrue(Abs.downloaded("book")); assertTrue(Abs.downloaded("pod"))
             assertEquals("file", Abs.uri("book", t).scheme)
             val book = Abs.cached("/api/items/book?expanded=1")!!

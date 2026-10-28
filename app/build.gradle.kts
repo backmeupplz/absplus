@@ -29,6 +29,8 @@ android {
     }
     // F-Droid rejects APKs carrying Google's encrypted dependency block, which blocks reproducible builds there. Play still gets it from the bundle.
     dependenciesInfo { includeInApk = false }
+    // The in-app language list in Android 13+ settings comes from the values-* folders.
+    androidResources { generateLocaleConfig = true }
     sourceSets["main"].kotlin.srcDir(if (play) "src/play/java" else "src/fdroid/java")
     testOptions {
         unitTests.isIncludeAndroidResources = true

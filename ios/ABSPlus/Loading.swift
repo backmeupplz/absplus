@@ -32,7 +32,7 @@ import SwiftUI
 
 extension View {
     /// Failed refreshes must not cover the retained titles or intercept their taps.
-    func loadingFeedback(state: Loading, empty: Bool, title: String, detail: String = "", retry: @escaping () async -> Void) -> some View {
+    func loadingFeedback(state: Loading, empty: Bool, title: LocalizedStringKey, detail: LocalizedStringKey? = nil, retry: @escaping () async -> Void) -> some View {
         let retainedError = !empty && state.error != nil
         // A safe-area inset moves the initial content but a ScrollView still
         // draws and hit-tests scrolled rows underneath it. A real sibling keeps
@@ -50,8 +50,8 @@ extension View {
 struct LoadingFeedback: View {
     let state: Loading
     let empty: Bool
-    let title: String
-    var detail = ""
+    let title: LocalizedStringKey
+    var detail: LocalizedStringKey?
     let retry: () async -> Void
 
     var body: some View {
@@ -74,7 +74,7 @@ struct LoadingFeedback: View {
                 }.padding().background(.regularMaterial, in: .rect(cornerRadius: 12))
                     .accessibilityElement(children: .contain)
             } else if empty {
-                ContentUnavailableView(title, systemImage: app.offline ? "wifi.slash" : "tray", description: Text(detail))
+                ContentUnavailableView(title, systemImage: app.offline ? "wifi.slash" : "tray", description: detail.map { Text($0) } ?? Text(verbatim: ""))
             }
             if empty || state.error == nil { Spacer() }
         }.padding()

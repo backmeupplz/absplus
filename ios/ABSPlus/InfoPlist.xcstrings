@@ -1,0 +1,170 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "Bundle display name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "ABS+"
+          }
+        }
+      },
+      "shouldTranslate" : false
+    },
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "ABSPlus"
+          }
+        }
+      },
+      "shouldTranslate" : false
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "iOS permission prompt for local network access (Info.plist NSLocalNetworkUsageDescription). \"ABS+\" and \"Audiobookshelf\" are product names: do not translate",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يتصل ABS+ بخادم Audiobookshelf الخاص بك، والذي قد يكون على شبكتك المحلية."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ verbindet sich mit deinem Audiobookshelf-Server, der sich in deinem lokalen Netzwerk befinden kann."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ connects to your Audiobookshelf server, which may be on your local network."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ se conecta a tu servidor de Audiobookshelf, que puede estar en tu red local."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ se connecte à votre serveur Audiobookshelf, qui peut se trouver sur votre réseau local."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ आपके Audiobookshelf सर्वर से कनेक्ट होता है, जो आपके लोकल नेटवर्क पर हो सकता है।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ terhubung ke server Audiobookshelf Anda, yang mungkin berada di jaringan lokal."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ si connette al tuo server Audiobookshelf, che potrebbe trovarsi sulla tua rete locale."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+はお使いのAudiobookshelfサーバーに接続します。サーバーはローカルネットワーク上にある場合があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+는 로컬 네트워크에 있을 수 있는 Audiobookshelf 서버에 연결합니다."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ maakt verbinding met je Audiobookshelf-server, die mogelijk in je lokale netwerk staat."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ łączy się z serwerem Audiobookshelf, który może znajdować się w sieci lokalnej."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O ABS+ se conecta ao seu servidor Audiobookshelf, que pode estar na sua rede local."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O ABS+ liga-se ao seu servidor Audiobookshelf, que pode estar na rede local."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ подключается к вашему серверу Audiobookshelf, который может находиться в локальной сети."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ ansluter till din Audiobookshelf-server, som kan finnas i ditt lokala nätverk."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ จะเชื่อมต่อกับเซิร์ฟเวอร์ Audiobookshelf ของคุณ ซึ่งอาจอยู่ในเครือข่ายภายใน"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+, yerel ağınızda olabilecek Audiobookshelf sunucunuza bağlanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ підключається до вашого сервера Audiobookshelf, який може бути в локальній мережі."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ kết nối với máy chủ Audiobookshelf của bạn, máy chủ này có thể nằm trong mạng cục bộ."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ 需要连接你的 Audiobookshelf 服务器，该服务器可能位于本地网络中。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABS+ 會連線至你的 Audiobookshelf 伺服器，該伺服器可能位於你的區域網路中。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

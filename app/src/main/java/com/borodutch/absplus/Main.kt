@@ -126,17 +126,17 @@ class Main : AppCompatActivity() {
         mini = miniPlayer()
         dlBar = downloadBar()
         nav = BottomNavigationView(this).apply {
-            menu.add(0, 0, 0, "Home").setIcon(R.drawable.i_home)
-            menu.add(0, 1, 1, "Library").setIcon(R.drawable.i_auto_stories)
-            menu.add(0, 2, 2, "Series").setIcon(R.drawable.i_collections_bookmark)
-            menu.add(0, 3, 3, "Favorites").setIcon(R.drawable.i_favorite)
+            menu.add(0, 0, 0, getString(R.string.tab_home)).setIcon(R.drawable.i_home)
+            menu.add(0, 1, 1, getString(R.string.tab_library)).setIcon(R.drawable.i_auto_stories)
+            menu.add(0, 2, 2, getString(R.string.tab_series)).setIcon(R.drawable.i_collections_bookmark)
+            menu.add(0, 3, 3, getString(R.string.tab_favorites)).setIcon(R.drawable.i_favorite)
             setOnItemSelectedListener { tab(it.itemId); true }
             setOnItemReselectedListener { tab(it.itemId) }
             labelVisibilityMode = com.google.android.material.navigation.NavigationBarView.LABEL_VISIBILITY_LABELED
         }
         banner = row(
-            text("Offline · saved content available", M.attr.textAppearanceLabelLarge).apply { setTextColor(color(M.attr.colorOnErrorContainer)) }.lp(0, -2, 1f),
-            button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) { retryConnection() }
+            text(getString(R.string.banner_offline), M.attr.textAppearanceLabelLarge).apply { setTextColor(color(M.attr.colorOnErrorContainer)) }.lp(0, -2, 1f),
+            button(getString(R.string.action_retry), style = androidx.appcompat.R.attr.borderlessButtonStyle) { retryConnection() }
                 .apply { setTextColor(color(M.attr.colorOnErrorContainer)) },
         ).pad(16, 0).apply { setBackgroundColor(color(M.attr.colorErrorContainer)); visibility = View.GONE }
         setContentView(col(content.lp(-1, 0, 1f), banner, dlBar, mini, nav))
@@ -218,11 +218,11 @@ class Main : AppCompatActivity() {
         pinging = true
         val retry = (banner as ViewGroup).getChildAt(1) as MaterialButton
         retry.isEnabled = false
-        retry.text = "Connecting…"
-        bg({ Abs.ping() }, { pinging = false; retry.isEnabled = true; retry.text = "Retry" }) {
+        retry.text = getString(R.string.status_connecting)
+        bg({ Abs.ping() }, { pinging = false; retry.isEnabled = true; retry.text = getString(R.string.action_retry) }) {
             pinging = false
             retry.isEnabled = true
-            retry.text = "Retry"
+            retry.text = getString(R.string.action_retry)
             refreshConnection()
         }
     }
@@ -313,31 +313,31 @@ class Main : AppCompatActivity() {
         private val spinner = CircularProgressIndicator(this@Main).apply {
             isIndeterminate = true; indicatorSize = dp(20); trackThickness = dp(2)
         }
-        private val retry = button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) {}
+        private val retry = button(getString(R.string.action_retry), style = androidx.appcompat.R.attr.borderlessButtonStyle) {}
         val view = row(spinner.lp(dp(28), dp(28)), message.lp(0, -2, 1f), retry).pad(16, 4).apply {
             setBackgroundColor(color(M.attr.colorSurface))
         }
         fun loading(retained: Boolean) {
             view.isVisible = true; spinner.isVisible = true; retry.isVisible = false
-            message.text = if (retained) "Updating $label…" else "Loading $label…"
+            message.text = getString(if (retained) R.string.status_updating else R.string.status_loading, label)
         }
         fun success() { view.isVisible = false }
         fun failed(retained: Boolean, e: Throwable, again: () -> Unit) {
             view.isVisible = true; spinner.isVisible = false; retry.isVisible = true
             message.text = if (Abs.offline) {
-                if (retained) "Offline · showing saved $label" else "Offline · $label unavailable"
-            } else if (retained) "Couldn't update $label. Showing saved content." else "Couldn't load $label."
+                getString(if (retained) R.string.status_offline_saved else R.string.status_offline_unavailable, label)
+            } else getString(if (retained) R.string.status_update_failed else R.string.status_load_failed, label)
             val expired = e is Expired || e is HttpErr && e.code == 401
-            if (expired) { message.text = "Session expired. Sign in again."; retry.text = "Sign in" } else retry.text = "Retry"
+            if (expired) { message.text = getString(R.string.status_session_expired); retry.text = getString(R.string.action_sign_in) } else retry.text = getString(R.string.action_retry)
             retry.setOnClickListener { if (expired) login() else again() }
         }
     }
 
     private fun header(title: String) =
-        row(text(title, M.attr.textAppearanceHeadlineMedium).lp(0, -2, 1f), icon(R.drawable.i_settings, "Settings") { push(::settings) }).pad(16, 8)
+        row(text(title, M.attr.textAppearanceHeadlineMedium).lp(0, -2, 1f), icon(R.drawable.i_settings, getString(R.string.action_settings)) { push(::settings) }).pad(16, 8)
 
     private fun subHeader(title: String) =
-        row(icon(R.drawable.i_arrow_back, "Back") { pop() }, text(title, M.attr.textAppearanceTitleLarge, 1).lp(0, -2, 1f)).pad(4, 4)
+        row(icon(R.drawable.i_arrow_back, getString(R.string.action_back)) { pop() }, text(title, M.attr.textAppearanceTitleLarge, 1).lp(0, -2, 1f)).pad(4, 4)
 
     private fun section(title: String) = text(title, M.attr.textAppearanceTitleMedium).pad(16, 12)
 
@@ -364,14 +364,14 @@ class Main : AppCompatActivity() {
         stack.clear()
         back.isEnabled = false
         nav.isVisible = false
-        val url = field("Server URL", Abs.server, InputType.TYPE_TEXT_VARIATION_URI)
-        val user = field("Username")
-        val pass = field("Password", "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
-        val go = button("Sign in") {}
+        val url = field(getString(R.string.hint_server_url), Abs.server, InputType.TYPE_TEXT_VARIATION_URI)
+        val user = field(getString(R.string.hint_username))
+        val pass = field(getString(R.string.hint_password), "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        val go = button(getString(R.string.action_sign_in)) {}
         go.setOnClickListener {
             if (!go.isEnabled) return@setOnClickListener
             go.isEnabled = false
-            go.text = "Signing in…"
+            go.text = getString(R.string.status_signing_in)
             val gen = screen
             val attempt = Abs.beginLogin().also { loginAttempt = it }
             val base = url.str(); val username = user.str(); val password = pass.str()
@@ -379,7 +379,7 @@ class Main : AppCompatActivity() {
                 val result = runCatching { Abs.login(base, username, password, true, attempt) }
                 runOnUiThread {
                     if (!isDestroyed && gen == screen && loginAttempt === attempt && !attempt.cancelled) {
-                        result.fold({ if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 }, { go.isEnabled = true; go.text = "Sign in"; err(it) })
+                        result.fold({ if (nav.selectedItemId == 0) tab(0) else nav.selectedItemId = 0 }, { go.isEnabled = true; go.text = getString(R.string.action_sign_in); err(it) })
                     }
                 }
             }
@@ -387,13 +387,13 @@ class Main : AppCompatActivity() {
         val logo = ImageView(this).apply { setImageResource(R.drawable.logo) }.lp(dp(96), dp(96), m = 8)
         val c = col(
             logo, text("ABS+", M.attr.textAppearanceHeadlineMedium).apply { gravity = Gravity.CENTER },
-            text("A tiny, fast Audiobookshelf player", muted = true).apply { gravity = Gravity.CENTER }.pad(0, 4).lp(m = 8),
+            text(getString(R.string.tagline), muted = true).apply { gravity = Gravity.CENTER }.pad(0, 4).lp(m = 8),
             url.lp(m = 4), user.lp(m = 4), pass.lp(m = 4), go.lp(m = 8), pad = 24,
         ).apply { gravity = Gravity.CENTER_HORIZONTAL }
         show(NestedScrollView(this).apply { addView(c) })
     }
 
-    private fun logout() = confirm("Log out? Downloads are kept.") {
+    private fun logout() = confirm(getString(R.string.confirm_logout)) {
         ctl?.clearMediaItems()
         Abs.logout()
         login()
@@ -416,17 +416,21 @@ class Main : AppCompatActivity() {
                 v.setOnLongClickListener { push { item(items[i].id) }; true }
             })
         }
-        val contTitle = section("Continue listening")
-        val empty = text("Nothing to continue listening to.", muted = true).pad(16, 4).apply { isVisible = false }
+        val contTitle = section(getString(R.string.section_continue_listening))
+        val empty = text(getString(R.string.empty_continue_listening), muted = true).pad(16, 4).apply { isVisible = false }
         val hist = col()
         var loaded = false
-        val page = NestedScrollView(this).apply { addView(col(header("Home"), contTitle, cont, empty, section("Recently played"), hist).pad(0, 0)) }
+        val page = NestedScrollView(this).apply { addView(col(header(getString(R.string.tab_home)), contTitle, cont, empty, section(getString(R.string.section_recently_played)), hist).pad(0, 0)) }
         fun refresh() {
             val lm = cont.layoutManager as LinearLayoutManager
             val first = lm.findFirstVisibleItemPosition()
             val anchor = lm.findViewByPosition(first)
             val key = (anchor?.tag as? Tile)?.key
-            val offset = anchor?.let { lm.getDecoratedLeft(it) - cont.paddingLeft }
+            // right to left, the offset is measured from the end (right) edge
+            val offset = anchor?.let {
+                if (cont.layoutDirection == View.LAYOUT_DIRECTION_RTL) cont.width - cont.paddingRight - lm.getDecoratedRight(it)
+                else lm.getDecoratedLeft(it) - cont.paddingLeft
+            }
             items = avail(all)
             empty.isVisible = loaded && items.isEmpty()
             contTitle.isVisible = loaded || items.isNotEmpty()
@@ -438,14 +442,14 @@ class Main : AppCompatActivity() {
             Abs.history().filter { !Abs.offline || Abs.downloaded(it.first) }.forEach { (c, at) ->
                 hist.addView(listRow(c, DateUtils.getRelativeTimeSpanString(at), { playCard(c) }) { push { item(c.id) } })
             }
-            if (hist.childCount == 0) hist.addView(text("Nothing played on this device yet.", muted = true).pad(16, 4))
+            if (hist.childCount == 0) hist.addView(text(getString(R.string.empty_recently_played), muted = true).pad(16, 4))
         }
         onReturn = { refresh() }
         onDl = onReturn
         show(page)
         refresh()
-        load("/api/me", retained = true, label = "progress") { cont.adapter?.notifyDataSetChanged() }
-        load("/api/me/items-in-progress?limit=20", retained = true, label = "continue listening") { j ->
+        load("/api/me", retained = true, label = getString(R.string.label_progress)) { cont.adapter?.notifyDataSetChanged() }
+        load("/api/me/items-in-progress?limit=20", retained = true, label = getString(R.string.label_continue_listening)) { j ->
             val a = j.getJSONArray("libraryItems")
             loaded = true
             all = (0 until a.length()).map { a.getJSONObject(it) }.map { li ->
@@ -462,7 +466,7 @@ class Main : AppCompatActivity() {
         begin()
         retainPage = true
         val chips = ChipGroup(this).apply { isSingleLine = true; isSingleSelection = true; isSelectionRequired = true }
-        val search = field("Search titles & authors").apply {
+        val search = field(getString(R.string.hint_search)).apply {
             startIconDrawable = ContextCompat.getDrawable(context, R.drawable.i_search)
             val r = dp(28).toFloat()
             setBoxCornerRadii(r, r, r, r)
@@ -470,7 +474,7 @@ class Main : AppCompatActivity() {
         val empty = text("", muted = true).pad(16, 4).apply { isVisible = false }
         var loaded = false
         var membershipLoaded = false
-        var online = if (Abs.offline) Abs.downloads().map { Abs.cachedCard(it.name) } else listOf<Card>()
+        var online = if (Abs.offline) Abs.downloads().map { Abs.cachedCard(it.name, getString(R.string.unknown_item)) } else listOf<Card>()
         var shown = online
         var sel = Abs.p.getString("lib", null)
         val owner = screen
@@ -480,7 +484,7 @@ class Main : AppCompatActivity() {
             (owner == screen || stack.any { it.generation == owner })
         var request = 0
         var g = grid(Abs.p.getFloat("ratio:$sel", 1f)) { shown }
-        val heading = header("Library")
+        val heading = header(getString(R.string.tab_library))
         val title = heading.getChildAt(0) as TextView
         val selector = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }.pad(16, 0)
         fun filter(preservePosition: Boolean = true) {
@@ -488,14 +492,14 @@ class Main : AppCompatActivity() {
             val first = lm.findFirstVisibleItemPosition()
             val key = (lm.findViewByPosition(first)?.tag as? Tile)?.key
             val offset = lm.findViewByPosition(first)?.let { lm.getDecoratedTop(it) - g.paddingTop }
-            val all = if (Abs.offline) Abs.downloads().map { Abs.cachedCard(it.name) } else online
+            val all = if (Abs.offline) Abs.downloads().map { Abs.cachedCard(it.name, getString(R.string.unknown_item)) } else online
             val q = search.str().trim()
             shown = avail(if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.sub.contains(q, true) })
-            title.text = if (Abs.offline) "Downloaded" else "Library"
+            title.text = getString(if (Abs.offline) R.string.title_downloaded else R.string.tab_library)
             selector.isVisible = !Abs.offline
-            empty.text = if (Abs.offline && q.isEmpty()) "Nothing downloaded on this device."
-                else if (!Abs.offline && membershipLoaded && sel == null) "No libraries available."
-                else if (q.isNotEmpty()) "No matching titles." else "No titles in this library."
+            empty.text = if (Abs.offline && q.isEmpty()) getString(R.string.empty_downloaded)
+                else if (!Abs.offline && membershipLoaded && sel == null) getString(R.string.empty_libraries)
+                else if (q.isNotEmpty()) getString(R.string.empty_search) else getString(R.string.empty_library)
             empty.isVisible = (loaded || Abs.offline || membershipLoaded && sel == null) && shown.isEmpty()
             g.adapter?.notifyDataSetChanged()
             if (!preservePosition) lm.scrollToPositionWithOffset(0, 0)
@@ -516,7 +520,7 @@ class Main : AppCompatActivity() {
             }
             fun valid() = ownsLibrary() && current == request
             // Cached membership must never authorize requests to a revoked library.
-            load("/api/libraries", retained = true, label = "libraries", cacheFirst = false, valid = ::valid) membership@{ j ->
+            load("/api/libraries", retained = true, label = getString(R.string.label_libraries), cacheFirst = false, valid = ::valid) membership@{ j ->
                 if (Abs.offline) return@membership
                 val libs = j.getJSONArray("libraries")
                 val available = (0 until libs.length()).map { libs.getJSONObject(it).getString("id") }
@@ -552,7 +556,7 @@ class Main : AppCompatActivity() {
                     page.addView(g.lp(-1, 0, 1f))
                 }
                 load("/api/libraries/$selected/items?minified=1&sort=media.metadata.title", retained = true,
-                    label = "titles", valid = { valid() && sel == selected }) titles@{ json ->
+                    label = getString(R.string.label_titles), valid = { valid() && sel == selected }) titles@{ json ->
                     if (Abs.offline) return@titles
                     val r = json.getJSONArray("results")
                     loaded = true
@@ -560,7 +564,7 @@ class Main : AppCompatActivity() {
                     filter()
                 }
             }
-            load("/api/me", retained = true, label = "progress") { g.adapter?.notifyDataSetChanged() }
+            load("/api/me", retained = true, label = getString(R.string.label_progress)) { g.adapter?.notifyDataSetChanged() }
         }
         onReturn = {
             filter()
@@ -581,9 +585,9 @@ class Main : AppCompatActivity() {
         begin()
         val box = col()
         var seriesVersion = 0
-        val empty = text("No series on the server yet.", muted = true).pad(16, 4).apply { isVisible = false }
-        show(NestedScrollView(this).apply { addView(col(header("Series"), box, empty)) })
-        load("/api/libraries", label = "libraries") { j ->
+        val empty = text(getString(R.string.empty_series), muted = true).pad(16, 4).apply { isVisible = false }
+        show(NestedScrollView(this).apply { addView(col(header(getString(R.string.tab_series)), box, empty)) })
+        load("/api/libraries", label = getString(R.string.label_libraries)) { j ->
             val version = ++seriesVersion
             val libs = j.getJSONArray("libraries").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.filter { it.str("mediaType") == "book" }
             val boxes = libs.map { col() }
@@ -594,7 +598,7 @@ class Main : AppCompatActivity() {
             libs.forEachIndexed { i, l ->
                 val id = l.getString("id")
                 val ratio = Abs.p.getFloat("ratio:$id", 1f)
-                load("/api/libraries/$id/series?limit=1000&sort=name", label = l.getString("name") + " series") seriesResult@{ sj ->
+                load("/api/libraries/$id/series?limit=1000&sort=name", label = getString(R.string.label_series_of, l.getString("name"))) seriesResult@{ sj ->
                     if (version != seriesVersion) return@seriesResult
                     val a = sj.getJSONArray("results")
                     boxes[i].removeAllViews()
@@ -603,7 +607,7 @@ class Main : AppCompatActivity() {
                         val se = a.getJSONObject(k)
                         val books = cards(se.getJSONArray("books"))
                         val name = se.getString("name")
-                        boxes[i].addView(listRow(Card(books.firstOrNull()?.id ?: "", name, ""), "${books.size} books", null) { push { shelf(name, books, ratio) } })
+                        boxes[i].addView(listRow(Card(books.firstOrNull()?.id ?: "", name, ""), resources.getQuantityString(R.plurals.books_count, books.size, books.size), null) { push { shelf(name, books, ratio) } })
                     }
                     completed[i] = true
                     empty.isVisible = completed.all { it } && boxes.all { it.childCount == 0 }
@@ -641,7 +645,7 @@ class Main : AppCompatActivity() {
         val owner = screen
         var favs = avail(Abs.favs())
         var membershipLoaded = false
-        val empty = text("Tap ♡ on a book or podcast to keep it here.", muted = true).pad(16, 4)
+        val empty = text(getString(R.string.empty_favorites), muted = true).pad(16, 4)
         val g = grid(1f) { favs }
         fun refresh() {
             val lm = g.layoutManager as GridLayoutManager
@@ -656,14 +660,14 @@ class Main : AppCompatActivity() {
         }
         onReturn = { refresh() }
         onDl = onReturn
-        show(col(header("Favorites"), empty, g.lp(-1, 0, 1f)))
+        show(col(header(getString(R.string.tab_favorites)), empty, g.lp(-1, 0, 1f)))
         refresh()
         empty.isVisible = false
-        load("/api/me", retained = true, label = "favorites") {
+        load("/api/me", retained = true, label = getString(R.string.label_favorites)) {
             membershipLoaded = true
             refresh()
             favs.filter { it.title.isEmpty() }.forEach { c ->
-                load("/api/items/${c.id}", retained = true, label = "favorite details") { item ->
+                load("/api/items/${c.id}", retained = true, label = getString(R.string.label_favorite_details)) { item ->
                     Abs.fillFavCard(Card.item(item))
                     if (ownsPage(owner, true)) refresh()
                 }
@@ -675,54 +679,53 @@ class Main : AppCompatActivity() {
 
     private fun settings() {
         begin()
-        val body = col(subHeader("Settings"))
-        body.addView(section("Account"))
+        val body = col(subHeader(getString(R.string.title_settings)))
+        body.addView(section(getString(R.string.section_account)))
         body.addView(row(
             col(text(Abs.me ?: "", M.attr.textAppearanceTitleSmall), text(Abs.server, M.attr.textAppearanceBodySmall, 1, muted = true)).lp(0, -2, 1f),
-            button("Log out", style = M.attr.materialButtonOutlinedStyle) { logout() },
+            button(getString(R.string.action_log_out), style = M.attr.materialButtonOutlinedStyle) { logout() },
         ).pad(16, 4))
 
-        body.addView(section("Linked accounts"))
-        body.addView(text("Accounts you can share progress with, per book or podcast (share button on its page). " +
-            "They sign in here once; only their login token is kept.", M.attr.textAppearanceBodySmall, muted = true).pad(16, 0))
+        body.addView(section(getString(R.string.section_linked_accounts)))
+        body.addView(text(getString(R.string.linked_accounts_info), M.attr.textAppearanceBodySmall, muted = true).pad(16, 0))
         val accts = Abs.accounts()
-        if (accts.isEmpty()) body.addView(text("None yet.", muted = true).pad(16, 8))
+        if (accts.isEmpty()) body.addView(text(getString(R.string.linked_accounts_none), muted = true).pad(16, 8))
         accts.forEach { a ->
             val n = Abs.p.all.keys.count { it.startsWith("share:") && a in Abs.p.getStringSet(it, emptySet())!! }
             body.addView(row(
-                col(text(a, M.attr.textAppearanceTitleSmall), text("Shared on $n title${if (n == 1) "" else "s"}", M.attr.textAppearanceBodySmall, muted = true)).lp(0, -2, 1f),
-                icon(R.drawable.i_delete, "Unlink account $a") {
-                    confirm("Unlink $a? Progress sharing with them stops on all titles. Their existing progress is not changed.") { Abs.unlink(a); settings() }
+                col(text(a, M.attr.textAppearanceTitleSmall), text(resources.getQuantityString(R.plurals.shared_on_titles, n, n), M.attr.textAppearanceBodySmall, muted = true)).lp(0, -2, 1f),
+                icon(R.drawable.i_delete, getString(R.string.action_unlink_account, a)) {
+                    confirm(getString(R.string.confirm_unlink, a)) { Abs.unlink(a); settings() }
                 },
             ).pad(16, 4))
         }
-        body.addView(button("Link account", R.drawable.i_group, M.attr.materialButtonOutlinedStyle) { addAccount { settings() } }.lp(-2, -2)
+        body.addView(button(getString(R.string.action_link_account), R.drawable.i_group, M.attr.materialButtonOutlinedStyle) { addAccount { settings() } }.lp(-2, -2)
             .also { (it.layoutParams as LinearLayout.LayoutParams).marginStart = dp(16) })
 
-        body.addView(section("Storage"))
-        val dls = Abs.downloadRows()
-        val busy = Dl.jobs.size.takeIf { it > 0 }?.let { " · $it downloading" } ?: ""
+        body.addView(section(getString(R.string.section_storage)))
+        val dls = Abs.downloadRows(getString(R.string.unknown_item))
+        val busy = Dl.jobs.size.takeIf { it > 0 }?.let { " · " + resources.getQuantityString(R.plurals.downloading_count, it, it) } ?: ""
         body.addView(row(
-            col(text("Downloads", M.attr.textAppearanceTitleSmall),
-                text("${dls.size} item${if (dls.size == 1) "" else "s"} · ${mb(dls.sumOf { it.size })}$busy", M.attr.textAppearanceBodySmall, muted = true)).lp(0, -2, 1f),
+            col(text(getString(R.string.title_downloads), M.attr.textAppearanceTitleSmall),
+                text(resources.getQuantityString(R.plurals.items_count, dls.size, dls.size) + " · ${mb(dls.sumOf { it.size })}$busy", M.attr.textAppearanceBodySmall, muted = true)).lp(0, -2, 1f),
         ).pad(16, 10).apply {
             setBackgroundResource(res(android.R.attr.selectableItemBackground))
             setOnClickListener { push(::downloads) }
         })
-        body.addView(section("About"))
+        body.addView(section(getString(R.string.section_about)))
         val version = packageManager.getPackageInfo(packageName, 0)
         listOf(
-            "Send feedback" to "mailto:absplus@borodutch.com?subject=" + android.net.Uri.encode("ABS+ ${version.versionName} (${version.longVersionCode}) feedback"),
-            "Website" to "https://absplus.app",
-            "Source code" to "https://github.com/backmeupplz/absplus",
-            "Privacy policy" to "https://absplus.app/privacy/",
+            getString(R.string.action_send_feedback) to "mailto:absplus@borodutch.com?subject=" + android.net.Uri.encode("ABS+ ${version.versionName} (${version.longVersionCode}) feedback"),
+            getString(R.string.action_website) to "https://absplus.app",
+            getString(R.string.action_source_code) to "https://github.com/backmeupplz/absplus",
+            getString(R.string.action_privacy_policy) to "https://absplus.app/privacy/",
         ).forEach { (label, url) ->
             body.addView(button(label, style = androidx.appcompat.R.attr.borderlessButtonStyle) {
                 runCatching { startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
-                    .onFailure { toast(if (url.startsWith("mailto:")) "No email app: write to absplus@borodutch.com" else "No app opens $url") }
+                    .onFailure { toast(if (url.startsWith("mailto:")) getString(R.string.no_email_app) else getString(R.string.no_app_opens, url)) }
             }.lp(-1, -2))
         }
-        body.addView(text("Version ${version.versionName} (${version.longVersionCode})", muted = true).pad(16, 12))
+        body.addView(text(getString(R.string.version, version.versionName, version.longVersionCode), muted = true).pad(16, 12))
         show(NestedScrollView(this).apply { addView(body) })
     }
 
@@ -730,28 +733,28 @@ class Main : AppCompatActivity() {
 
     private fun downloads() {
         begin()
-        val body = col(subHeader("Downloads"))
+        val body = col(subHeader(getString(R.string.title_downloads)))
         val jobs = Dl.jobs.toList()
         if (jobs.isNotEmpty()) {
             body.addView(row(
-                section("Downloading").lp(0, -2, 1f),
-                button("Cancel all", style = androidx.appcompat.R.attr.borderlessButtonStyle) {
-                    confirm("Cancel all ${jobs.size} downloads?") { jobs.forEach { Dl.cancel(it.n) }; Abs.dlChanged(); downloads() }
+                section(getString(R.string.section_downloading)).lp(0, -2, 1f),
+                button(getString(R.string.action_cancel_all), style = androidx.appcompat.R.attr.borderlessButtonStyle) {
+                    confirm(resources.getQuantityString(R.plurals.confirm_cancel_all, jobs.size, jobs.size)) { jobs.forEach { Dl.cancel(it.n) }; Abs.dlChanged(); downloads() }
                 }.apply { isVisible = jobs.size > 1 },
-            ).apply { setPadding(0, 0, dp(8), 0) })
+            ).apply { setPaddingRelative(0, 0, dp(8), 0) })
             val rows = jobs.map { jobRow(it).also { (v, _) -> body.addView(v) } }
             onDlTick = { rows.forEach { it.second() } }
         }
         onDl = { downloads() }
-        val items = Abs.downloadRows().map { it to it.size }
+        val items = Abs.downloadRows(getString(R.string.unknown_item)).map { it to it.size }
         val total = items.sumOf { it.second }
-        if (jobs.isNotEmpty() && items.isNotEmpty()) body.addView(section("On this device"))
-        if (items.isEmpty() && jobs.isEmpty()) body.addView(text("Nothing downloaded on this device.", muted = true).pad(16, 4))
+        if (jobs.isNotEmpty() && items.isNotEmpty()) body.addView(section(getString(R.string.section_on_this_device)))
+        if (items.isEmpty() && jobs.isEmpty()) body.addView(text(getString(R.string.empty_downloaded), muted = true).pad(16, 4))
         if (items.isNotEmpty()) {
             body.addView(row(
-                text("${items.size} items · ${mb(total)}", muted = true).lp(0, -2, 1f),
-                button("Remove all", R.drawable.i_delete, M.attr.materialButtonOutlinedStyle) {
-                    confirm("Remove all ${items.size} downloads (${mb(total)}) from this device? Nothing is deleted on the server.") {
+                text(resources.getQuantityString(R.plurals.items_count, items.size, items.size) + " · ${mb(total)}", muted = true).lp(0, -2, 1f),
+                button(getString(R.string.action_remove_all), R.drawable.i_delete, M.attr.materialButtonOutlinedStyle) {
+                    confirm(resources.getQuantityString(R.plurals.confirm_remove_all, items.size, items.size, mb(total))) {
                         Abs.downloads().forEach { Abs.removeAll(it) }
                         downloads()
                     }
@@ -760,7 +763,7 @@ class Main : AppCompatActivity() {
             items.forEach { (d, size) ->
                 val c = d.card
                 body.addView(listRow(c, "${c.sub} · ${mb(size)}", R.drawable.i_delete, {
-                    confirm("Remove the download of “${c.title}” from this device?") { d.remove(); downloads() }
+                    confirm(getString(R.string.confirm_remove_download, c.title)) { d.remove(); downloads() }
                 }) { push { item(c.id) } })
             }
         }
@@ -776,9 +779,9 @@ class Main : AppCompatActivity() {
         (prog.layoutParams as LinearLayout.LayoutParams).topMargin = dp(6)
         val r = row(
             cover,
-            button("Retry", style = androidx.appcompat.R.attr.borderlessButtonStyle) { Dl.retry(this, j); downloads() }.apply { isVisible = j.error != null },
+            button(getString(R.string.action_retry), style = androidx.appcompat.R.attr.borderlessButtonStyle) { Dl.retry(this, j); downloads() }.apply { isVisible = j.error != null },
             col(text(j.n.title, M.attr.textAppearanceTitleSmall, 2), meta, prog).pad(14, 0).lp(0, -2, 1f),
-            icon(R.drawable.i_close, "Cancel download of ${j.n.title}") { confirm("Cancel downloading “${j.n.title}”?") { Dl.cancel(j.n); Dl.start(this); Abs.dlChanged(); downloads() } },
+            icon(R.drawable.i_close, getString(R.string.action_cancel_download_of, j.n.title)) { confirm(getString(R.string.confirm_cancel_download, j.n.title)) { Dl.cancel(j.n); Dl.start(this); Abs.dlChanged(); downloads() } },
         ).pad(16, 8)
         r.setBackgroundResource(res(android.R.attr.selectableItemBackground))
         r.setOnClickListener { push { item(j.n.item) } }
@@ -793,9 +796,9 @@ class Main : AppCompatActivity() {
     /** "45% · 47 of 105 MB", "Queued" or "Waiting for connection" */
     private fun dlStatus(j: Dl.Job) = when {
         j.error != null -> j.error!!
-        j !== Dl.next -> "Queued"
-        j.waiting -> "Waiting for connection"
-        else -> "${(Dl.pct(j) * 100).toInt()}% · ${mb(j.got)} of ${mb(j.total)}"
+        j !== Dl.next -> getString(R.string.dl_queued)
+        j.waiting -> getString(R.string.dl_waiting)
+        else -> getString(R.string.dl_progress, (Dl.pct(j) * 100).toInt(), mb(j.got), mb(j.total))
     }
 
     /** determinate while bytes are coming in, indeterminate while queued or waiting */
@@ -810,7 +813,7 @@ class Main : AppCompatActivity() {
         if (known) p.setProgressCompat((Dl.pct(j) * 1000).toInt(), true)
     }
 
-    private fun mb(b: Long) = if (b >= 1 shl 30) "%.1f GB".format(b / 1073741824.0) else "${b shr 20} MB"
+    private fun mb(b: Long) = if (b >= 1 shl 30) getString(R.string.size_gb, b / 1073741824.0) else getString(R.string.size_mb, b shr 20)
 
     // --- tiles & rows
 
@@ -873,7 +876,7 @@ class Main : AppCompatActivity() {
         val cover = Cover(this).lp(dp(56), dp(56))
         if (c.id.isNotEmpty()) Covers.load(cover, c.id)
         val r = row(cover, col(text(c.title, M.attr.textAppearanceTitleSmall, 2), text(meta, M.attr.textAppearanceBodySmall, 1, muted = true)).pad(14, 0).lp(0, -2, 1f))
-        if (action != null) r.addView(icon(actionIcon, if (actionIcon == R.drawable.i_delete) "Remove download of ${c.title}" else "Play ${c.title}", M.attr.materialIconButtonFilledTonalStyle) { action() })
+        if (action != null) r.addView(icon(actionIcon, if (actionIcon == R.drawable.i_delete) getString(R.string.action_remove_download_of, c.title) else getString(R.string.action_play_title, c.title), M.attr.materialIconButtonFilledTonalStyle) { action() })
         r.pad(16, 8)
         r.setBackgroundResource(res(android.R.attr.selectableItemBackground))
         r.setOnClickListener { open() }
@@ -886,7 +889,7 @@ class Main : AppCompatActivity() {
         begin()
         val rv = RecyclerView(this).apply { layoutManager = LinearLayoutManager(context) }
         show(col(subHeader(""), rv.lp(-1, 0, 1f)))
-        load("/api/items/$id?expanded=1", label = "title") { renderItem(rv, it) }
+        load("/api/items/$id?expanded=1", label = getString(R.string.label_title)) { renderItem(rv, it) }
     }
 
     private fun renderItem(rv: RecyclerView, j: JSONObject) {
@@ -911,12 +914,12 @@ class Main : AppCompatActivity() {
         ).apply { gravity = Gravity.CENTER_HORIZONTAL }
 
         val fav = icon(if (Abs.isFav(c.id)) R.drawable.i_favorite_fill else R.drawable.i_favorite,
-            if (Abs.isFav(c.id)) "Remove from favorites" else "Add to favorites") {}
+            getString(if (Abs.isFav(c.id)) R.string.action_remove_favorite else R.string.action_add_favorite)) {}
         fav.setOnClickListener {
             if (!fav.isEnabled) return@setOnClickListener
             fav.isEnabled = false
             val on = Abs.toggleFav(c)
-            val state = status("favorites sync")
+            val state = status(getString(R.string.label_favorites_sync))
             val owner = screen
             val syncScope = Abs.scope()
             var syncing = false
@@ -933,10 +936,10 @@ class Main : AppCompatActivity() {
             }
             sync()
             fav.icon = ContextCompat.getDrawable(this, if (on) R.drawable.i_favorite_fill else R.drawable.i_favorite)
-            fav.contentDescription = if (on) "Remove from favorites" else "Add to favorites"
-            toast(if (on) "Added to favorites" else "Removed from favorites")
+            fav.contentDescription = getString(if (on) R.string.action_remove_favorite else R.string.action_add_favorite)
+            toast(getString(if (on) R.string.toast_favorite_added else R.string.toast_favorite_removed))
         }
-        val share = icon(R.drawable.i_group, "Share progress") { share(c.id, c.title) }
+        val share = icon(R.drawable.i_group, getString(R.string.action_share_progress)) { share(c.id, c.title) }
         var eps = listOf<Now>()
         var epAdapter: Rv? = null
 
@@ -944,17 +947,17 @@ class Main : AppCompatActivity() {
             val ts = Abs.tracks(m.optJSONArray("tracks") ?: org.json.JSONArray())
             val n = Now(c.id, null, c.title, c.sub, ts)
             val p = Abs.pct(c.id) ?: 0.0
-            val meta = listOfNotNull(Abs.fmt(n.duration), "${ts.size} files".takeIf { ts.size > 1 },
-                if (p >= 1) "Finished" else if (p > 0) "${(p * 100).toInt()}% done" else null)
+            val meta = listOfNotNull(Abs.fmt(n.duration), resources.getQuantityString(R.plurals.files_count, ts.size, ts.size).takeIf { ts.size > 1 },
+                if (p >= 1) getString(R.string.progress_finished) else if (p > 0) getString(R.string.progress_done, (p * 100).toInt()) else null)
             head.addView(text(meta.joinToString(" · "), muted = true).apply { gravity = Gravity.CENTER }.pad(0, 6))
             val dl = dlView()
             fun updDl() = bindDl(dl, n)
             updDl()
             onDl = { updDl() }
             onDlTick = { updDl() }
-            val play = button(if (p > 0 && p < 1) "Resume" else "Play", R.drawable.i_play_arrow_fill) { play(n) }
+            val play = button(getString(if (p > 0 && p < 1) R.string.action_resume else R.string.action_play), R.drawable.i_play_arrow_fill) { play(n) }
             play.isEnabled = ts.isNotEmpty()
-            if (ts.isEmpty()) head.addView(text("No audio available.", muted = true))
+            if (ts.isEmpty()) head.addView(text(getString(R.string.no_audio), muted = true))
             head.addView(row(play.lp(-2, -2), dl, fav, share).apply { gravity = Gravity.CENTER }.pad(0, 8))
         } else {
             val a = m.getJSONArray("episodes")
@@ -962,7 +965,7 @@ class Main : AppCompatActivity() {
                 .filter { !Abs.offline || Abs.done(c.id, Abs.track(it.getJSONObject("audioFile"), 0.0)) }.sortedByDescending { it.optLong("publishedAt") }
             eps = list.map { Now(c.id, it.getString("id"), it.str("title"), c.title, listOf(Abs.track(it.getJSONObject("audioFile"), 0.0))) }
             val dates = list.map { it.optLong("publishedAt").takeIf { t -> t > 0 }?.let { t -> DateUtils.formatDateTime(this, t, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH) } }
-            head.addView(text("${eps.size} episodes", muted = true).apply { gravity = Gravity.CENTER }.pad(0, 6))
+            head.addView(text(resources.getQuantityString(R.plurals.episodes_count, eps.size, eps.size), muted = true).apply { gravity = Gravity.CENTER }.pad(0, 6))
             head.addView(row(fav, share).apply { gravity = Gravity.CENTER })
             val ad = Rv({ eps.size }, { episodeRow() }, { v, i -> bindEpisode(v, eps[i], dates[i]) })
             onDl = { ad.notifyDataSetChanged() }
@@ -973,7 +976,7 @@ class Main : AppCompatActivity() {
         if (desc.isNotEmpty()) head.addView(text(desc, M.attr.textAppearanceBodyMedium, 4).apply {
             setOnClickListener { maxLines = if (maxLines == 4) Int.MAX_VALUE else 4 }
         }.pad(4, 8))
-        if (!book) head.addView(text("Episodes", M.attr.textAppearanceTitleMedium).lp().pad(0, 8))
+        if (!book) head.addView(text(getString(R.string.section_episodes), M.attr.textAppearanceTitleMedium).lp().pad(0, 8))
         head.layoutParams = RecyclerView.LayoutParams(-1, -2)
         val one = Rv({ 1 }, { head.also { (it.parent as? ViewGroup)?.removeView(it) } }, { _, _ -> })
         val position = rv.layoutManager?.onSaveInstanceState()
@@ -987,7 +990,7 @@ class Main : AppCompatActivity() {
         val title = text("", M.attr.textAppearanceTitleSmall, 2)
         val meta = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
         val dl = dlView()
-        val play = icon(R.drawable.i_play_arrow_fill, "Play episode", M.attr.materialIconButtonFilledTonalStyle) {}
+        val play = icon(R.drawable.i_play_arrow_fill, getString(R.string.action_play_episode), M.attr.materialIconButtonFilledTonalStyle) {}
         return row(col(title, meta).lp(0, -2, 1f), dl, play).apply {
             pad(16, 6)
             layoutParams = RecyclerView.LayoutParams(-1, -2)
@@ -1000,9 +1003,9 @@ class Main : AppCompatActivity() {
         val t = n.tracks[0]
         val p = Abs.pct(n.key)
         title.text = n.title
-        meta.text = listOfNotNull(date, Abs.fmt(n.duration), p?.let { if (it >= 1) "Finished" else "${(it * 100).toInt()}%" }).joinToString(" · ")
+        meta.text = listOfNotNull(date, Abs.fmt(n.duration), p?.let { if (it >= 1) getString(R.string.progress_finished) else getString(R.string.progress_percent, (it * 100).toInt()) }).joinToString(" · ")
         bindDl(dl, n)
-        play.contentDescription = "Play ${n.title}"
+        play.contentDescription = getString(R.string.action_play_title, n.title)
         play.setOnClickListener { play(n) }
         v.setOnClickListener { play(n) }
     }
@@ -1011,7 +1014,7 @@ class Main : AppCompatActivity() {
 
     /** download button; while the title downloads, a ring around a stop icon shows its progress */
     private fun dlView(): View {
-        val btn = icon(R.drawable.i_download, "Download") {}
+        val btn = icon(R.drawable.i_download, getString(R.string.action_download)) {}
         val ring = CircularProgressIndicator(this).apply { max = 1000; indicatorSize = dp(30); trackThickness = dp(3); isVisible = false }
         return FrameLayout(this).apply {
             addView(btn)
@@ -1027,9 +1030,9 @@ class Main : AppCompatActivity() {
         val j = if (done) null else Dl.job(n.key)
         btn.icon = ContextCompat.getDrawable(this@Main, if (done) R.drawable.i_download_done_fill else if (j != null) R.drawable.i_stop else R.drawable.i_download)
         btn.contentDescription = when {
-            done -> "Remove download of ${n.title}"
-            j != null -> "Cancel download of ${n.title}"
-            else -> "Download ${n.title}"
+            done -> getString(R.string.action_remove_download_of, n.title)
+            j != null -> getString(R.string.action_cancel_download_of, n.title)
+            else -> getString(R.string.action_download_of, n.title)
         }
         ring.isVisible = j != null
         if (j != null) progress(ring, j)
@@ -1041,12 +1044,12 @@ class Main : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
         Dl.add(this, n)
-        toast("Downloading…")
+        toast(getString(R.string.toast_downloading))
         onDl?.invoke()
         updateDl()
     }
 
-    private fun removeDl(n: Now, busy: Boolean = false) = confirm(if (busy) "Cancel downloading “${n.title}”?" else "Remove the download of “${n.title}”?") {
+    private fun removeDl(n: Now, busy: Boolean = false) = confirm(getString(if (busy) R.string.confirm_cancel_download else R.string.confirm_remove_download_short, n.title)) {
         if (busy) { Dl.cancel(n); Dl.start(this) } else Abs.remove(n.tracks.map { Abs.file(n.item, it) })
         Abs.dlChanged()
         onDl?.invoke()
@@ -1077,7 +1080,7 @@ class Main : AppCompatActivity() {
         if (j != null) {
             if (!Covers.isBound(dlCover, j.n.item)) Covers.load(dlCover, j.n.item)
             dlTitle.text = j.n.title
-            dlSub.text = dlStatus(j) + (Dl.jobs.size - 1).let { if (it > 0) " · $it more" else "" }
+            dlSub.text = dlStatus(j) + (Dl.jobs.size - 1).let { if (it > 0) " · " + resources.getQuantityString(R.plurals.dl_more, it, it) else "" }
             progress(dlProg, j)
         }
         if (j != null || dlWas) onDlTick?.invoke()
@@ -1091,32 +1094,32 @@ class Main : AppCompatActivity() {
         val accts = Abs.accounts()
         val cur = Abs.shares(id)
         val checked = BooleanArray(accts.size) { accts[it] in cur }
-        val d = MaterialAlertDialogBuilder(this).setTitle("Share progress of “$name”")
-            .setNeutralButton("Link account") { _, _ -> addAccount { share(id, name) } }
-            .setNegativeButton("Cancel", null)
-        if (accts.isEmpty()) d.setMessage("Link another account on this server to keep your progress on this title in sync with it.")
+        val d = MaterialAlertDialogBuilder(this).setTitle(getString(R.string.share_title, name))
+            .setNeutralButton(getString(R.string.action_link_account)) { _, _ -> addAccount { share(id, name) } }
+            .setNegativeButton(getString(R.string.action_cancel), null)
+        if (accts.isEmpty()) d.setMessage(getString(R.string.share_none))
         else d.setMultiChoiceItems(accts.toTypedArray(), checked) { _, i, c -> checked[i] = c }
-            .setPositiveButton("Save") { _, _ ->
+            .setPositiveButton(getString(R.string.action_save)) { _, _ ->
                 if (epoch != Abs.mediaEpoch) return@setPositiveButton
                 val sel = accts.filterIndexed { i, _ -> checked[i] }.toSet()
                 val added = sel - cur
                 if (added.isEmpty()) Abs.setShares(id, sel)
-                else confirm("Share progress of “$name” with ${added.joinToString()}?\n\nListening here will update their progress too, and you'll be offered their position when they're ahead.") {
+                else confirm(getString(R.string.share_confirm, name, added.joinToString())) {
                     Abs.setShares(id, sel)
-                    toast("Progress shared")
+                    toast(getString(R.string.toast_progress_shared))
                 }
             }
         d.show()
     }
 
     private fun addAccount(then: () -> Unit) {
-        val user = field("Username")
-        val pass = field("Password", "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        val user = field(getString(R.string.hint_username))
+        val pass = field(getString(R.string.hint_password), "", InputType.TYPE_TEXT_VARIATION_PASSWORD)
         var attempt: Abs.LoginAttempt? = null
-        val message = text("They sign in here once to allow it.", muted = true)
-        val d = MaterialAlertDialogBuilder(this).setTitle("Link another account")
+        val message = text(getString(R.string.link_info), muted = true)
+        val d = MaterialAlertDialogBuilder(this).setTitle(getString(R.string.link_title))
             .setView(col(message, user, pass, pad = 20))
-            .setNegativeButton("Cancel", null).setPositiveButton("Link", null).create()
+            .setNegativeButton(getString(R.string.action_cancel), null).setPositiveButton(getString(R.string.action_link), null).create()
         d.setOnDismissListener { attempt?.cancel() }
         val gen = screen
         var running = false
@@ -1125,7 +1128,7 @@ class Main : AppCompatActivity() {
             val go = d.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
             go.setOnClickListener {
                 if (running) return@setOnClickListener
-                running = true; go.isEnabled = false; go.text = "Linking…"
+                running = true; go.isEnabled = false; go.text = getString(R.string.status_linking)
                 d.setCancelable(false)
                 d.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).isEnabled = false
                 val current = Abs.beginLogin().also { attempt = it }
@@ -1133,13 +1136,13 @@ class Main : AppCompatActivity() {
                 val username = user.str(); val password = pass.str()
                 bg({ Abs.login(base, username, password, false, current) }, {
                     if (it is StaleSession) { d.dismiss(); return@bg }
-                    running = false; go.isEnabled = true; go.text = "Link"
+                    running = false; go.isEnabled = true; go.text = getString(R.string.action_link)
                     d.setCancelable(true)
                     d.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).isEnabled = true
-                    message.text = it.message ?: "Couldn't link account. Try again."
+                    message.text = if (it.message == null) getString(R.string.link_failed) else errorText(it)
                 }) {
                     d.dismiss()
-                    if (gen == screen) { if (it == Abs.me) toast("That's you") else { toast("Linked $it"); then() } }
+                    if (gen == screen) { if (it == Abs.me) toast(getString(R.string.link_self)) else { toast(getString(R.string.toast_linked, it)); then() } }
                 }
             }
         }
@@ -1176,7 +1179,7 @@ class Main : AppCompatActivity() {
         val gen = screen
         val requestScope = Abs.scope()
         playStatus?.success()
-        val state = status("audio")
+        val state = status(getString(R.string.label_audio))
         playStatus = state
         state.loading(false)
         bg({
@@ -1204,10 +1207,10 @@ class Main : AppCompatActivity() {
             state.success()
             if (ctl == null) { state.failed(false, IllegalStateException("Player not ready")) { state.success(); preparePlay(key, captured, get) }; return@bg }
             if (ps.size == 1) start(n, ps[0].time, captured = captured)
-            else MaterialAlertDialogBuilder(this).setTitle("Resume “${n.title}” from")
-                .setItems(ps.map { "${it.who} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i ->
+            else MaterialAlertDialogBuilder(this).setTitle(getString(R.string.resume_from, n.title))
+                .setItems(ps.map { "${it.who.ifEmpty { getString(R.string.position_you) }} — ${Abs.fmt(it.time)}" }.toTypedArray()) { _, i ->
                     if (request == playRequest && gen == screen) Abs.ifCurrent(requestScope) { start(n, ps[i].time, captured = captured) }
-                }.setNegativeButton("Cancel", null).show()
+                }.setNegativeButton(getString(R.string.action_cancel), null).show()
         }
     }
 
@@ -1227,7 +1230,7 @@ class Main : AppCompatActivity() {
 
     private fun start(n: Now, t: Double, play: Boolean = true, captured: Abs.Scope) = Abs.ifCurrent(captured) {
         if (Abs.me == null || Abs.loginPending || !nav.isVisible) return@ifCurrent
-        val c = ctl ?: return@ifCurrent toast("Player not ready")
+        val c = ctl ?: return@ifCurrent toast(getString(R.string.player_not_ready))
         Abs.now?.let { old -> if (old.key != n.key && c.mediaItemCount > 0 && Abs.nowScope == captured) Abs.pos(c, old).let { p -> Abs.push(old, p, false) } }
         Abs.bindPlayback(n, captured)
         Abs.saveNow(n)
@@ -1257,7 +1260,7 @@ class Main : AppCompatActivity() {
         miniCover = Cover(this).lp(dp(44), dp(44))
         miniTitle = text("", M.attr.textAppearanceTitleSmall, 1)
         miniSub = text("", M.attr.textAppearanceBodySmall, 1, muted = true)
-        miniPlay = icon(R.drawable.i_play_arrow_fill, "Play") { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }
+        miniPlay = icon(R.drawable.i_play_arrow_fill, getString(R.string.action_play)) { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }
         miniProg = LinearProgressIndicator(this).apply { max = 1000; trackThickness = dp(2) }
         return MaterialCardView(this, null, M.attr.materialCardViewFilledStyle).apply {
             addView(col(row(miniCover, col(miniTitle, miniSub).pad(12, 0).lp(0, -2, 1f), miniPlay).pad(8, 6), miniProg))
@@ -1276,11 +1279,11 @@ class Main : AppCompatActivity() {
         if (!Covers.isBound(miniCover, n.item)) Covers.load(miniCover, n.item)
         miniTitle.text = n.title
         miniSub.text = when {
-            c.playerError != null -> "Playback failed · tap play to retry"
-            c.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> "Buffering…"
+            c.playerError != null -> getString(R.string.playback_failed)
+            c.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> getString(R.string.buffering)
             else -> n.author
         }
-        miniPlay.contentDescription = if (c.playerError != null) "Retry playback" else if (playing) "Pause" else "Play"
+        miniPlay.contentDescription = getString(if (c.playerError != null) R.string.action_retry_playback else if (playing) R.string.action_pause else R.string.action_play)
         miniPlay.icon = ContextCompat.getDrawable(this, if (playing) R.drawable.i_pause_fill else R.drawable.i_play_arrow_fill)
         miniProg.progress = (pos / n.duration * 1000).toInt()
         sheet?.invoke(c, n, pos, playing)
@@ -1296,7 +1299,7 @@ class Main : AppCompatActivity() {
         val sub = text(n.author, M.attr.textAppearanceTitleMedium, 1, muted = true).apply { gravity = Gravity.CENTER }
         var dragging = false
         val slider = Slider(this).apply {
-            contentDescription = "Playback position"
+            contentDescription = getString(R.string.playback_position)
             valueTo = max(1f, n.duration.toFloat())
             setLabelFormatter { Abs.fmt(it.toDouble()) }
             addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
@@ -1306,7 +1309,7 @@ class Main : AppCompatActivity() {
         }
         val el = text("", M.attr.textAppearanceLabelMedium, muted = true)
         val rem = text("", M.attr.textAppearanceLabelMedium, muted = true)
-        val play = icon(R.drawable.i_play_arrow_fill, "Play", M.attr.materialIconButtonFilledStyle) { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }.apply {
+        val play = icon(R.drawable.i_play_arrow_fill, getString(R.string.action_play), M.attr.materialIconButtonFilledStyle) { ctl?.let { if (it.playerError != null) it.prepare(); Util.handlePlayPauseButtonAction(it) } }.apply {
             iconSize = dp(36)
             iconPadding = 0
             iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START // with no text this centers the icon
@@ -1315,7 +1318,7 @@ class Main : AppCompatActivity() {
             insetBottom = 0
         }
         val speed = button("1×", style = androidx.appcompat.R.attr.borderlessButtonStyle) {}
-            .apply { contentDescription = "Playback speed, 1×" }
+            .apply { contentDescription = getString(R.string.playback_speed, "1×") }
         speed.setOnClickListener {
             val c = ctl ?: return@setOnClickListener
             val s = speeds[(speeds.indexOf(c.playbackParameters.speed) + 1) % speeds.size]
@@ -1324,9 +1327,9 @@ class Main : AppCompatActivity() {
         }
         val controls = row(
             speed.lp(dp(72), -2),
-            icon(R.drawable.i_replay_30, "Rewind 30 seconds") { ctl?.seekBack() }.apply { iconSize = dp(32) },
+            icon(R.drawable.i_replay_30, getString(R.string.action_rewind_30)) { ctl?.seekBack() }.apply { iconSize = dp(32) },
             play.lp(dp(80), dp(80), m = 12),
-            icon(R.drawable.i_forward_30, "Forward 30 seconds") { ctl?.seekForward() }.apply { iconSize = dp(32) },
+            icon(R.drawable.i_forward_30, getString(R.string.action_forward_30)) { ctl?.seekForward() }.apply { iconSize = dp(32) },
             View(this).lp(dp(72), 1),
         ).apply { gravity = Gravity.CENTER }
         val body = col(
@@ -1339,13 +1342,13 @@ class Main : AppCompatActivity() {
         sheet = { c, now, pos, playing ->
             if (now.key != n.key) d.dismiss()
             if (!dragging) slider.value = pos.toFloat().coerceIn(0f, slider.valueTo)
-            sub.text = when { c.playerError != null -> "Playback failed · tap play to retry"; c.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> "Buffering…"; else -> now.author }
+            sub.text = when { c.playerError != null -> getString(R.string.playback_failed); c.playbackState == androidx.media3.common.Player.STATE_BUFFERING -> getString(R.string.buffering); else -> now.author }
             el.text = Abs.fmt(pos)
             rem.text = "-" + Abs.fmt(max(0.0, now.duration - pos))
             play.icon = ContextCompat.getDrawable(this, if (playing) R.drawable.i_pause_fill else R.drawable.i_play_arrow_fill)
-            play.contentDescription = if (playing) "Pause" else "Play"
+            play.contentDescription = getString(if (playing) R.string.action_pause else R.string.action_play)
             speed.text = "${c.playbackParameters.speed}×".replace(".0×", "×")
-            speed.contentDescription = "Playback speed, ${speed.text}"
+            speed.contentDescription = getString(R.string.playback_speed, speed.text)
         }
         d.setOnDismissListener { sheet = null }
         d.show()
@@ -1359,7 +1362,7 @@ class Main : AppCompatActivity() {
     }
 
     /** Cache-first rendering with a page-owned, retryable terminal state. */
-    private fun load(path: String, retained: Boolean = false, label: String = "content",
+    private fun load(path: String, retained: Boolean = false, label: String = getString(R.string.label_content),
         cacheFirst: Boolean = true, valid: (() -> Boolean)? = null, render: (JSONObject) -> Unit) {
         val rows = loadRows
         val gen = rows.owner
@@ -1433,7 +1436,7 @@ class Main : AppCompatActivity() {
 
     private fun err(e: Throwable) {
         if (e is StaleSession || e is StaleScope) return
-        toast(e.message ?: e.toString())
+        toast(errorText(e))
         if (e is Expired) login()
     }
 
@@ -1442,7 +1445,7 @@ class Main : AppCompatActivity() {
     private fun confirm(msg: String, yes: () -> Unit): androidx.appcompat.app.AlertDialog {
         val epoch = Abs.mediaEpoch
         return MaterialAlertDialogBuilder(this).setMessage(msg)
-            .setNegativeButton("Cancel", null).setPositiveButton("OK") { _, _ -> if (epoch == Abs.mediaEpoch) yes() }.show()
+            .setNegativeButton(getString(R.string.action_cancel), null).setPositiveButton(getString(R.string.action_ok)) { _, _ -> if (epoch == Abs.mediaEpoch) yes() }.show()
     }
 
     private fun field(hint: String, v: String = "", type: Int = 0) = TextInputLayout(this).apply {

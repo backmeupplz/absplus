@@ -66,10 +66,10 @@ class DownloadRemovalTest {
     }
 
     @Test fun downloadsListEachFinishedEpisodeAndRemovesOnlyThatOne() {
-        fun keys() = Abs.downloadRows().map { it.card.key }.sorted()
+        fun keys() = Abs.downloadRows("").map { it.card.key }.sorted()
         assertEquals(listOf(a, b, other).map { it.key }.sorted(), keys())
 
-        Abs.downloadRows().first { it.card.key == a.key }.remove()
+        Abs.downloadRows("").first { it.card.key == a.key }.remove()
 
         assertRemoved(a)
         assertComplete(b)

@@ -55,12 +55,12 @@ import UniformTypeIdentifiers
                     let (data, response) = try await source.network.data(for: request)
                     try check()
                     guard let http = response as? HTTPURLResponse, http.statusCode == 206 else {
-                        throw Msg(errorDescription: "Server must support byte-range streaming")
+                        throw Msg(errorDescription: String(localized: "Server must support byte-range streaming", comment: "Playback error: the server ignored an HTTP Range request"))
                     }
                     guard let range = http.value(forHTTPHeaderField: "Content-Range"),
                           let total = Int64(range.split(separator: "/").last ?? ""),
                           range.hasPrefix("bytes \(offset)-"), !data.isEmpty, data.count <= Int(upper - offset + 1) else {
-                        throw Msg(errorDescription: "Invalid audio range")
+                        throw Msg(errorDescription: String(localized: "Invalid audio range", comment: "Playback error: the server returned an unexpected byte range"))
                     }
                     if let info = loading.contentInformationRequest {
                         info.contentType = http.mimeType.flatMap { UTType(mimeType: $0)?.identifier }

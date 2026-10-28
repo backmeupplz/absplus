@@ -86,9 +86,9 @@ struct Hist: Codable { var card: Card, at: Double }
 struct HttpErr: LocalizedError {
     let code: Int
     var retryAfter: String? = nil
-    var errorDescription: String? { code == 401 ? "Unauthorized (401)" : code == 403 ? "Not allowed (403)" : "HTTP \(code)" }
+    var errorDescription: String? { code == 401 ? String(localized: "Unauthorized (401)", comment: "Server error: HTTP 401") : code == 403 ? String(localized: "Not allowed (403)", comment: "Server error: HTTP 403") : "HTTP \(code)" }
 }
-struct Expired: LocalizedError { var epoch: String? = nil; var errorDescription: String? { "Session expired, please log in again" } }
+struct Expired: LocalizedError { var epoch: String? = nil; var errorDescription: String? { String(localized: "Session expired, please log in again", comment: "Error when the login token can no longer be refreshed") } }
 struct Msg: LocalizedError { let errorDescription: String? }
 
 func fmt(_ s: Double) -> String {
@@ -285,7 +285,7 @@ let resumeDir: URL = {
     func http(_ method: String, _ path: String, _ body: [String: Any]? = nil, _ hdr: [String: String] = [:], base: String, epoch: String, account: (String, String)? = nil, report: Bool = true) async throws -> Data {
         try checkSession(epoch)
         if let (name, id) = account { guard accts[name]?.id == id else { throw CancellationError() } }
-        guard path.hasPrefix("/"), let url = URL(string: base + path), url.host == URL(string: base)?.host, url.scheme == URL(string: base)?.scheme, url.port == URL(string: base)?.port else { throw Msg(errorDescription: "Invalid server URL") }
+        guard path.hasPrefix("/"), let url = URL(string: base + path), url.host == URL(string: base)?.host, url.scheme == URL(string: base)?.scheme, url.port == URL(string: base)?.port else { throw Msg(errorDescription: String(localized: "Invalid server URL", comment: "Login error: the entered server address is not a valid http(s) URL")) }
         var r = URLRequest(url: url, timeoutInterval: 20)
         r.httpMethod = method
         hdr.forEach { r.setValue($1, forHTTPHeaderField: $0) }
@@ -322,7 +322,7 @@ let resumeDir: URL = {
     private func credentials(_ data: Data, host: String) throws -> (String, Tok) {
         let u = try JSONDecoder().decode(LoginResp.self, from: data).user
         let access = u.accessToken.flatMap { $0.isEmpty ? nil : $0 } ?? u.token ?? ""
-        guard !u.username.isEmpty, !access.isEmpty else { throw Msg(errorDescription: "Missing access token") }
+        guard !u.username.isEmpty, !access.isEmpty else { throw Msg(errorDescription: String(localized: "Missing access token", comment: "Login error: the server response contained no access token")) }
         let userID = u.id.flatMap { $0.isEmpty ? nil : $0 }
         return (u.username, Tok(a: access, r: u.refreshToken ?? "", host: host, userID: userID,
                                 mediaID: userID.map { "user:" + $0 } ?? "login:" + UUID().uuidString))
@@ -334,7 +334,7 @@ let resumeDir: URL = {
         while s.hasSuffix("/") { s.removeLast() }
         if !s.contains("://") { s = "https://" + s }
         guard let u = URLComponents(string: s), ["http", "https"].contains(u.scheme?.lowercased() ?? ""),
-              u.host != nil, u.user == nil, u.password == nil, u.query == nil, u.fragment == nil else { throw Msg(errorDescription: "Invalid server URL") }
+              u.host != nil, u.user == nil, u.password == nil, u.query == nil, u.fragment == nil else { throw Msg(errorDescription: String(localized: "Invalid server URL", comment: "Login error: the entered server address is not a valid http(s) URL")) }
         let epoch = mediaEpoch, attempt = UUID(), name = user.trimmingCharacters(in: .whitespaces)
         if main { loginAttempt = attempt } else {
             guard me != nil, !expired, s == server else { throw CancellationError() }
@@ -346,7 +346,7 @@ let resumeDir: URL = {
         } catch {
             try checkSession(epoch)
             guard main ? loginAttempt == attempt : linkedAttempts[name] == attempt else { throw CancellationError() }
-            if (error as? HttpErr)?.code == 401 { throw Msg(errorDescription: "Wrong username or password") }
+            if (error as? HttpErr)?.code == 401 { throw Msg(errorDescription: String(localized: "Wrong username or password", comment: "Login error")) }
             throw error
         }
         let (actual, tok) = try credentials(r, host: s)
@@ -362,7 +362,7 @@ let resumeDir: URL = {
             me = actual
             try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
         } else {
-            guard !expired, actual != me else { throw Msg(errorDescription: "That's you") }
+            guard !expired, actual != me else { throw Msg(errorDescription: String(localized: "That's you", comment: "Error: tried to link the account that is already signed in")) }
             refreshing.removeValue(forKey: actual)?.cancel()
             accts[actual] = tok
         }
@@ -585,7 +585,7 @@ let resumeDir: URL = {
                 let r = rel(n.item, t)
                 if var retry = dlRetry[r] { retry.refreshToken = false; dlRetry[r] = retry }
                 guard let url = URL(string: "\(host)/api/items/\(component(n.item))/file/\(component(t.ino))/download") else {
-                    failed(r, Msg(errorDescription: "Invalid download URL"), code: 0); continue
+                    failed(r, Msg(errorDescription: String(localized: "Invalid download URL", comment: "Download error")), code: 0); continue
                 }
                 if let data = try? Data(contentsOf: resumeFile(r)) {
                     try? FileManager.default.removeItem(at: resumeFile(r))
@@ -609,7 +609,7 @@ let resumeDir: URL = {
         state.fail(error, code: code, retryAfter: retryAfter)
         state.refreshToken = state.refreshToken || code == 401
         dlRetry[rel] = state
-        if let message = state.error { toast = "Download paused: " + message }
+        if let message = state.error { toast = String(localized: "Download paused: \(message)", comment: "Toast; %@ = reason, e.g. \"HTTP 404. Tap Retry to continue.\"") }
         scheduleRetries()
     }
 
@@ -710,7 +710,7 @@ let resumeDir: URL = {
 
     /// title/author from the item page's cached json
     func cachedCard(_ id: String) -> Card {
-        cached("/api/items/\(id)?expanded=1").flatMap { try? JSONDecoder().decode(Item.self, from: $0).card } ?? Card(id: id, title: "Unknown item", sub: "")
+        cached("/api/items/\(id)?expanded=1").flatMap { try? JSONDecoder().decode(Item.self, from: $0).card } ?? Card(id: id, title: String(localized: "Unknown item", comment: "Title of a downloaded item whose details are not cached"), sub: "")
     }
 
     struct DlRow { var card: Card, size: Int64, remove: () -> Void }
@@ -784,17 +784,18 @@ let resumeDir: URL = {
     /// First = where this account should resume; the rest = linked accounts that listened more recently elsewhere.
     func positions(_ n: Now) async -> [Pos] {
         let generation = accountGeneration
-        var mine = Pos(who: "You", time: 0, at: 0)
+        let you = String(localized: "You", comment: "Resume choice: this account's own listening position, shown as \"You — 1:02:03\"")
+        var mine = Pos(who: you, time: 0, at: 0)
         if let s = d.string(forKey: "pos:\(n.key)")?.split(separator: ","), s.count == 2, let t = Double(s[0]), let at = Double(s[1]) {
-            mine = Pos(who: "You", time: t, at: at)
+            mine = Pos(who: you, time: t, at: at)
         }
-        if let p = progressDisk.local[n.key] { mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0) }
+        if let p = progressDisk.local[n.key] { mine = Pos(who: you, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0) }
         if let me, let r = await remote(me, n.key) {
             guard generation == accountGeneration else { return [] }
             mergeProgress(r, key: n.key)
             persistProgress()
             if let p = progressDisk.local[n.key], (p.lastUpdate ?? 0) >= mine.at {
-                mine = Pos(who: "You", time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
+                mine = Pos(who: you, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0)
             }
         }
         guard generation == accountGeneration else { return [] }

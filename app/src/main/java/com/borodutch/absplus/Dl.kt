@@ -72,8 +72,8 @@ object Dl {
     /** (re)starts the background service when there is something to download */
     fun start(c: Context) {
         if (jobs.isNotEmpty()) runCatching { ContextCompat.startForegroundService(c, Intent(c, DlService::class.java)) }.onFailure {
-            jobs.firstOrNull()?.error = "Download paused. Tap Retry."
-            onChange?.invoke("Could not start download. Try again.")
+            jobs.firstOrNull()?.error = c.getString(R.string.dl_paused)
+            onChange?.invoke(c.getString(R.string.dl_could_not_start))
         }
     }
 
@@ -120,11 +120,11 @@ object Dl {
                     wait = 2_000
                 } catch (_: Stop) {
                 } catch (e: Expired) { // keep the paused entry retryable
-                    j.error = "Sign in again to resume download"
+                    j.error = s.getString(R.string.dl_sign_in_again)
                     synchronized(this) { worker = null }
                     break
                 } catch (e: HttpErr) {
-                    if (e.code in 400..499 && e.code !in setOf(401, 408, 429)) { j.error = "Couldn't download (${e.message})"; onChange?.invoke(j.error) }
+                    if (e.code in 400..499 && e.code !in setOf(401, 408, 429)) { j.error = s.getString(R.string.dl_failed, s.errorText(e)); onChange?.invoke(j.error) }
                     else wait = pause(j, wait)
                 } catch (e: IOException) {
                     wait = pause(j, wait)
@@ -218,7 +218,7 @@ class DlService : Service() {
 
     override fun onStartCommand(i: Intent?, flags: Int, id: Int): Int {
         getSystemService(NotificationManager::class.java)
-            .createNotificationChannel(NotificationChannel("dl", "Downloads", NotificationManager.IMPORTANCE_LOW))
+            .createNotificationChannel(NotificationChannel("dl", getString(R.string.dl_channel), NotificationManager.IMPORTANCE_LOW))
         // refused once Android 15's daily data sync allowance is used up: then it only downloads while the app is open
         runCatching { ServiceCompat.startForeground(this, 1, note(Dl.next), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) }
         Dl.run(this)
@@ -229,8 +229,8 @@ class DlService : Service() {
         val more = Dl.jobs.size - 1
         return NotificationCompat.Builder(this, "dl")
             .setSmallIcon(R.drawable.i_download)
-            .setContentTitle(j?.n?.title ?: "Downloads")
-            .setContentText(j?.let { "${(Dl.pct(it) * 100).toInt()}%" + if (more > 0) " · $more more" else "" })
+            .setContentTitle(j?.n?.title ?: getString(R.string.dl_channel))
+            .setContentText(j?.let { getString(R.string.progress_percent, (Dl.pct(it) * 100).toInt()) + if (more > 0) " · " + resources.getQuantityString(R.plurals.dl_more, more, more) else "" })
             .setProgress(1000, j?.let { (Dl.pct(it) * 1000).toInt() } ?: 0, j == null || j.total == 0L)
             .setOngoing(true)
             .setSilent(true)
