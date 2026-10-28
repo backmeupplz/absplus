@@ -99,6 +99,31 @@ class Scripts(unittest.TestCase):
         self.assertEqual(fdroid.rewrite(METADATA, "0.4.3", "7", "793ee7cd8fe0103fb4857c13a73bc0c4af1a8926", "Tags",
                                         "https://github.com/backmeupplz/meshtastic-plus/releases/download/v%v/meshplus.apk"), METADATA)
 
+    def test_fdroid_rewrite_sets_the_gradle_flavor(self):
+        # A flavored app's entry needs its flavor: with gradle: [yes] Gradle builds every flavor and fdroidserver finds no APK
+        old = METADATA.replace("      - fdroid\n", "      - yes\n")
+        new = fdroid.rewrite(old, "0.4.4", "8", "a" * 40, gradle="fdroid")
+        self.assertEqual(new, fdroid.rewrite(METADATA, "0.4.4", "8", "a" * 40))
+        self.assertIn("    subdir: app\n    gradle:\n      - fdroid\n\nAllowedAPKSigningKeys", new)
+        # The same value changes nothing, and without FDROID_GRADLE the entry keeps the flavor it has
+        self.assertEqual(fdroid.rewrite(new, "0.4.4", "8", "a" * 40, gradle="fdroid"), new)
+        self.assertIn("    gradle:\n      - fdroid\n", fdroid.rewrite(new, "0.4.5", "9", "b" * 40))
+        with self.assertRaises(SystemExit):
+            fdroid.rewrite(METADATA.replace("    gradle:\n      - fdroid\n", ""), "0.4.4", "8", "a" * 40, gradle="fdroid")
+
+    def test_fdroid_main_takes_the_gradle_flavor_from_the_env(self):
+        old = METADATA.replace("      - fdroid\n", "      - yes\n")
+        def urlopen(url):
+            body = json.dumps({"state": "opened", "iid": 123, "web_url": "https://gitlab.com/mr"}) if "merge_requests" in url else old
+            return io.BytesIO(body.encode())
+        env = {"FDROID_MR": "123", "FDROID_APP_ID": "com.example", "FDROID_FORK": "backmeupplz/fdroiddata", "FDROID_BRANCH": "com.example",
+               "FDROID_GRADLE": "fdroid"}
+        with mock.patch.dict(os.environ, env), mock.patch("sys.argv", ["fdroid.py", "0.4.4", "8", "a" * 40, "--dry-run"]), \
+                mock.patch.object(fdroid.urllib.request, "urlopen", urlopen), contextlib.redirect_stdout(io.StringIO()) as out:
+            fdroid.main()
+        self.assertIn("\n-      - yes\n+      - fdroid\n", out.getvalue())
+        self.assertIn("Dry run: nothing pushed", out.getvalue())
+
     def test_fdroid_push_failure_reports_git_output_without_the_token(self):
         def urlopen(url):
             body = json.dumps({"state": "opened", "iid": 123, "web_url": "https://gitlab.com/mr"}) if "merge_requests" in url else METADATA
