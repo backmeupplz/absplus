@@ -10,7 +10,7 @@ Luisterboek- en podcastspeler
 Een kleine, snelle speler voor je eigen Audiobookshelf-server. Stream of download luisterboeken en podcasts en luister op elk apparaat verder waar je gebleven was.
 
 ## Keywords (max 100)
-speler,audioboek,gratis,luisteren,boeken,bibliotheek,verteller,hoorspel,series,auteur,selfhosted,nas
+speler,audioboek,luisteren,boeken,bibliotheek,verteller,hoorspel,series,auteur,selfhosted,nas
 
 ## Description (max 4000)
 ABS+ is een kleine, snelle speler voor je eigen Audiobookshelf-server. Log in met je serveradres, gebruikersnaam en wachtwoord, en je boeken en podcasts staan meteen voor je klaar.

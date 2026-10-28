@@ -10,7 +10,7 @@ Ljudboksspelare och poddar
 En liten, snabb spelare för din egen Audiobookshelf-server. Strömma eller ladda ner ljudböcker och poddar och fortsätt lyssna där du slutade, på vilken enhet som helst.
 
 ## Keywords (max 100)
-ljudbok,poddspelare,gratis,lyssna,böcker,bibliotek,uppläsare,serier,författare,selfhosted,nas
+ljudbok,poddspelare,lyssna,böcker,bibliotek,uppläsare,serier,författare,selfhosted,nas
 
 ## Description (max 4000)
 ABS+ är en liten, snabb spelare för din egen Audiobookshelf-server. Logga in med serveradress, användarnamn och lösenord, så finns dina böcker och poddar direkt där.

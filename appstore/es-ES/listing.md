@@ -10,7 +10,7 @@ Reproductor de audiolibros
 Un reproductor ligero para tu servidor Audiobookshelf. Escucha audiolibros y podcasts en streaming o descárgalos, y sigue donde lo dejaste en cualquier dispositivo.
 
 ## Keywords (max 100)
-gratis,escuchar,libros,audio,sin conexión,internet,servidor,autoalojado,narrador,favoritos,descargar
+escuchar,libros,audio,sin conexión,internet,servidor,autoalojado,narrador,favoritos,descargar,nas
 
 ## Description (max 4000)
 ABS+ es un reproductor ligero y rápido para tu propio servidor Audiobookshelf. Inicia sesión con la dirección del servidor, tu usuario y tu contraseña, y tendrás ahí mismo tus libros y podcasts.

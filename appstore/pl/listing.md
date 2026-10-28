@@ -10,7 +10,7 @@ Odtwarzacz audiobooków
 Mały, szybki odtwarzacz dla Twojego własnego serwera Audiobookshelf. Słuchaj audiobooków i podcastów online lub po pobraniu i wracaj do nich na dowolnym urządzeniu.
 
 ## Keywords (max 100)
-podcasty,książki,słuchanie,lektor,serwer,klient,biblioteka,pobieranie,synchronizacja,darmowy,reklam
+podcasty,książki,słuchanie,lektor,serwer,klient,biblioteka,pobieranie,synchronizacja,reklam,odcinki
 
 ## Description (max 4000)
 ABS+ to mały, szybki odtwarzacz dla Twojego własnego serwera Audiobookshelf. Zaloguj się, podając adres serwera, nazwę użytkownika i hasło, a Twoje książki i podcasty od razu będą na miejscu.

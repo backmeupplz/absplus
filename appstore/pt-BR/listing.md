@@ -10,7 +10,7 @@ Player de audiolivro e podcast
 Um player pequeno e rápido para o seu próprio servidor Audiobookshelf. Ouça audiolivros e podcasts em streaming ou baixados e continue de onde parou em qualquer aparelho.
 
 ## Keywords (max 100)
-livros,áudio,ouvir,grátis,leitor,baixar,servidor,cliente,biblioteca,narrador,sincronizar,streaming
+livros,áudio,ouvir,leitor,baixar,servidor,cliente,biblioteca,narrador,sincronizar,streaming,tocador
 
 ## Description (max 4000)
 O ABS+ é um player pequeno e rápido para o seu próprio servidor Audiobookshelf. Entre com o endereço do servidor, o seu usuário e a sua senha, e os seus livros e podcasts já aparecem ali.

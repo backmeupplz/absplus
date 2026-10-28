@@ -10,7 +10,7 @@ Ouvir audiolivros e podcasts
 Um leitor pequeno e rápido para o seu servidor Audiobookshelf. Ouça audiolivros e podcasts em streaming ou transferidos e continue onde parou em qualquer dispositivo.
 
 ## Keywords (max 100)
-leitor,livros,áudio,gratuito,transferir,servidor,cliente,biblioteca,narrador,sincronizar,streaming
+leitor,livros,áudio,transferir,servidor,cliente,biblioteca,narrador,sincronizar,streaming,reprodutor
 
 ## Description (max 4000)
 O ABS+ é um leitor pequeno e rápido para o seu próprio servidor Audiobookshelf. Inicie sessão com o endereço do servidor, o nome de utilizador e a palavra-passe, e os seus livros e podcasts ficam logo à sua espera.

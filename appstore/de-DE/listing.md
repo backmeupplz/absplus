@@ -10,7 +10,7 @@ Hörbuch- und Podcast-Player
 Ein kleiner, schneller Player für deinen Audiobookshelf-Server. Streame Hörbücher und Podcasts oder lade sie herunter und hör überall weiter, wo du aufgehört hast.
 
 ## Keywords (max 100)
-hörspiel,kostenlos,hören,bücher,bibliothek,sprecher,autor,serien,selfhosted,nas,werbefrei,streamen
+hörspiel,hören,bücher,bibliothek,sprecher,autor,serien,selfhosted,nas,werbefrei,streamen,anhören
 
 ## Description (max 4000)
 ABS+ ist ein kleiner, schneller Player für deinen eigenen Audiobookshelf-Server. Du meldest dich mit Serveradresse, Benutzername und Passwort an, und schon sind deine Hörbücher und Podcasts da.

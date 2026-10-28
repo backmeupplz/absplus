@@ -10,7 +10,7 @@ Trình phát sách nói và podcast
 Trình phát nhỏ gọn và nhanh cho máy chủ Audiobookshelf của riêng bạn. Nghe trực tuyến hoặc tải xuống sách nói và podcast, rồi nghe tiếp từ chỗ đã dừng trên mọi thiết bị.
 
 ## Keywords (max 100)
-nghe,miễn phí,audio,truyện,ngoại tuyến,tải xuống,máy chủ,thư viện,đồng bộ,tác giả,giọng đọc
+nghe,audio,truyện,ngoại tuyến,tải xuống,máy chủ,thư viện,đồng bộ,tác giả,giọng đọc,tiểu thuyết
 
 ## Description (max 4000)
 ABS+ là trình phát nhỏ gọn và nhanh dành cho máy chủ Audiobookshelf của riêng bạn. Chỉ cần đăng nhập bằng địa chỉ máy chủ, tên người dùng và mật khẩu là sách và podcast của bạn đã sẵn sàng.

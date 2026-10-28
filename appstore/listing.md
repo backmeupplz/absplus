@@ -41,7 +41,7 @@ ABS+ only talks to the server you sign in to. No accounts with us, no analytics,
 ABS+ needs an Audiobookshelf server (audiobookshelf.org) that you or someone you know runs. ABS+ is an independent app, not affiliated with or endorsed by the Audiobookshelf project.
 
 ## Keywords (max 100)
-client,shelf,server,self-hosted,offline,m4b,mp3,listen,library,free,narrator,sync,download,stream
+client,shelf,server,self-hosted,offline,m4b,mp3,listen,library,speed,narrator,sync,download,stream
 
 ## Screenshot captions
 1. Pick up where you left off on any device

@@ -10,7 +10,7 @@ Sesli kitap ve podcast dinle
 Kendi Audiobookshelf sunucunuz için küçük ve hızlı bir oynatıcı. Sesli kitapları ve podcast'leri akışla dinleyin ya da indirin, her cihazda kaldığınız yerden devam edin.
 
 ## Keywords (max 100)
-oynatıcı,çalar,istemci,sunucu,çevrimdışı,indir,kitaplık,seslendiren,ücretsiz,reklamsız,bölüm
+oynatıcı,çalar,istemci,sunucu,çevrimdışı,indir,kitaplık,seslendiren,reklamsız,bölüm,senkronizasyon
 
 ## Description (max 4000)
 ABS+, kendi Audiobookshelf sunucunuz için küçük ve hızlı bir oynatıcıdır. Sunucu adresiniz, kullanıcı adınız ve şifrenizle giriş yaptığınızda kitaplarınız ve podcast'leriniz hemen karşınıza gelir.

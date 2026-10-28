@@ -10,7 +10,7 @@ Audiobook and podcast player
 A small, fast player for your own Audiobookshelf server. Stream or download audiobooks and podcasts, and pick up where you left off on any device.
 
 ## Keywords (max 100)
-client,shelf,server,self-hosted,offline,m4b,mp3,listen,library,free,narrator,sync,download,stream
+client,shelf,server,self-hosted,offline,m4b,mp3,listen,library,speed,narrator,sync,download,stream
 
 ## Description (max 4000)
 ABS+ is a small, fast player for your own Audiobookshelf server. Sign in with your server address, username and password, and your books and podcasts are right there.

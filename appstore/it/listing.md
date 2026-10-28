@@ -10,7 +10,7 @@ Lettore audiolibri e podcast
 Un lettore leggero e veloce per il tuo server Audiobookshelf. Ascolta audiolibri e podcast in streaming o scaricali, e riprendi da dove eri rimasto su ogni dispositivo.
 
 ## Keywords (max 100)
-gratis,ascoltare,libri,audio,senza internet,libreria,narratore,romanzi,preferiti,scaricare,streaming
+ascoltare,libri,audio,senza internet,libreria,narratore,romanzi,preferiti,scaricare,streaming,nas
 
 ## Description (max 4000)
 ABS+ è un lettore leggero e veloce per il tuo server Audiobookshelf. Accedi con l’indirizzo del server, il nome utente e la password, e i tuoi libri e podcast sono subito lì.

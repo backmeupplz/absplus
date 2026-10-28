@@ -10,7 +10,7 @@ Pemutar audiobook dan podcast
 Pemutar kecil dan cepat untuk server Audiobookshelf Anda sendiri. Streaming atau unduh audiobook dan podcast, lalu lanjutkan dari posisi terakhir di perangkat mana pun.
 
 ## Keywords (max 100)
-buku audio,gratis,dengarkan,unduh,pustaka,sinkron,narator,penulis,seri,novel,cerita,pribadi
+buku audio,dengarkan,unduh,pustaka,sinkron,narator,penulis,seri,novel,cerita,pribadi
 
 ## Description (max 4000)
 ABS+ adalah pemutar kecil dan cepat untuk server Audiobookshelf Anda sendiri. Masuk dengan alamat server, nama pengguna, dan sandi, lalu buku dan podcast Anda langsung tersedia.
