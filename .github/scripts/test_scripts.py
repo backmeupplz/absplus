@@ -11,22 +11,46 @@ import appstore, fdroid, listings, notes
 
 class FakeStore:
     """App Store Connect for listings.appstore: versions, one app info, localizations and screenshots, recording writes"""
-    def __init__(self, versions, localizations=None):
+    def __init__(self, versions, localizations=None, shots=None, build="VALID"):
+        self.build = build
         self.versions = [{"id": i, "attributes": {"versionString": s, "appStoreState": state}} for i, s, state in versions]
         self.localizations = {locale: {"id": "loc-" + locale, "attributes": dict(a, locale=locale)} for locale, a in (localizations or {}).items()}
         self.writes, self.uploaded, self.count = [], [], 0
+        # the 6.9" set already on the store, as (checksum, processing state); new uploads join it, processed
+        self.shots = [{"id": f"old-{n}", "attributes": {"sourceFileChecksum": c, "assetDeliveryState": {"state": s}}}
+                      for n, (c, s) in enumerate(shots or [])]
+        self.submissions = [{"id": "sub", "attributes": {"state": v["attributes"]["appStoreState"]}}
+                            for v in self.versions if v["attributes"]["appStoreState"] in appstore.OPEN]
 
     def data(self, method, path, query=None, body=None, ok=()):
         if method != "GET":
             self.writes.append((method, path, body))
             self.count += 1
-            new = {"id": f"new-{self.count}", "attributes": dict(body["data"].get("attributes", {}))}
+            new = {"id": f"new-{self.count}", "attributes": dict(body["data"].get("attributes", {})) if body else {}}
             if path == "/v1/appStoreVersions":
                 new["attributes"]["appStoreState"] = "PREPARE_FOR_SUBMISSION"
             if path == "/v1/appScreenshots":
                 new["attributes"]["uploadOperations"] = [{"method": "PUT", "url": f"https://upload/{self.count}", "offset": 0,
                                                           "length": new["attributes"]["fileSize"], "requestHeaders": []}]
+                self.shots.append(new)
+            if method == "DELETE" and path.startswith("/v1/appScreenshots/"):
+                self.shots = [s for s in self.shots if s["id"] != path.split("/")[-1]]
+            if method == "PATCH" and path.startswith("/v1/appScreenshots/"):
+                shot = next(s for s in self.shots if s["id"] == path.split("/")[-1])
+                shot["attributes"].update(body["data"]["attributes"], assetDeliveryState={"state": "COMPLETE"})
+            if method == "PATCH" and path.startswith("/v1/reviewSubmissions/"):  # cancelling hands the version back
+                self.submissions = []
+                for v in self.versions:
+                    if v["attributes"]["appStoreState"] in appstore.OPEN: v["attributes"]["appStoreState"] = "DEVELOPER_REJECTED"
             return new
+        if path == "/v1/reviewSubmissions":
+            return self.submissions
+        if path == "/v1/builds":
+            return [{"id": "b", "attributes": {"processingState": self.build}}]
+        if path.endswith("/appScreenshotSets"):
+            return [{"id": "set", "attributes": {"screenshotDisplayType": listings.DISPLAY}}] if self.shots else []
+        if path.endswith("/appScreenshots"):
+            return self.shots
         if path.endswith("/appStoreVersions"):
             return self.versions
         if path.endswith("/appAvailabilityV2"):
@@ -44,7 +68,7 @@ class FakeStore:
     def api(self, method, path, query=None, body=None, ok=()):
         return {"data": self.data(method, path, query, body=body, ok=ok)}
 
-    def urlopen(self, request):
+    def urlopen(self, request, timeout=None):
         self.uploaded.append(request.data)
         return mock.MagicMock()
 
@@ -57,6 +81,39 @@ class FakeStore:
 
     def __exit__(self, *exc):
         for p in self.patches: p.stop()
+
+
+class FakePlay:
+    """The Play edits API for listings.play, one language; the first image upload lands but answers 503, as Play now
+    and then does, so a naive retry would leave it in twice"""
+    def __init__(self, listings=()):
+        self.images, self.calls, self.urls, self.flaky, self.listings, self.bodies = {}, [], [], True, list(listings), []
+
+    def urlopen(self, request, timeout=None):
+        method, url = request.get_method(), request.full_url.split("?")[0]
+        self.calls.append((method, url.split("/edits")[-1]))
+        self.urls.append(request.full_url)
+        answer = {}
+        if method == "POST" and url.endswith("/edits"):
+            answer = {"id": "e"}
+        elif method == "GET" and url.endswith("/listings"):
+            answer = {"listings": self.listings}
+        elif method == "PUT" and "/listings/" in url:
+            self.bodies.append(json.loads(request.data))
+        elif "/listings/" in url and url.rsplit("/", 1)[-1] in listings.PLAY_IMAGES:
+            kind = url.rsplit("/", 1)[-1]
+            if method == "GET":
+                answer = {"images": [{"sha256": s} for s in self.images.get(kind, [])]}
+            elif method == "DELETE":
+                self.images[kind] = []
+            elif method == "POST":
+                self.images.setdefault(kind, []).append(hashlib.sha256(request.data).hexdigest())
+                if self.flaky:
+                    self.flaky = False
+                    raise listings.urllib.error.HTTPError(url, 503, "Service Unavailable", {}, None)
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps(answer).encode()
+        return response
 
 METADATA = """AutoName: Mesh+
 
@@ -149,49 +206,6 @@ class Scripts(unittest.TestCase):
         self.assertEqual(fdroid.rewrite(METADATA, "0.4.3", "7", "793ee7cd8fe0103fb4857c13a73bc0c4af1a8926", "Tags",
                                         "https://github.com/backmeupplz/meshtastic-plus/releases/download/v%v/meshplus.apk"), METADATA)
 
-    def test_fdroid_rewrite_sets_the_gradle_flavor(self):
-        # A flavored app's entry needs its flavor: with gradle: [yes] Gradle builds every flavor and fdroidserver finds no APK
-        old = METADATA.replace("      - fdroid\n", "      - yes\n")
-        new = fdroid.rewrite(old, "0.4.4", "8", "a" * 40, gradle="fdroid")
-        self.assertEqual(new, fdroid.rewrite(METADATA, "0.4.4", "8", "a" * 40))
-        self.assertIn("    subdir: app\n    gradle:\n      - fdroid\n\nAllowedAPKSigningKeys", new)
-        # The same value changes nothing, and without FDROID_GRADLE the entry keeps the flavor it has
-        self.assertEqual(fdroid.rewrite(new, "0.4.4", "8", "a" * 40, gradle="fdroid"), new)
-        self.assertIn("    gradle:\n      - fdroid\n", fdroid.rewrite(new, "0.4.5", "9", "b" * 40))
-        with self.assertRaises(SystemExit):
-            fdroid.rewrite(METADATA.replace("    gradle:\n      - fdroid\n", ""), "0.4.4", "8", "a" * 40, gradle="fdroid")
-
-    def test_fdroid_main_takes_the_gradle_flavor_from_the_env(self):
-        old = METADATA.replace("      - fdroid\n", "      - yes\n")
-        def urlopen(url):
-            body = json.dumps({"state": "opened", "iid": 123, "web_url": "https://gitlab.com/mr"}) if "merge_requests" in url else old
-            return io.BytesIO(body.encode())
-        env = {"FDROID_MR": "123", "FDROID_APP_ID": "com.example", "FDROID_FORK": "backmeupplz/fdroiddata", "FDROID_BRANCH": "com.example",
-               "FDROID_GRADLE": "fdroid"}
-        with mock.patch.dict(os.environ, env), mock.patch("sys.argv", ["fdroid.py", "0.4.4", "8", "a" * 40, "--dry-run"]), \
-                mock.patch.object(fdroid.urllib.request, "urlopen", urlopen), contextlib.redirect_stdout(io.StringIO()) as out:
-            fdroid.main()
-        self.assertIn("\n-      - yes\n+      - fdroid\n", out.getvalue())
-        self.assertIn("Dry run: nothing pushed", out.getvalue())
-
-    def test_fdroid_push_failure_reports_git_output_without_the_token(self):
-        def urlopen(url):
-            body = json.dumps({"state": "opened", "iid": 123, "web_url": "https://gitlab.com/mr"}) if "merge_requests" in url else METADATA
-            return io.BytesIO(body.encode())
-        def run(argv, cwd, **kw):
-            self.assertTrue(kw["capture_output"])
-            if "push" not in argv:
-                if "sparse-checkout" in argv:
-                    os.makedirs(os.path.join(cwd, "metadata"))
-                return subprocess.CompletedProcess(argv, 0, "", "")
-            return subprocess.CompletedProcess(argv, 1, "", "remote: HTTP Basic: Access denied for s3cret-token\nfatal: Authentication failed for 'https://gitlab.com/backmeupplz/fdroiddata.git/'\n")
-        env = {"GITLAB_TOKEN": "s3cret-token", "FDROID_MR": "123", "FDROID_APP_ID": "com.example", "FDROID_FORK": "backmeupplz/fdroiddata", "FDROID_BRANCH": "com.example"}
-        with mock.patch.dict(os.environ, env), mock.patch("sys.argv", ["fdroid.py", "0.4.4", "8", "a" * 40]), \
-                mock.patch.object(fdroid.urllib.request, "urlopen", urlopen), mock.patch.object(fdroid.subprocess, "run", run), \
-                contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as exit:
-            fdroid.main()
-        self.assertEqual(exit.exception.code, "git push failed with status 1: remote: HTTP Basic: Access denied for *** | fatal: Authentication failed for 'https://gitlab.com/backmeupplz/fdroiddata.git/'")
-
     def test_notes_per_language_fall_back_to_english(self):
         with tempfile.TemporaryDirectory() as root:
             def write(folder, text):
@@ -256,6 +270,158 @@ class Scripts(unittest.TestCase):
         self.assertEqual(store.uploaded, [b"jpeg 1", b"jpeg 2"])
         done = [body["data"]["attributes"] for method, path, body in store.writes if method == "PATCH" and "appScreenshots/" in path]
         self.assertEqual([d["sourceFileChecksum"] for d in done], [hashlib.md5(b"jpeg 1").hexdigest(), hashlib.md5(b"jpeg 2").hexdigest()])
+
+    def test_a_release_cancels_the_review_and_puts_the_listing_on_that_version(self):
+        store = FakeStore([("v1", "1.0.0", "WAITING_FOR_REVIEW")], {"en-US": {"description": "Old"}})
+        with tempfile.TemporaryDirectory() as root, store:
+            cwd = os.getcwd()
+            try:
+                os.chdir(root)
+                os.makedirs("appstore")
+                with open("appstore/listing.md", "w") as f: f.write("## Name\nQuilcast\n## Description\nNew\n")
+                listings.appstore("1.0.1", True, release="2")
+                self.assertEqual(store.writes, [])  # a dry run sends nothing
+                listings.appstore("1.0.1", False, release="2")
+            finally:
+                os.chdir(cwd)
+        self.assertEqual(store.writes[0][1], "/v1/reviewSubmissions/sub")
+        self.assertEqual(store.writes[0][2]["data"]["attributes"], {"canceled": True})
+        self.assertIn(("PATCH", "/v1/appStoreVersionLocalizations/loc-en-US", {"description": "New"}),
+                      [(m, p, b["data"]["attributes"]) for m, p, b in store.writes])
+        self.assertNotIn("/v1/appStoreVersions", [p for m, p, b in store.writes])  # the cancelled version, not a new one
+
+    def test_a_release_with_a_broken_build_cancels_nothing(self):
+        store = FakeStore([("v1", "1.0.0", "WAITING_FOR_REVIEW")], build="INVALID")
+        with store, self.assertRaises(SystemExit):
+            listings.appstore("1.0.1", False, release="2")
+        self.assertEqual(store.writes, [])
+
+    def test_a_release_out_of_time_waiting_for_the_build_cancels_nothing(self):
+        store = FakeStore([("v1", "1.0.0", "WAITING_FOR_REVIEW")], build="PROCESSING")
+        with store, mock.patch.object(listings, "UNTIL", 0), mock.patch.object(listings.time, "sleep"), self.assertRaises(SystemExit):
+            listings.appstore("1.0.1", False, release="2")
+        self.assertEqual(store.writes, [])
+
+    def test_app_review_out_of_time_waiting_for_the_build_cancels_nothing(self):
+        store = FakeStore([("v1", "1.0.0", "WAITING_FOR_REVIEW")], build="PROCESSING")
+        with store, mock.patch.dict(os.environ, {"SUBMIT_UNTIL": "1"}), mock.patch.object(appstore.time, "sleep"), \
+                mock.patch.object(sys, "argv", ["appstore.py", "1.0.1", "2", "notes.txt"]), self.assertRaises(SystemExit):
+            appstore.main()
+        self.assertEqual(store.writes, [])
+
+    def test_a_release_out_of_time_sends_the_texts_and_leaves_the_screenshots(self):
+        store = FakeStore([("v1", "1.0.0", "WAITING_FOR_REVIEW")], {"en-US": {"description": "Old"}})
+        with tempfile.TemporaryDirectory() as root, store:
+            cwd = os.getcwd()
+            try:
+                os.chdir(root)
+                os.makedirs("appstore/screenshots/en-US")
+                with open("appstore/listing.md", "w") as f: f.write("## Name\nQuilcast\n## Description\nNew\n")
+                with open("appstore/screenshots/en-US/1.jpg", "wb") as f: f.write(b"jpeg 1")
+                # 10 minutes left: enough to cancel and send the texts, not a locale's screenshots
+                with mock.patch.object(listings, "UNTIL", listings.time.time() + 600), self.assertRaises(SystemExit):
+                    listings.appstore("1.0.1", False, release="2")
+            finally:
+                os.chdir(cwd)
+        paths = [p for m, p, b in store.writes]
+        self.assertEqual(paths[0], "/v1/reviewSubmissions/sub")
+        self.assertIn("/v1/appStoreVersionLocalizations/loc-en-US", paths)
+        self.assertIn("/v1/appInfoLocalizations", paths)  # the name went too, before the screenshots
+        self.assertFalse([p for p in paths if "Screenshot" in p])
+        self.assertEqual(store.uploaded, [])
+
+    def test_a_screenshot_apple_failed_to_process_is_uploaded_again(self):
+        with tempfile.TemporaryDirectory() as root:
+            shot = os.path.join(root, "1.jpg")
+            with open(shot, "wb") as f: f.write(b"jpeg 1")
+            md5 = hashlib.md5(b"jpeg 1").hexdigest()
+            say = lambda text: None
+            with FakeStore([], shots=[(md5, "COMPLETE")]) as store:
+                self.assertFalse(listings.upload_screenshots(appstore, "loc", [shot], say, False))
+            with FakeStore([], shots=[(md5, "FAILED")]) as store:
+                self.assertTrue(listings.upload_screenshots(appstore, "loc", [shot], say, False))
+                self.assertEqual([s["attributes"]["assetDeliveryState"]["state"] for s in store.shots], ["COMPLETE"])
+                self.assertEqual(store.uploaded, [b"jpeg 1"])
+
+    def test_play_images_retried_after_a_5xx_are_not_left_in_twice(self):
+        fake = FakePlay()
+        with tempfile.TemporaryDirectory() as root:
+            cwd = os.getcwd()
+            try:
+                os.chdir(root)
+                os.makedirs("fastlane/metadata/android/de-DE/images/phoneScreenshots")
+                with open("fastlane/metadata/android/de-DE/title.txt", "w") as f: f.write("Quilcast")
+                for n in (1, 2):
+                    with open(f"fastlane/metadata/android/de-DE/images/phoneScreenshots/{n}.jpg", "wb") as f: f.write(b"jpeg %d" % n)
+                with mock.patch.dict(os.environ, {"PLAY_PACKAGE": "com.example"}), \
+                        mock.patch.object(listings.urllib.request, "urlopen", fake.urlopen), mock.patch.object(listings.time, "sleep"), \
+                        mock.patch("play.access_token", return_value="t"):
+                    listings.play(False)
+            finally:
+                os.chdir(cwd)
+        self.assertEqual(fake.images["phoneScreenshots"], [hashlib.sha256(b"jpeg %d" % n).hexdigest() for n in (1, 2)])
+        self.assertIn(("POST", "/e:commit"), fake.calls)
+        # Play's default would withdraw a release in review and resubmit it
+        self.assertTrue(any(u.endswith(":commit?changesInReviewBehavior=ERROR_IF_IN_REVIEW") for u in fake.urls))
+
+    def test_play_listing_update_keeps_the_promo_video(self):
+        fake = FakePlay([{"language": "de-DE", "title": "Alt", "video": "https://youtu.be/x"}])
+        with tempfile.TemporaryDirectory() as root:
+            cwd = os.getcwd()
+            try:
+                os.chdir(root)
+                os.makedirs("fastlane/metadata/android/de-DE")
+                with open("fastlane/metadata/android/de-DE/title.txt", "w") as f: f.write("Quilcast")
+                with mock.patch.dict(os.environ, {"PLAY_PACKAGE": "com.example"}), \
+                        mock.patch.object(listings.urllib.request, "urlopen", fake.urlopen), mock.patch("play.access_token", return_value="t"):
+                    listings.play(False)
+            finally:
+                os.chdir(cwd)
+        self.assertEqual(fake.bodies, [{"language": "de-DE", "title": "Quilcast", "video": "https://youtu.be/x"}])
+
+    def test_fdroid_rewrite_sets_the_gradle_flavor(self):
+        # A flavored app's entry needs its flavor: with gradle: [yes] Gradle builds every flavor and fdroidserver finds no APK
+        old = METADATA.replace("      - fdroid\n", "      - yes\n")
+        new = fdroid.rewrite(old, "0.4.4", "8", "a" * 40, gradle="fdroid")
+        self.assertEqual(new, fdroid.rewrite(METADATA, "0.4.4", "8", "a" * 40))
+        self.assertIn("    subdir: app\n    gradle:\n      - fdroid\n\nAllowedAPKSigningKeys", new)
+        # The same value changes nothing, and without FDROID_GRADLE the entry keeps the flavor it has
+        self.assertEqual(fdroid.rewrite(new, "0.4.4", "8", "a" * 40, gradle="fdroid"), new)
+        self.assertIn("    gradle:\n      - fdroid\n", fdroid.rewrite(new, "0.4.5", "9", "b" * 40))
+        with self.assertRaises(SystemExit):
+            fdroid.rewrite(METADATA.replace("    gradle:\n      - fdroid\n", ""), "0.4.4", "8", "a" * 40, gradle="fdroid")
+
+    def test_fdroid_main_takes_the_gradle_flavor_from_the_env(self):
+        old = METADATA.replace("      - fdroid\n", "      - yes\n")
+        def urlopen(url):
+            body = json.dumps({"state": "opened", "iid": 123, "web_url": "https://gitlab.com/mr"}) if "merge_requests" in url else old
+            return io.BytesIO(body.encode())
+        env = {"FDROID_MR": "123", "FDROID_APP_ID": "com.example", "FDROID_FORK": "backmeupplz/fdroiddata", "FDROID_BRANCH": "com.example",
+               "FDROID_GRADLE": "fdroid"}
+        with mock.patch.dict(os.environ, env), mock.patch("sys.argv", ["fdroid.py", "0.4.4", "8", "a" * 40, "--dry-run"]), \
+                mock.patch.object(fdroid.urllib.request, "urlopen", urlopen), contextlib.redirect_stdout(io.StringIO()) as out:
+            fdroid.main()
+        self.assertIn("\n-      - yes\n+      - fdroid\n", out.getvalue())
+        self.assertIn("Dry run: nothing pushed", out.getvalue())
+
+    def test_fdroid_push_failure_reports_git_output_without_the_token(self):
+        def urlopen(url):
+            body = json.dumps({"state": "opened", "iid": 123, "web_url": "https://gitlab.com/mr"}) if "merge_requests" in url else METADATA
+            return io.BytesIO(body.encode())
+        def run(argv, cwd, **kw):
+            self.assertTrue(kw["capture_output"])
+            if "push" not in argv:
+                if "sparse-checkout" in argv:
+                    os.makedirs(os.path.join(cwd, "metadata"))
+                return subprocess.CompletedProcess(argv, 0, "", "")
+            return subprocess.CompletedProcess(argv, 1, "", "remote: HTTP Basic: Access denied for s3cret-token\nfatal: Authentication failed for 'https://gitlab.com/backmeupplz/fdroiddata.git/'\n")
+        env = {"GITLAB_TOKEN": "s3cret-token", "FDROID_MR": "123", "FDROID_APP_ID": "com.example", "FDROID_FORK": "backmeupplz/fdroiddata", "FDROID_BRANCH": "com.example"}
+        with mock.patch.dict(os.environ, env), mock.patch("sys.argv", ["fdroid.py", "0.4.4", "8", "a" * 40]), \
+                mock.patch.object(fdroid.urllib.request, "urlopen", urlopen), mock.patch.object(fdroid.subprocess, "run", run), \
+                contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as exit:
+            fdroid.main()
+        self.assertEqual(exit.exception.code, "git push failed with status 1: remote: HTTP Basic: Access denied for *** | fatal: Authentication failed for 'https://gitlab.com/backmeupplz/fdroiddata.git/'")
+
 
     def test_es256_signature_from_der(self):
         r, s = b"\x00" + b"\x80" * 32, b"\x01" * 31  # a padded r and a short s
