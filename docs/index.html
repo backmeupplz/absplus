@@ -168,9 +168,11 @@
     </section>
 
     <section class="promo">
-      <video controls playsinline preload="none" poster="/img/promo-poster.webp" width="1920" height="1080" aria-label="ABS+ in 40 seconds">
+      <video controls playsinline preload="none" data-poster="/img/promo-poster.webp" width="1920" height="1080" aria-label="ABS+ in 40 seconds">
         <source src="/video/absplus-promo.mp4" type="video/mp4">
       </video>
+      <!-- the poster (60 KB) waits for load, so on phones it doesn't hold up the first screen's text -->
+      <script>addEventListener("load", () => document.querySelectorAll("video[data-poster]").forEach((v) => (v.poster = v.dataset.poster)));</script>
     </section>
 
     <section class="section">
