@@ -22,5 +22,6 @@ It's free and open source with no ads, analytics or account, and it only talks t
 ## Links
 
 - [Home page](https://absplus.app/)
+- [Blog: ABS+ Notes](https://blog.absplus.app/): release notes and how it's built, such as [ABS+ in 22 languages](https://blog.absplus.app/absplus-22-languages/)
 - [Privacy policy](https://absplus.app/privacy/)
 - [Source code](https://github.com/backmeupplz/absplus)
