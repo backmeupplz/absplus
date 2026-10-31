@@ -12,6 +12,28 @@
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="https://absplus.app/">
 <meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="ar_AR">
+<meta property="og:locale:alternate" content="de_DE">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta property="og:locale:alternate" content="hi_IN">
+<meta property="og:locale:alternate" content="id_ID">
+<meta property="og:locale:alternate" content="it_IT">
+<meta property="og:locale:alternate" content="ja_JP">
+<meta property="og:locale:alternate" content="ko_KR">
+<meta property="og:locale:alternate" content="nl_NL">
+<meta property="og:locale:alternate" content="pl_PL">
+<meta property="og:locale:alternate" content="pt_BR">
+<meta property="og:locale:alternate" content="pt_PT">
+<meta property="og:locale:alternate" content="ru_RU">
+<meta property="og:locale:alternate" content="sv_SE">
+<meta property="og:locale:alternate" content="th_TH">
+<meta property="og:locale:alternate" content="tr_TR">
+<meta property="og:locale:alternate" content="uk_UA">
+<meta property="og:locale:alternate" content="vi_VN">
+<meta property="og:locale:alternate" content="zh_CN">
+<meta property="og:locale:alternate" content="zh_TW">
 <meta property="og:site_name" content="ABS+">
 <meta property="og:image:alt" content="ABS+: a fast, minimal audiobook and podcast player for Audiobookshelf, for Android and iPhone.">
 <meta name="twitter:card" content="summary_large_image">
@@ -20,6 +42,29 @@
 <meta name="twitter:image" content="https://absplus.app/img/og.jpg">
 <meta name="twitter:image:alt" content="ABS+: a fast, minimal audiobook and podcast player for Audiobookshelf, for Android and iPhone.">
 <link rel="canonical" href="https://absplus.app/">
+<link rel="alternate" hreflang="en" href="https://absplus.app/">
+<link rel="alternate" hreflang="ar" href="https://absplus.app/ar/">
+<link rel="alternate" hreflang="de" href="https://absplus.app/de/">
+<link rel="alternate" hreflang="es" href="https://absplus.app/es/">
+<link rel="alternate" hreflang="fr" href="https://absplus.app/fr/">
+<link rel="alternate" hreflang="hi" href="https://absplus.app/hi/">
+<link rel="alternate" hreflang="id" href="https://absplus.app/id/">
+<link rel="alternate" hreflang="it" href="https://absplus.app/it/">
+<link rel="alternate" hreflang="ja" href="https://absplus.app/ja/">
+<link rel="alternate" hreflang="ko" href="https://absplus.app/ko/">
+<link rel="alternate" hreflang="nl" href="https://absplus.app/nl/">
+<link rel="alternate" hreflang="pl" href="https://absplus.app/pl/">
+<link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/">
+<link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/">
+<link rel="alternate" hreflang="ru" href="https://absplus.app/ru/">
+<link rel="alternate" hreflang="sv" href="https://absplus.app/sv/">
+<link rel="alternate" hreflang="th" href="https://absplus.app/th/">
+<link rel="alternate" hreflang="tr" href="https://absplus.app/tr/">
+<link rel="alternate" hreflang="uk" href="https://absplus.app/uk/">
+<link rel="alternate" hreflang="vi" href="https://absplus.app/vi/">
+<link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/">
+<link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/">
+<link rel="alternate" hreflang="x-default" href="https://absplus.app/">
 <meta name="theme-color" content="#F4F2FB">
 <link rel="icon" href="/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
@@ -123,15 +168,39 @@
     .promo { padding-bottom: 64px; }
     .promo video { border-radius: 16px; }
   }
+  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}
 </style>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "MobileApplication", "name": "ABS+", "url": "https://absplus.app/",
+{
+ "@context": "https://schema.org",
+ "@type": "MobileApplication",
+ "name": "ABS+",
+ "url": "https://absplus.app/",
+ "inLanguage": "en",
  "description": "ABS+ is a small Android and iPhone app for your Audiobookshelf server. Stream or download audiobooks and podcasts, and pick up where you left off on any device.",
- "applicationCategory": "MultimediaApplication", "operatingSystem": "Android, iOS", "image": "https://absplus.app/img/og.jpg",
- "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
- "installUrl": ["https://play.google.com/store/apps/details?id=com.borodutch.absplus", "https://apps.apple.com/app/id6818353284"],
- "sameAs": ["https://github.com/backmeupplz/absplus", "https://play.google.com/store/apps/details?id=com.borodutch.absplus", "https://apps.apple.com/app/id6818353284"],
- "author": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}
+ "applicationCategory": "MultimediaApplication",
+ "operatingSystem": "Android, iOS",
+ "image": "https://absplus.app/img/og.jpg",
+ "offers": {
+  "@type": "Offer",
+  "price": "0",
+  "priceCurrency": "USD"
+ },
+ "installUrl": [
+  "https://play.google.com/store/apps/details?id=com.borodutch.absplus",
+  "https://apps.apple.com/app/id6818353284"
+ ],
+ "sameAs": [
+  "https://github.com/backmeupplz/absplus",
+  "https://play.google.com/store/apps/details?id=com.borodutch.absplus",
+  "https://apps.apple.com/app/id6818353284"
+ ],
+ "author": {
+  "@type": "Person",
+  "name": "Nikita Kolmogorov",
+  "url": "https://borodutch.com"
+ }
+}
 </script>
 <script defer src="https://lumen.borodutch.com/l.js"></script>
 </head>
@@ -140,7 +209,7 @@
   <header class="top">
     <a class="brand" href="/" aria-label="ABS+ home">
       <img src="/img/icon-80.webp" alt="" width="40" height="40">
-      <span class="wordmark">ABS<span>+</span></span>
+      <span class="wordmark" dir="ltr">ABS<span>+</span></span>
     </a>
     <nav><a href="https://github.com/backmeupplz/absplus">GitHub</a><a href="/privacy/">Privacy</a></nav>
   </header>
@@ -246,8 +315,10 @@
       <a href="https://github.com/backmeupplz/absplus">Source on GitHub</a>
       <a href="mailto:absplus@borodutch.com">absplus@borodutch.com</a>
     </div>
+<nav class="langs" aria-label="Language"><a href="/" hreflang="en" lang="en" aria-current="page">English</a> <a href="/ar/" hreflang="ar" lang="ar">العربية</a> <a href="/de/" hreflang="de" lang="de">Deutsch</a> <a href="/es/" hreflang="es" lang="es">Español</a> <a href="/fr/" hreflang="fr" lang="fr">Français</a> <a href="/hi/" hreflang="hi" lang="hi">हिन्दी</a> <a href="/id/" hreflang="id" lang="id">Bahasa Indonesia</a> <a href="/it/" hreflang="it" lang="it">Italiano</a> <a href="/ja/" hreflang="ja" lang="ja">日本語</a> <a href="/ko/" hreflang="ko" lang="ko">한국어</a> <a href="/nl/" hreflang="nl" lang="nl">Nederlands</a> <a href="/pl/" hreflang="pl" lang="pl">Polski</a> <a href="/pt-br/" hreflang="pt-BR" lang="pt-BR">Português (Brasil)</a> <a href="/pt-pt/" hreflang="pt-PT" lang="pt-PT">Português (Portugal)</a> <a href="/ru/" hreflang="ru" lang="ru">Русский</a> <a href="/sv/" hreflang="sv" lang="sv">Svenska</a> <a href="/th/" hreflang="th" lang="th">ไทย</a> <a href="/tr/" hreflang="tr" lang="tr">Türkçe</a> <a href="/uk/" hreflang="uk" lang="uk">Українська</a> <a href="/vi/" hreflang="vi" lang="vi">Tiếng Việt</a> <a href="/zh-hans/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a> <a href="/zh-hant/" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav>
     <p>ABS+ is an independent app, not affiliated with or endorsed by the Audiobookshelf project.</p>
   </footer>
 </div>
 </body>
 </html>
+

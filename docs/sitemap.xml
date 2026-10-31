@@ -1,5 +1,1147 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://absplus.app/</loc></url>
-  <url><loc>https://absplus.app/privacy/</loc></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://absplus.app/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ar/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/de/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/es/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/fr/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/hi/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/id/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/it/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ja/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ko/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/nl/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/pl/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/pt-br/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/pt-pt/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ru/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/sv/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/th/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/tr/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/uk/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/vi/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/zh-hans/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/zh-hant/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ar/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/de/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/es/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/fr/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/hi/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/id/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/it/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ja/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ko/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/nl/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/pl/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/pt-br/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/pt-pt/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ru/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/sv/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/th/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/tr/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/uk/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/vi/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/zh-hans/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/zh-hant/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
+  </url>
 </urlset>

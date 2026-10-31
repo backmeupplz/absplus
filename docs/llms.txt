@@ -25,3 +25,29 @@ It's free and open source with no ads, analytics or account, and it only talks t
 - [Blog: ABS+ Notes](https://blog.absplus.app/): release notes and how it's built, such as [ABS+ in 22 languages](https://blog.absplus.app/absplus-22-languages/)
 - [Privacy policy](https://absplus.app/privacy/)
 - [Source code](https://github.com/backmeupplz/absplus)
+
+## Translations
+
+The site is also available in these languages, each page at its own address:
+
+- [العربية](https://absplus.app/ar/): ABS+‎ مشغل كتب صوتية لـ Android وiPhone; [سياسة الخصوصية](https://absplus.app/ar/privacy/)
+- [Deutsch](https://absplus.app/de/): ABS+ für Android und iPhone; [Datenschutzerklärung](https://absplus.app/de/privacy/)
+- [Español](https://absplus.app/es/): ABS+ para Android e iPhone; [Política de privacidad](https://absplus.app/es/privacy/)
+- [Français](https://absplus.app/fr/): ABS+ pour Android et iPhone; [Politique de confidentialité](https://absplus.app/fr/privacy/)
+- [हिन्दी](https://absplus.app/hi/): ABS+: Android और iPhone के लिए Audiobookshelf प्लेयर; [निजता नीति](https://absplus.app/hi/privacy/)
+- [Bahasa Indonesia](https://absplus.app/id/): ABS+: pemutar audiobook untuk Android dan iPhone; [Kebijakan privasi](https://absplus.app/id/privacy/)
+- [Italiano](https://absplus.app/it/): ABS+ per Android e iPhone; [Informativa sulla privacy](https://absplus.app/it/privacy/)
+- [日本語](https://absplus.app/ja/): ABS+ Audiobookshelf用 Android・iPhoneプレーヤー; [プライバシーポリシー](https://absplus.app/ja/privacy/)
+- [한국어](https://absplus.app/ko/): ABS+ Audiobookshelf용 Android·iPhone 플레이어; [개인정보 처리방침](https://absplus.app/ko/privacy/)
+- [Nederlands](https://absplus.app/nl/): ABS+ voor Android en iPhone; [Privacybeleid](https://absplus.app/nl/privacy/)
+- [Polski](https://absplus.app/pl/): ABS+: odtwarzacz audiobooków na Androida i iPhone’a; [Polityka prywatności](https://absplus.app/pl/privacy/)
+- [Português (Brasil)](https://absplus.app/pt-br/): ABS+: player de audiolivros para Android e iPhone; [Política de privacidade](https://absplus.app/pt-br/privacy/)
+- [Português (Portugal)](https://absplus.app/pt-pt/): ABS+: leitor de audiolivros para Android e iPhone; [Política de privacidade](https://absplus.app/pt-pt/privacy/)
+- [Русский](https://absplus.app/ru/): ABS+: плеер аудиокниг для Android и iPhone; [Политика конфиденциальности](https://absplus.app/ru/privacy/)
+- [Svenska](https://absplus.app/sv/): ABS+ för Android och iPhone; [Integritetspolicy](https://absplus.app/sv/privacy/)
+- [ไทย](https://absplus.app/th/): ABS+ สำหรับ Audiobookshelf บน Android และ iPhone; [นโยบายความเป็นส่วนตัว](https://absplus.app/th/privacy/)
+- [Türkçe](https://absplus.app/tr/): ABS+: Android ve iPhone için sesli kitap oynatıcı; [Gizlilik politikası](https://absplus.app/tr/privacy/)
+- [Українська](https://absplus.app/uk/): ABS+: плеєр аудіокниг для Android та iPhone; [Політика конфіденційності](https://absplus.app/uk/privacy/)
+- [Tiếng Việt](https://absplus.app/vi/): ABS+ cho Android và iPhone: nghe sách nói; [Chính sách quyền riêng tư](https://absplus.app/vi/privacy/)
+- [简体中文](https://absplus.app/zh-hans/): ABS+：Android 和 iPhone 上的 Audiobookshelf 播放器; [隐私政策](https://absplus.app/zh-hans/privacy/)
+- [繁體中文](https://absplus.app/zh-hant/): ABS+：Android 與 iPhone 的 Audiobookshelf 播放器; [隱私權政策](https://absplus.app/zh-hant/privacy/)

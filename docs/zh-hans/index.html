@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ABS+：Android 和 iPhone 上的 Audiobookshelf 播放器</title>
+<meta name="description" content="ABS+ 是一款小巧的 Android 和 iPhone 应用，用来收听你 Audiobookshelf 服务器上的有声书和播客。可在线播放或下载，换一台设备也能接着听。">
+<meta property="og:title" content="ABS+：Android 和 iPhone 上的 Audiobookshelf 播放器">
+<meta property="og:description" content="小巧快速的 Android 和 iPhone 播放器，专为你的 Audiobookshelf 服务器而做。">
+<meta property="og:image" content="https://absplus.app/og/zh-hans/home.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://absplus.app/zh-hans/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:locale:alternate" content="ar_AR">
+<meta property="og:locale:alternate" content="de_DE">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta property="og:locale:alternate" content="hi_IN">
+<meta property="og:locale:alternate" content="id_ID">
+<meta property="og:locale:alternate" content="it_IT">
+<meta property="og:locale:alternate" content="ja_JP">
+<meta property="og:locale:alternate" content="ko_KR">
+<meta property="og:locale:alternate" content="nl_NL">
+<meta property="og:locale:alternate" content="pl_PL">
+<meta property="og:locale:alternate" content="pt_BR">
+<meta property="og:locale:alternate" content="pt_PT">
+<meta property="og:locale:alternate" content="ru_RU">
+<meta property="og:locale:alternate" content="sv_SE">
+<meta property="og:locale:alternate" content="th_TH">
+<meta property="og:locale:alternate" content="tr_TR">
+<meta property="og:locale:alternate" content="uk_UA">
+<meta property="og:locale:alternate" content="vi_VN">
+<meta property="og:locale:alternate" content="zh_TW">
+<meta property="og:site_name" content="ABS+">
+<meta property="og:image:alt" content="ABS+：适用于 Android 和 iPhone 的 Audiobookshelf 有声书与播客播放器，快速而简洁。">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ABS+：Android 和 iPhone 上的 Audiobookshelf 播放器">
+<meta name="twitter:description" content="小巧快速的 Android 和 iPhone 播放器，专为你的 Audiobookshelf 服务器而做。">
+<meta name="twitter:image" content="https://absplus.app/og/zh-hans/home.jpg">
+<meta name="twitter:image:alt" content="ABS+：适用于 Android 和 iPhone 的 Audiobookshelf 有声书与播客播放器，快速而简洁。">
+<link rel="canonical" href="https://absplus.app/zh-hans/">
+<link rel="alternate" hreflang="en" href="https://absplus.app/">
+<link rel="alternate" hreflang="ar" href="https://absplus.app/ar/">
+<link rel="alternate" hreflang="de" href="https://absplus.app/de/">
+<link rel="alternate" hreflang="es" href="https://absplus.app/es/">
+<link rel="alternate" hreflang="fr" href="https://absplus.app/fr/">
+<link rel="alternate" hreflang="hi" href="https://absplus.app/hi/">
+<link rel="alternate" hreflang="id" href="https://absplus.app/id/">
+<link rel="alternate" hreflang="it" href="https://absplus.app/it/">
+<link rel="alternate" hreflang="ja" href="https://absplus.app/ja/">
+<link rel="alternate" hreflang="ko" href="https://absplus.app/ko/">
+<link rel="alternate" hreflang="nl" href="https://absplus.app/nl/">
+<link rel="alternate" hreflang="pl" href="https://absplus.app/pl/">
+<link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/">
+<link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/">
+<link rel="alternate" hreflang="ru" href="https://absplus.app/ru/">
+<link rel="alternate" hreflang="sv" href="https://absplus.app/sv/">
+<link rel="alternate" hreflang="th" href="https://absplus.app/th/">
+<link rel="alternate" hreflang="tr" href="https://absplus.app/tr/">
+<link rel="alternate" hreflang="uk" href="https://absplus.app/uk/">
+<link rel="alternate" hreflang="vi" href="https://absplus.app/vi/">
+<link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/">
+<link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/">
+<link rel="alternate" hreflang="x-default" href="https://absplus.app/">
+<meta name="theme-color" content="#F4F2FB">
+<link rel="icon" href="/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<style>
+  :root {
+    --paper: #F4F2FB;
+    --ink: #1B1446;
+    --indigo: #4B35C9;
+    --amber: #FFC94D;
+    --muted: #5E577E;
+    --rule: #DDD8F0;
+    --body: system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--body); font-size: 18px; line-height: 1.6;
+    font-optical-sizing: auto; font-variation-settings: "opsz" 14;
+  }
+  a { color: var(--indigo); text-underline-offset: 3px; }
+  a:focus-visible, .store:focus-visible { outline: 3px solid var(--indigo); outline-offset: 3px; border-radius: 6px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  /* header */
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 28px 0; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+  .brand img { width: 40px; height: 40px; border-radius: 10px; }
+  .wordmark { font-weight: 800; font-size: 22px; letter-spacing: -.02em; font-variation-settings: "opsz" 48; }
+  .wordmark span { color: var(--indigo); }
+  .top nav { display: flex; gap: 24px; }
+  .top nav a { color: var(--muted); text-decoration: none; font-size: 16px; }
+  .top nav a:hover { color: var(--ink); }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 72px; align-items: center; padding: 48px 0 96px; }
+  h1 {
+    font-size: clamp(44px, 5.6vw, 74px); line-height: 1; letter-spacing: -.035em; font-weight: 800;
+    font-variation-settings: "opsz" 96; margin: 0 0 28px; max-width: 14ch; text-wrap: balance;
+  }
+  .lead { font-size: 21px; line-height: 1.55; color: var(--muted); max-width: 30em; margin: 0 0 36px; }
+  .stores { display: flex; flex-wrap: wrap; gap: 12px; }
+  .store {
+    display: inline-flex; align-items: center; gap: 10px; background: var(--ink); color: #fff; text-decoration: none;
+    font-weight: 600; font-size: 18px; padding: 16px 26px 16px 20px; border-radius: 14px;
+  }
+  .store svg { width: 26px; height: 26px; flex: none; fill: var(--amber); }
+  .store:hover { background: #2a2068; }
+  .req { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
+
+  .device {
+    width: 300px; padding: 10px; border-radius: 42px; background: #15102f;
+    box-shadow: 0 1px 0 1px #2c2560 inset, 0 40px 80px -30px rgba(27, 20, 70, .45);
+  }
+  .device img { display: block; width: 100%; height: auto; border-radius: 33px; }
+  .hero .device { width: 330px; }
+
+  /* video */
+  .promo { padding: 0 0 88px; }
+  .promo video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 24px; background: var(--ink); box-shadow: 0 40px 80px -30px rgba(27, 20, 70, .45); }
+
+  /* features */
+  .section { padding: 88px 0; border-top: 1px solid var(--rule); }
+  h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.08; letter-spacing: -.025em; font-weight: 750; font-variation-settings: "opsz" 72; margin: 0 0 48px; max-width: 18ch; }
+  .features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 72px; margin: 0; }
+  .feature { display: grid; grid-template-columns: 28px 1fr; gap: 4px 18px; }
+  .feature svg { width: 28px; height: 28px; fill: var(--indigo); grid-row: span 2; margin-top: 2px; }
+  .feature dt { font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
+  .feature dd { margin: 0; color: var(--muted); max-width: 34em; }
+
+  /* screens */
+  .screens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin: 0; }
+  .screens figure { margin: 0; }
+  .screens .device { width: 100%; border-radius: 30px; padding: 7px; }
+  .screens .device img { border-radius: 24px; }
+  .screens figcaption { margin-top: 18px; font-size: 16px; color: var(--muted); max-width: 22em; }
+  .screens figcaption b { display: block; color: var(--ink); font-weight: 700; font-size: 17px; }
+
+  /* privacy */
+  .privacy p.big {
+    font-size: clamp(30px, 4.2vw, 54px); line-height: 1.1; letter-spacing: -.03em; font-weight: 750;
+    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 20ch;
+  }
+  .privacy p.small { color: var(--muted); max-width: 36em; margin: 0; }
+
+  footer { border-top: 1px solid var(--rule); padding: 36px 0 56px; color: var(--muted); font-size: 15px; }
+  footer .links { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 12px; }
+  footer p { margin: 0; }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 56px; padding: 16px 0 72px; }
+    .hero .device { width: min(300px, 78vw); justify-self: center; }
+    .features { grid-template-columns: 1fr; gap: 32px; }
+    .screens { grid-template-columns: repeat(4, 220px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
+    .screens figure { scroll-snap-align: start; }
+    .section { padding: 64px 0; }
+    .promo { padding-bottom: 64px; }
+    .promo video { border-radius: 16px; }
+  }
+  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}h1,h2,p,li{overflow-wrap:break-word;hyphens:auto}h1,h2,.privacy p.big{letter-spacing:0}h1{line-height:1.3}h2{line-height:1.35}h1{max-width:12em}h2,.privacy p.big{max-width:none}
+</style>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "MobileApplication",
+ "name": "ABS+",
+ "url": "https://absplus.app/zh-hans/",
+ "inLanguage": "zh-Hans",
+ "description": "ABS+ 是一款小巧的 Android 和 iPhone 应用，用来收听你 Audiobookshelf 服务器上的有声书和播客。可在线播放或下载，换一台设备也能接着听。",
+ "applicationCategory": "MultimediaApplication",
+ "operatingSystem": "Android, iOS",
+ "image": "https://absplus.app/og/zh-hans/home.jpg",
+ "offers": {
+  "@type": "Offer",
+  "price": "0",
+  "priceCurrency": "USD"
+ },
+ "installUrl": [
+  "https://play.google.com/store/apps/details?id=com.borodutch.absplus",
+  "https://apps.apple.com/app/id6818353284"
+ ],
+ "sameAs": [
+  "https://github.com/backmeupplz/absplus",
+  "https://play.google.com/store/apps/details?id=com.borodutch.absplus",
+  "https://apps.apple.com/app/id6818353284"
+ ],
+ "author": {
+  "@type": "Person",
+  "name": "Nikita Kolmogorov",
+  "url": "https://borodutch.com"
+ }
+}
+</script>
+<script defer src="https://lumen.borodutch.com/l.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/zh-hans/" aria-label="ABS+ 首页">
+      <img src="/img/icon-80.webp" alt="" width="40" height="40">
+      <span class="wordmark" dir="ltr">ABS<span>+</span></span>
+    </a>
+    <nav><a href="https://github.com/backmeupplz/absplus">GitHub</a><a href="/zh-hans/privacy/">隐私</a></nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <h1>你的有声书，随时随地都能听。</h1>
+        <p class="lead">ABS+ 是一款小巧的 Android 和 iPhone 应用，用来收听你 Audiobookshelf 服务器上的有声书和播客。可在线播放或下载，换一台设备也能接着听。</p>
+        <div class="stores">
+          <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
+            <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
+            在 Google Play 上获取
+          </a>
+          <a class="store" href="https://apps.apple.com/app/id6818353284">
+            <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
+            在 App Store 下载
+          </a>
+        </div>
+        <p class="req">免费且<a href="https://github.com/backmeupplz/absplus">开源</a>，没有广告。想自行安装？可以<a href="https://github.com/backmeupplz/absplus/releases/latest/download/absplus.apk">下载 APK</a>。你需要有一台可以登录的 <a href="https://www.audiobookshelf.org">Audiobookshelf</a> 服务器。</p>
+      </div>
+      <div class="device">
+        <img src="/img/05-player-lg.webp" srcset="/img/05-player-540.webp 540w, /img/05-player-lg.webp 720w" sizes="(max-width: 900px) min(300px, 78vw), 330px" alt="ABS+ 播放器正在播放《小公主》" width="720" height="1440" fetchpriority="low">
+      </div>
+    </section>
+
+    <section class="promo">
+      <video controls playsinline preload="none" data-poster="/img/promo-poster.webp" width="1920" height="1080" aria-label="40 秒了解 ABS+">
+        <source src="/video/absplus-promo.mp4" type="video/mp4">
+      </video>
+      <!-- the poster (60 KB) waits for load, so on phones it doesn't hold up the first screen's text -->
+      <script>addEventListener("load", () => document.querySelectorAll("video[data-poster]").forEach((v) => (v.poster = v.dataset.poster)));</script>
+    </section>
+
+    <section class="section">
+      <h2>它能做什么</h2>
+      <dl class="features">
+        <div class="feature">
+          <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M467-172.5q-6-1.5-11-5.5-44-29-93.57-45.5Q312.87-240 260-240q-42 0-82.5 11T100-198q-21 11-40.5-1T40-234v-482q0-11 5.5-21T62-752q46-24 96-36t102-12q58 0 113.5 15T480-740v506q51-33 107-49.5T700-300q36 0 78.5 7t81.5 29v-505q9.89 3.75 19.44 7.87Q889-757 898-752q10 6 16 15.68 6 9.67 6 20.32v482q0 23-19.5 35t-40.5 1q-37-20-77.5-31T700-240q-52.87 0-102.43 16.5Q548-207 504-178q-5 4-11 5.5t-13 1.5q-7 0-13-1.5ZM565-349q-8 6-16.5 2.5T540-360v-314q0-2.86 1-5.36 1-2.5 3-4.64l230-230q7-7 16.5-3.46T800-904v344q0 3-1.43 5.8T795-549L565-349Zm-145 85v-439q-34-19-79-28t-81-9q-47 0-87.5 10T100-704.47V-264q35-17 75.5-26.5t85-9.5q44.5 0 84.5 9.5t75 26.5Zm0 0v-439 439Z"/></svg>
+          <dt>像一本书一样播放</dt>
+          <dd>拆成许多文件的有声书，也会以一条完整的时间轴播放。锁屏、耳机和蓝牙控制开箱即用。</dd>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M248-171q-88 0-148-59T40-377q0-80 50.5-134T217-577q2-14 6.5-31.5T236-640L91-785q-9-9-9-21t9-21q9-9 21-9t21 9l707 707q9 9 9 21t-9 21q-9 9-21.5 9T797-78l-94-93H248Zm0-60h397L285-591q-11 15-14.5 34t-3.5 37h-19q-62 0-105 39.5t-43 101q0 61.5 43 105T248-231Zm216-181Zm390 210-47-47q25-17 39-38t14-50q0-43-31-73.5T755-441h-67v-81q0-88-61-147.5T478.47-729q-28.47 0-60.97 9T358-691l-42-42q36-29 77.5-42.5T478-789q111 0 190.5 79T748-520v21q72-1 122 45t50 117q0 35-16.5 73.5T854-202ZM583-470Z"/></svg>
+          <dt>离线也能听</dt>
+          <dd>可以下载整本书，也可以只下载单集。无法连接服务器时，应用会自动切换到你已下载的内容。</dd>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M220-477q0 63 23.5 109.5T307-287l30 21v-94q0-13 8.5-21.5T367-390q13 0 21.5 8.5T397-360v170q0 13-8.5 21.5T367-160H197q-13 0-21.5-8.5T167-190q0-13 8.5-21.5T197-220h100l-15-12q-64-51-93-111t-29-134q0-94 49.5-171.5T342-766q11-5 21 0t14 16q5 11 0 22.5T361-710q-64 34-102.5 96.5T220-477Zm520-6q0-48-23.5-97.5T655-668l-29-26v94q0 13-8.5 21.5T596-570q-13 0-21.5-8.5T566-600v-170q0-13 8.5-21.5T596-800h170q13 0 21.5 8.5T796-770q0 13-8.5 21.5T766-740H665l15 14q60 56 90 120t30 123q0 93-48 169.5T623-195q-11 6-22.5 1.5T584-210q-5-11 0-22.5t16-17.5q65-33 102.5-96T740-483Z"/></svg>
+          <dt>记住你听到哪里</dt>
+          <dd>进度会保存到你的服务器，所以网页播放器和其他 Audiobookshelf 应用都能从同一处接着播放。</dd>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M38-254q0-35 18-63.5t50-42.5q73-32 131.5-46T358-420q62 0 120 14t131 46q32 14 50.5 42.5T678-254v34q0 25-17.5 42.5T618-160H98q-25 0-42.5-17.5T38-220v-34Zm824 94H724q5-15 9.5-29.5T738-220v-34q0-63-29-101.5T622-420q69 8 130 22t99 34q33 19 52 47t19 63v34q0 25-17.5 42.5T862-160ZM250-523q-42-42-42-108t42-108q42-42 108-42t108 42q42 42 42 108t-42 108q-42 42-108 42t-108-42Zm426 0q-42 42-108 42-11 0-24.5-1.5T519-488q24-25 36.5-61.5T568-631q0-45-12.5-79.5T519-774q11-3 24.5-5t24.5-2q66 0 108 42t42 108q0 66-42 108ZM98-220h520v-34q0-16-9.5-31T585-306q-72-32-121-43t-106-11q-57 0-106.5 11T130-306q-14 6-23 21t-9 31v34Zm324.5-346.5Q448-592 448-631t-25.5-64.5Q397-721 358-721t-64.5 25.5Q268-670 268-631t25.5 64.5Q319-541 358-541t64.5-25.5ZM358-220Zm0-411Z"/></svg>
+          <dt>一起听</dt>
+          <dd>可以把某部作品的进度与另一个账号共享，比如公路旅行中的伴侣。跳转到对方的位置之前，应用会先征求你的同意。</dd>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M458.19-144Q447-148 439-156l-53-49Q262-320 171-424.5T80-643q0-90.15 60.5-150.58Q201-854 290-854q51 0 101 24.5t89 80.5q44-56 91-80.5t99-24.5q89 0 149.5 60.42Q880-733.15 880-643q0 114-91 218.5T574-205l-53 49q-8.25 8.38-19.12 12.19Q491-140 480.19-140q-10.8 0-22-4ZM454-683q-27-49-71-80t-93-31q-66 0-108 42.5t-42 108.93q0 57.57 38.88 121.22 38.88 63.66 93 123.5Q326-338 384-286.5q58 51.5 96 86.5 38-34 96-86t112-112.5q54-60.5 93-124.19T820-643q0-66-42.5-108.5T670-794q-50 0-93.5 30.5T504-683q-5 8-11 11.5t-14 3.5q-8 0-14.5-3.5T454-683Zm26 186Z"/></svg>
+          <dt>收藏和系列</dt>
+          <dd>收藏会在你的设备之间同步，系列直接来自你的服务器，最近播放的内容也始终只需轻点一下。</dd>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="m393-165 279-335H492l36-286-253 366h154l-36 255Zm-33-195H217q-18 0-26.5-16t2.5-31l338-488q8-11 20-15t24 1q12 5 19 16t5 24l-39 309h176q19 0 27 17t-4 32L388-66q-8 10-20.5 13T344-55q-11-5-17.5-16T322-95l38-265Zm113-115Z"/></svg>
+          <dt>小巧又快速</dt>
+          <dd>在 Android 上约 4 MB，在 iPhone 上约 1 MB，两个平台都是原生开发。打开后直接进入你的媒体库。</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="section">
+      <h2>近距离看看</h2>
+      <div class="screens">
+        <figure>
+          <div class="device"><img src="/img/02-home.webp" alt="首页界面" loading="lazy" width="540" height="1080"></div>
+          <figcaption><b>首页</b>正在听的内容，以及最近播放过的内容。</figcaption>
+        </figure>
+        <figure>
+          <div class="device"><img src="/img/03-library.webp" alt="媒体库界面" loading="lazy" width="540" height="1080"></div>
+          <figcaption><b>媒体库</b>服务器上的每一本书和每一档播客，都可以搜索。</figcaption>
+        </figure>
+        <figure>
+          <div class="device"><img src="/img/06-podcast.webp" alt="播客界面" loading="lazy" width="540" height="1080"></div>
+          <figcaption><b>播客</b>随时可以在线播放或下载的单集。</figcaption>
+        </figure>
+        <figure>
+          <div class="device"><img src="/img/08-series.webp" alt="系列界面" loading="lazy" width="540" height="1080"></div>
+          <figcaption><b>系列</b>图书按你服务器上的分组方式排列。</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section privacy">
+      <p class="big">ABS+ 只与你登录的服务器通信。</p>
+      <p class="small">我们这里没有账号，没有统计分析，也没有广告。代码<a href="https://github.com/backmeupplz/absplus">开源</a>，详情请见<a href="/zh-hans/privacy/">隐私政策</a>。</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="links">
+      <a href="/zh-hans/privacy/">隐私政策</a>
+      <a href="https://blog.absplus.app/">博客（英文）</a>
+      <a href="https://github.com/backmeupplz/absplus">GitHub 上的源代码</a>
+      <a href="mailto:absplus@borodutch.com">absplus@borodutch.com</a>
+    </div>
+<nav class="langs" aria-label="语言"><a href="/" hreflang="en" lang="en">English</a> <a href="/ar/" hreflang="ar" lang="ar">العربية</a> <a href="/de/" hreflang="de" lang="de">Deutsch</a> <a href="/es/" hreflang="es" lang="es">Español</a> <a href="/fr/" hreflang="fr" lang="fr">Français</a> <a href="/hi/" hreflang="hi" lang="hi">हिन्दी</a> <a href="/id/" hreflang="id" lang="id">Bahasa Indonesia</a> <a href="/it/" hreflang="it" lang="it">Italiano</a> <a href="/ja/" hreflang="ja" lang="ja">日本語</a> <a href="/ko/" hreflang="ko" lang="ko">한국어</a> <a href="/nl/" hreflang="nl" lang="nl">Nederlands</a> <a href="/pl/" hreflang="pl" lang="pl">Polski</a> <a href="/pt-br/" hreflang="pt-BR" lang="pt-BR">Português (Brasil)</a> <a href="/pt-pt/" hreflang="pt-PT" lang="pt-PT">Português (Portugal)</a> <a href="/ru/" hreflang="ru" lang="ru">Русский</a> <a href="/sv/" hreflang="sv" lang="sv">Svenska</a> <a href="/th/" hreflang="th" lang="th">ไทย</a> <a href="/tr/" hreflang="tr" lang="tr">Türkçe</a> <a href="/uk/" hreflang="uk" lang="uk">Українська</a> <a href="/vi/" hreflang="vi" lang="vi">Tiếng Việt</a> <a href="/zh-hans/" hreflang="zh-Hans" lang="zh-Hans" aria-current="page">简体中文</a> <a href="/zh-hant/" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav>
+    <p>ABS+ 是一款独立应用，与 Audiobookshelf 项目没有隶属关系，也未获其认可。</p>
+  </footer>
+</div>
+</body>
+</html>
+
