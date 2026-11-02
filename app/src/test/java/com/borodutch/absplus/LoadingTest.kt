@@ -50,7 +50,15 @@ class LoadingTest {
         val f = Abs::class.java.getDeclaredMethod("cacheFile", String::class.java).apply { isAccessible = true }.invoke(Abs, path) as File
         f.parentFile!!.mkdirs(); f.writeText(raw)
     }
+    // The app's request threads by path: a thread that has ended has queued its result on the main looper
+    private val workers = java.util.concurrent.CopyOnWriteArrayList<Pair<String, Thread>>()
+    /** Lets every request to [path] made so far deliver whatever it delivers, then runs it on the main thread. */
+    private fun settled(path: String) {
+        workers.filter { it.first == path }.forEach { (_, t) -> t.join(5000); assertFalse("$path still running", t.isAlive) }
+        shadowOf(Looper.getMainLooper()).idle()
+    }
     private fun fixture(run: (Main, HttpServer) -> Unit) {
+        Abs.openConnection = { url -> workers.add(url.path to Thread.currentThread()); url.openConnection() as java.net.HttpURLConnection }
         val controller = Robolectric.buildActivity(Main::class.java).create()
         val a = controller.get()
         (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
@@ -64,6 +72,7 @@ class LoadingTest {
         Abs.startProgress(false)
         server.removeContext("/login")
         try { run(a, server) } finally {
+            Abs.openConnection = { it.openConnection() as java.net.HttpURLConnection }
             controller.destroy()
             Abs.logout(); Abs.progressSync.close()
             server.stop(0); executor.shutdownNow()
@@ -154,13 +163,11 @@ class LoadingTest {
         oldRelease.countDown(); await { Abs.cached("/api/libraries/books/items?minified=1&sort=media.metadata.title") != null }
         assertSame(page, a.content().getChildAt(0)); assertEquals(0, views(page).filterIsInstance<RecyclerView>().single().adapter!!.itemCount)
         val detailRelease = CountDownLatch(1); val detailRequested = CountDownLatch(1)
-        val detailDone = CountDownLatch(1)
-        s.route("/api/items/late", 401) { detailRequested.countDown(); detailRelease.await(5, TimeUnit.SECONDS); detailDone.countDown(); """{}""" }
+        s.route("/api/items/late", 401) { detailRequested.countDown(); detailRelease.await(5, TimeUnit.SECONDS); """{}""" }
         a.call("push", { a.call("item", "late") }); assertTrue(a.has("Loading title…"))
         assertTrue(detailRequested.await(5, TimeUnit.SECONDS)); a.onBackPressedDispatcher.onBackPressed(); detailRelease.countDown()
         await { Abs.cached("/api/libraries/new/items?minified=1&sort=media.metadata.title") != null }
-        assertTrue(detailDone.await(5, TimeUnit.SECONDS))
-        Thread.sleep(50); shadowOf(Looper.getMainLooper()).idle()
+        settled("/api/items/late")
         assertSame(page, a.content().getChildAt(0)); assertFalse(a.has("Sign in"))
     }
 

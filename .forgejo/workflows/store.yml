@@ -12,20 +12,36 @@ concurrency:
   group: store-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  # Our own PRs and pushes, on the Mac runners: a per-runner sparse git checkout of only the texts the check reads (no
+  # action to download, none of the 900 screenshots), then the check.
   check:
-    # Our own PRs and pushes run on the Mac runners; outsiders' PRs (AGit via the github bot) on Linux
-    runs-on: ${{ (github.event_name != 'pull_request' || contains(fromJSON('["backmeupplz","renovate","claude"]'), github.event.pull_request.user.login)) && 'macos-latest' || 'ubuntu-latest' }}
+    if: github.event_name != 'pull_request' || contains(fromJSON('["backmeupplz","renovate","claude","radiant"]'), github.event.pull_request.user.login)
+    runs-on: macos-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          src="${PWD%%/work/*}/ci/absplus-store"
+          mkdir -p "$src" && cd "$src"
+          rm -f .git/index.lock .git/shallow.lock # left by a cancelled run
+          [ -d .git ] || { git init -q && git sparse-checkout set --no-cone '/appstore/**/*.md' '/fastlane/**/*.txt' '/play/*.txt' '/scripts/store-copy.mjs'; }
+          git fetch -q --no-tags --depth=1 --filter=blob:limit=64k "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_SHA"
+          git checkout -q -f FETCH_HEAD
+          node scripts/store-copy.mjs
+  # Outsiders' PRs (AGit via the github bot) on Linux
+  check-outside:
+    if: github.event_name == 'pull_request' && !contains(fromJSON('["backmeupplz","renovate","claude","radiant"]'), github.event.pull_request.user.login)
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
+          sparse-checkout-cone-mode: false
           sparse-checkout: |
-            appstore
-            fastlane
-            play
-            scripts
-      - if: runner.os == 'Linux'
-        uses: actions/setup-node@v4
+            /appstore/**/*.md
+            /fastlane/**/*.txt
+            /play/*.txt
+            /scripts/store-copy.mjs
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
       - run: node scripts/store-copy.mjs

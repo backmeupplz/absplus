@@ -86,7 +86,7 @@ class AccountScopeTest {
     }
 
     @Before fun setup() {
-        activity = Robolectric.buildActivity(Main::class.java).create()
+        Abs.init(org.robolectric.RuntimeEnvironment.getApplication())
         Abs.logout()
         endpoint = server()
         Abs.openConnection = { url ->
@@ -94,9 +94,7 @@ class AccountScopeTest {
             url.openConnection() as HttpURLConnection
         }
         login("A")
-        // Login happened through Abs after onCreate rendered the signed-out screen.
-        // Recreate as production does after committing login before testing playback.
-        activity.destroy()
+        // The Activity starts after the login is committed, as it does when the app is opened signed in.
         activity = Robolectric.buildActivity(Main::class.java).create()
         service = Robolectric.buildService(PlayerService::class.java)
         service.create()

@@ -34,8 +34,12 @@ android {
     sourceSets["main"].kotlin.srcDir(if (play) "src/play/java" else "src/fdroid/java")
     testOptions {
         unitTests.isIncludeAndroidResources = true
-        // Robolectric suites are independent (own servers on port 0), so they split across JVMs.
-        unitTests.all { it.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4) }
+        // Robolectric suites are independent (own servers on port 0), so they split across JVMs. Each test JVM lives for
+        // seconds, so C2's compile time never pays off: C1 alone cuts the suite's CPU time by about a third.
+        unitTests.all {
+            it.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
+            it.jvmArgs("-XX:TieredStopAtLevel=1")
+        }
     }
     buildTypes {
         release {
@@ -53,5 +57,5 @@ dependencies {
     implementation("com.google.android.material:material:1.14.0")
     if (play) implementation("com.google.android.play:review:2.0.2")
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.robolectric:robolectric:4.16.1")
+    testImplementation("org.robolectric:robolectric:4.17")
 }

@@ -18,22 +18,24 @@ jobs:
     name: iOS
     runs-on: macos-26
     # Mac only, and only for our own PRs: outsiders' PRs (bridged from GitHub by the `github` user) never run on it.
-    if: github.event_name != 'pull_request' || contains(fromJSON('["backmeupplz","renovate","claude"]'), github.event.pull_request.user.login)
+    if: github.event_name != 'pull_request' || contains(fromJSON('["backmeupplz","renovate","claude","radiant"]'), github.event.pull_request.user.login)
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
-        with:
-          sparse-checkout: ios
-      # Each runner instance (runner/rN) builds its own copy of the sources: the checkout path changes with every run,
-      # and Xcode only rebuilds what changed while the path stays the same and unchanged files keep their inode and time.
+      # A per-runner git checkout of ios/ instead of actions/checkout: no action to download, and Xcode only rebuilds what
+      # changed while the path stays the same and unchanged files keep their inode and time (git rewrites only changed files).
       # xcodebuild runs with a clean environment because it reads every variable as a build setting, and the runner's
-      # per-run ones made it redo the build setup each time. The generic simulator destination needs no booted device.
+      # per-run ones made it redo the build setup each time. The generic simulator destination needs no booted device, and
+      # no index store: nothing reads it here.
       - name: Build
         run: |
-          runner="${PWD%%/work/*}"
-          stage="$runner/ci/absplus"
-          mkdir -p "$stage"
-          rsync -rlc --delete ios/ "$stage/ios/"
+          stage="${PWD%%/work/*}/ci/absplus-ios"
+          mkdir -p "$stage" && cd "$stage"
+          rm -f .git/index.lock .git/shallow.lock # left by a cancelled run
+          [ -d .git ] || { git init -q && git sparse-checkout set ios; }
+          # Blobs up to 128 KB (every source file, not the store images) come with the fetch, so checkout fetches nothing more
+          git fetch -q --no-tags --depth=1 --filter=blob:limit=128k "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_SHA"
+          git checkout -q -f FETCH_HEAD
+          echo "Sources at $(git rev-parse --short HEAD)"
           env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" \
-            xcodebuild -quiet -project "$stage/ios/ABSPlus.xcodeproj" -scheme ABSPlus -derivedDataPath "$stage/DerivedData" \
-            -destination 'generic/platform=iOS Simulator' ARCHS=arm64 build-for-testing
+            xcodebuild -quiet -project ios/ABSPlus.xcodeproj -scheme ABSPlus -derivedDataPath "$stage/DerivedData" \
+            -destination 'generic/platform=iOS Simulator' ARCHS=arm64 COMPILER_INDEX_STORE_ENABLE=NO build-for-testing

@@ -99,9 +99,12 @@ class LibraryRecoveryTest {
             }
             start()
         }
+        // The app's request threads by path: a thread that has ended has queued its result on the main looper
+        val workers = CopyOnWriteArrayList<Pair<String, Thread>>()
         val controller = Robolectric.buildActivity(Main::class.java).create()
         val a = controller.get()
         init {
+            Abs.openConnection = { url -> workers.add(url.path to Thread.currentThread()); url.openConnection() as java.net.HttpURLConnection }
             (a.lifecycle as LifecycleRegistry).handleLifecycleEvent(Lifecycle.Event.ON_START)
             Abs.logout()
             Abs.offline = false
@@ -110,10 +113,16 @@ class LibraryRecoveryTest {
         }
         fun open() { a.call("tab", 1) }
         fun details() { a.call("push", { a.call("item", "A0"); Unit }) }
+        /** Lets every request to [paths] made so far deliver whatever it delivers, then runs it on the main thread. */
+        fun settled(vararg paths: String) {
+            workers.filter { it.first in paths }.forEach { (path, t) -> t.join(5000); assertFalse("$path still running", t.isAlive) }
+            shadowOf(Looper.getMainLooper()).idle()
+        }
         override fun close() {
             membershipGate?.countDown(); aGate?.countDown()
             controller.destroy()
             server.stop(0); pool.shutdownNow()
+            Abs.openConnection = { it.openConnection() as java.net.HttpURLConnection }
             Abs.logout() // clear this loopback server’s JSON as well as preferences
             Abs.offline = false
         }
@@ -186,9 +195,8 @@ class LibraryRecoveryTest {
             val bLm = bGrid.layoutManager as GridLayoutManager
             assertEquals(0, bLm.findFirstVisibleItemPosition())
             gate.countDown()
-            await("A response cached") { Abs.cached("/api/libraries/A/items?minified=1&sort=media.metadata.title") == f.aResult }
-            Thread.sleep(50)
-            shadowOf(Looper.getMainLooper()).idle()
+            f.settled("/api/libraries/A/items")
+            assertEquals(f.aResult, Abs.cached("/api/libraries/A/items?minified=1&sort=media.metadata.title"))
             layout(f.a.content())
             assertSame(bGrid, f.a.grid())
             assertTrue(views(bGrid).filterIsInstance<TextView>().any { it.text == "B Title 0" })
@@ -226,8 +234,8 @@ class LibraryRecoveryTest {
             f.details()
             val details = f.a.content().getChildAt(0)
             oldMembership.countDown(); aGate.countDown()
-            await("old A completed") { Abs.cached("/api/libraries/A/items?minified=1&sort=media.metadata.title") == f.aResult }
-            Thread.sleep(50); shadowOf(Looper.getMainLooper()).idle()
+            f.settled("/api/libraries", "/api/libraries/A/items")
+            assertEquals(f.aResult, Abs.cached("/api/libraries/A/items?minified=1&sort=media.metadata.title"))
             assertSame(details, f.a.content().getChildAt(0))
             assertEquals("B", Abs.p.getString("lib", null))
             f.a.onBackPressedDispatcher.onBackPressed()
@@ -301,8 +309,7 @@ class LibraryRecoveryTest {
                 f.details()
                 f.a.onBackPressedDispatcher.onBackPressed()
                 await("same-library refresh requested") { f.requests.count { it == "/api/libraries/A/items" } > count }
-                Thread.sleep(100)
-                shadowOf(Looper.getMainLooper()).idle()
+                f.settled("/api/libraries", "/api/libraries/A/items")
                 layout(f.a.content())
                 assertSame(page, f.a.content().getChildAt(0))
                 assertSame(grid, f.a.grid())
