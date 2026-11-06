@@ -13,7 +13,7 @@ A small, fast player for your own Audiobookshelf server. Stream or download audi
 client,shelf,server,self-hosted,offline,m4b,mp3,listen,library,speed,narrator,sync,download,stream
 
 ## Description (max 4000)
-ABS+ is a small, fast player for your own Audiobookshelf server. Sign in with your server address, username and password, and your books and podcasts are right there.
+ABS+ is an Audiobookshelf client for iPhone: a small, fast app with no ads that streams audiobooks and podcasts from your own Audiobookshelf server and downloads them for offline listening. It's made for people who run an Audiobookshelf server, or listen on one that a friend or family member runs. Sign in with your server address, username and password, and your books and podcasts are right there.
 
 LISTEN
 • Stream audiobooks and podcast episodes from your server
