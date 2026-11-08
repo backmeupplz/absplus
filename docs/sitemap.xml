@@ -1144,4 +1144,7 @@
     <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/privacy/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/privacy/"/>
   </url>
+  <url>
+    <loc>https://absplus.app/tools/listening-time/</loc>
+  </url>
 </urlset>
