@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ljudbokskalkylator: tid kvar, slutdatum och lyssningshastighet</title>
+<meta name="description" content="Räkna ut hur lång tid en ljudbok har kvar i din hastighet, när du blir klar och vilken hastighet du behöver för att hinna till ett datum. Gratis, i webbläsaren.">
+<meta property="og:title" content="Ljudbokskalkylator för lyssningstid">
+<meta property="og:description" content="Räkna ut hur lång tid en ljudbok har kvar i din hastighet, när du blir klar och vilken hastighet du behöver för att hinna till ett datum. Gratis, i webbläsaren.">
+<meta property="og:image" content="https://absplus.app/og/sv/home.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://absplus.app/sv/tools/listening-time/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="sv_SE">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:locale:alternate" content="ar_AR">
+<meta property="og:locale:alternate" content="de_DE">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta property="og:locale:alternate" content="hi_IN">
+<meta property="og:locale:alternate" content="id_ID">
+<meta property="og:locale:alternate" content="it_IT">
+<meta property="og:locale:alternate" content="ja_JP">
+<meta property="og:locale:alternate" content="ko_KR">
+<meta property="og:locale:alternate" content="nl_NL">
+<meta property="og:locale:alternate" content="pl_PL">
+<meta property="og:locale:alternate" content="pt_BR">
+<meta property="og:locale:alternate" content="pt_PT">
+<meta property="og:locale:alternate" content="ru_RU">
+<meta property="og:locale:alternate" content="th_TH">
+<meta property="og:locale:alternate" content="tr_TR">
+<meta property="og:locale:alternate" content="uk_UA">
+<meta property="og:locale:alternate" content="vi_VN">
+<meta property="og:locale:alternate" content="zh_CN">
+<meta property="og:locale:alternate" content="zh_TW">
+<meta property="og:site_name" content="ABS+">
+<meta property="og:image:alt" content="ABS+: en snabb, minimalistisk ljudboks- och poddspelare för Audiobookshelf, för Android och iPhone.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ljudbokskalkylator för lyssningstid">
+<meta name="twitter:description" content="Räkna ut hur lång tid en ljudbok har kvar i din hastighet, när du blir klar och vilken hastighet du behöver för att hinna till ett datum. Gratis, i webbläsaren.">
+<meta name="twitter:image" content="https://absplus.app/og/sv/home.jpg">
+<meta name="twitter:image:alt" content="ABS+: en snabb, minimalistisk ljudboks- och poddspelare för Audiobookshelf, för Android och iPhone.">
+<link rel="canonical" href="https://absplus.app/sv/tools/listening-time/">
+<link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/">
+<link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/">
+<link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/">
+<link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/">
+<link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/">
+<link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/">
+<link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/">
+<link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/">
+<link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/">
+<link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/">
+<link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/">
+<link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/">
+<link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/">
+<link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/">
+<link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/">
+<link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/">
+<link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/">
+<link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/">
+<link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/">
+<link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/">
+<link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/">
+<link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/">
+<link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/">
+<meta name="theme-color" content="#F4F2FB">
+<link rel="icon" href="/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<style>
+/* fonts served from this site; optional = they never swap in late and shift the page */
+@font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 400 800; font-display: optional; src: url(/fonts/bricolage-grotesque-normal-400-800.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+</style>
+<style>
+  :root {
+    --paper: #F4F2FB;
+    --ink: #1B1446;
+    --indigo: #4B35C9;
+    --amber: #FFC94D;
+    --muted: #5E577E;
+    --rule: #DDD8F0;
+    --body: "Bricolage Grotesque", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--body); font-size: 18px; line-height: 1.6;
+    font-optical-sizing: auto; font-variation-settings: "opsz" 14;
+  }
+  a { color: var(--indigo); text-underline-offset: 3px; }
+  a:focus-visible, .store:focus-visible { outline: 3px solid var(--indigo); outline-offset: 3px; border-radius: 6px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  /* header */
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 28px 0; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+  .brand img { width: 40px; height: 40px; border-radius: 10px; }
+  .wordmark { font-weight: 800; font-size: 22px; letter-spacing: -.02em; font-variation-settings: "opsz" 48; }
+  .wordmark span { color: var(--indigo); }
+  .top nav { display: flex; gap: 24px; }
+  .top nav a { color: var(--muted); text-decoration: none; font-size: 16px; }
+  .top nav a:hover { color: var(--ink); }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 72px; align-items: center; padding: 48px 0 96px; }
+  h1 {
+    font-size: clamp(44px, 5.6vw, 74px); line-height: 1; letter-spacing: -.035em; font-weight: 800;
+    font-variation-settings: "opsz" 96; margin: 0 0 28px; max-width: 14ch; text-wrap: balance;
+  }
+  .lead { font-size: 21px; line-height: 1.55; color: var(--muted); max-width: 30em; margin: 0 0 36px; }
+  .stores { display: flex; flex-wrap: wrap; gap: 12px; }
+  .store {
+    display: inline-flex; align-items: center; gap: 10px; background: var(--ink); color: #fff; text-decoration: none;
+    font-weight: 600; font-size: 18px; padding: 16px 26px 16px 20px; border-radius: 14px;
+  }
+  .store svg { width: 26px; height: 26px; flex: none; fill: var(--amber); }
+  .store:hover { background: #2a2068; }
+  .req { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
+
+  .device {
+    width: 300px; padding: 10px; border-radius: 42px; background: #15102f;
+    box-shadow: 0 1px 0 1px #2c2560 inset, 0 40px 80px -30px rgba(27, 20, 70, .45);
+  }
+  .device img { display: block; width: 100%; height: auto; border-radius: 33px; }
+  .hero .device { width: 330px; }
+
+  /* video */
+  .promo { padding: 0 0 88px; }
+  .promo video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 24px; background: var(--ink); box-shadow: 0 40px 80px -30px rgba(27, 20, 70, .45); }
+
+  /* features */
+  .section { padding: 88px 0; border-top: 1px solid var(--rule); }
+  h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.08; letter-spacing: -.025em; font-weight: 750; font-variation-settings: "opsz" 72; margin: 0 0 48px; max-width: 18ch; }
+  .features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 72px; margin: 0; }
+  .feature { display: grid; grid-template-columns: 28px 1fr; gap: 4px 18px; }
+  .feature svg { width: 28px; height: 28px; fill: var(--indigo); grid-row: span 2; margin-top: 2px; }
+  .feature dt { font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
+  .feature dd { margin: 0; color: var(--muted); max-width: 34em; }
+
+  /* screens */
+  .screens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin: 0; }
+  .screens figure { margin: 0; }
+  .screens .device { width: 100%; border-radius: 30px; padding: 7px; }
+  .screens .device img { border-radius: 24px; }
+  .screens figcaption { margin-top: 18px; font-size: 16px; color: var(--muted); max-width: 22em; }
+  .screens figcaption b { display: block; color: var(--ink); font-weight: 700; font-size: 17px; }
+
+  /* privacy */
+  .privacy p.big {
+    font-size: clamp(30px, 4.2vw, 54px); line-height: 1.1; letter-spacing: -.03em; font-weight: 750;
+    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 20ch;
+  }
+  .privacy p.small { color: var(--muted); max-width: 36em; margin: 0; }
+
+  footer { border-top: 1px solid var(--rule); padding: 36px 0 56px; color: var(--muted); font-size: 15px; }
+  footer .links { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 12px; }
+  footer p { margin: 0; }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 56px; padding: 16px 0 72px; }
+    .hero .device { width: min(300px, 78vw); justify-self: center; }
+    .features { grid-template-columns: 1fr; gap: 32px; }
+    .screens { grid-template-columns: repeat(4, 220px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
+    .screens figure { scroll-snap-align: start; }
+    .section { padding: 64px 0; }
+    .promo { padding-bottom: 64px; }
+    .promo video { border-radius: 16px; }
+  }
+  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}
+
+  .tool { padding: 8px 0 64px; }
+  .tool h1 { max-width: 20ch; font-size: clamp(36px, 5vw, 60px); }
+  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .card { background: #fff; border: 1px solid var(--rule); border-radius: 20px; padding: 24px; }
+  .card h2 { font-size: 22px; letter-spacing: -.01em; margin: 0 0 16px; max-width: none; }
+  fieldset { border: 0; margin: 0 0 16px; padding: 0; }
+  legend, label { font-weight: 650; font-size: 16px; }
+  .row { display: flex; gap: 12px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+  .row label { font-weight: 500; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  input, select { font: inherit; font-size: 18px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); color: var(--ink); width: 100%; max-width: 9em; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--indigo); outline-offset: 2px; }
+  .hint { color: var(--muted); font-size: 15px; margin: 6px 0 0; }
+  .out dl { margin: 0; display: grid; gap: 14px; }
+  .out dt { color: var(--muted); font-size: 15px; }
+  .out dd { margin: 0; font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
+  .out dd.small { font-size: 19px; font-weight: 600; }
+  .prose { padding: 56px 0; border-top: 1px solid var(--rule); max-width: 46em; }
+  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 0 0 20px; max-width: none; }
+  .prose p, .prose li { color: #3a335f; }
+  table.speeds { border-collapse: collapse; width: 100%; max-width: 34em; margin: 16px 0; font-size: 17px; }
+  table.speeds th, table.speeds td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
+  .cta { background: var(--ink); color: #fff; border-radius: 20px; padding: 32px; margin: 8px 0 56px; }
+  .cta h2 { color: #fff; font-size: 26px; margin: 0 0 12px; max-width: none; }
+  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 36em; }
+  .cta a:not(.store) { color: #fff; }
+  .cta .store { background: #fff; color: var(--ink); }
+  .cta .store:hover { background: var(--amber); }
+  @media (max-width: 720px) { .calc { grid-template-columns: 1fr; } .card { padding: 20px; } .tool h1 { max-width: none; } }
+  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}h1,h2,p,li{overflow-wrap:break-word;hyphens:auto}
+</style>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "Ljudbokskalkylator för lyssningstid", "url": "https://absplus.app/sv/tools/listening-time/", "description": "Räkna ut hur lång tid en ljudbok har kvar i din hastighet, när du blir klar och vilken hastighet du behöver för att hinna till ett datum. Gratis, i webbläsaren.", "inLanguage": "sv", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Alla (körs i en webbläsare)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "sv", "mainEntity": [{"@type": "Question", "name": "Hur räknar jag ut hur lång tid en ljudbok tar i 1,5x?", "acceptedAnswer": {"@type": "Answer", "text": "Dela bokens längd med hastigheten. En bok på 12 timmar i 1,5x tar 8 timmar, och i 2x tar den 6 timmar."}}, {"@type": "Question", "name": "Sparar en högre hastighet lika mycket tid som det verkar?", "acceptedAnswer": {"@type": "Answer", "text": "De första stegen sparar mest. Från 1x till 1,25x sparar du 20 procent av tiden, 1,5x sparar 33 procent, 2x sparar 50 procent och 3x sparar 67 procent."}}, {"@type": "Question", "name": "Vilken hastighet behöver jag för att bli klar med en bok till ett visst datum?", "acceptedAnswer": {"@type": "Answer", "text": "Dela tiden som är kvar i boken med det totala antalet minuter du kommer att lyssna före datumet. Kalkylatorn gör det åt dig och visar den hastighet som gör att det går ihop."}}]}]}</script>
+<script defer src="https://lumen.borodutch.com/l.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/sv/" aria-label="ABS+ startsida">
+      <img src="/img/icon-80.webp" alt="" width="40" height="40">
+      <span class="wordmark" dir="ltr">ABS<span>+</span></span>
+    </a>
+    <nav><a href="https://github.com/backmeupplz/absplus">GitHub</a><a href="/sv/privacy/">Integritet</a></nav>
+  </header>
+  <main class="tool">
+    <h1>Ljudbokskalkylator för lyssningstid</h1>
+    <p class="lead">Ange bokens längd, var du är och hur snabbt du lyssnar. Då får du veta hur lång tid som är kvar, vilken dag du blir klar och vilken hastighet som krävs för att hinna till en deadline.</p>
+    <div class="calc">
+    <form id="f" class="card" onsubmit="return false">
+      <h2>Din bok</h2>
+      <fieldset><legend>Total längd</legend>
+        <div class="row"><label>Timmar <input id="lh" type="number" inputmode="numeric" min="0" step="1" value="12"></label><label>Minuter <input id="lm" type="number" inputmode="numeric" min="0" max="59" step="1" value="30"></label></div></fieldset>
+      <fieldset><legend>Där du är nu</legend>
+        <div class="row"><label>Timmar <input id="ph" type="number" inputmode="numeric" min="0" step="1" value="3"></label><label>Minuter <input id="pm" type="number" inputmode="numeric" min="0" max="59" step="1" value="15"></label></div>
+        <p class="hint">Positionen som visas i din spelare, i boktid. Börjar du på en ny bok anger du 0 och 0.</p></fieldset>
+      <fieldset><legend><label for="sp">Uppspelningshastighet</label></legend>
+        <div class="row"><input id="sp" type="number" inputmode="decimal" min="0.5" max="4" step="0.05" value="1.25"> <span>x</span></div></fieldset>
+      <fieldset><legend><label for="dm">Lyssning per dag</label></legend>
+        <div class="row"><input id="dm" type="number" inputmode="numeric" min="1" step="5" value="45"> <span>minuter</span></div></fieldset>
+      <fieldset><legend><label for="by">Klar senast (valfritt)</label></legend>
+        <div class="row"><input id="by" type="date" style="max-width:12em"></div></fieldset>
+    </form>
+    <section class="card out" aria-live="polite" aria-labelledby="rh">
+      <h2 id="rh">Resultat</h2>
+      <dl>
+        <dt>Lyssnat hittills</dt><dd id="o-pct">–</dd>
+        <dt>Tid kvar i din hastighet</dt><dd id="o-left">–</dd>
+        <dt>Du blir klar den</dt><dd id="o-date">–</dd>
+        <dt>Hela boken i den här hastigheten</dt><dd id="o-total" class="small">–</dd>
+        <dt>För att bli klar till ditt datum</dt><dd id="o-need" class="small">Välj ett datum för att se vilken hastighet du behöver.</dd>
+      </dl>
+      <p class="hint" id="o-note"></p>
+    </section>
+    </div>
+  </main>
+
+  <section class="prose" id="how">
+    <h2>Så räknas siffrorna ut</h2>
+    <p>En ljudboks längd anges alltid i normal hastighet, så tiden du lägger ner är längden delad med din uppspelningshastighet. En bok på 12 timmar och 30 minuter i 1,25x tar 10 timmar: 12,5 delat med 1,25. Kalkylatorn drar först bort din nuvarande position, så det är bara den del du inte har hört som snabbas upp.</p>
+    <p>Slutdatumet räknar de dagar du behöver med din dagliga lyssningstid, med start i dag, och förutsätter att du lyssnar varje dag. Om du väljer ett datum för när du vill vara klar räknar kalkylatorn dagarna från i dag till det datumet, båda dagarna inräknade, och delar den återstående boktiden med det totala antalet minuter du skulle lyssna. Resultatet är den hastighet som gör att det går ihop. Allt körs i din webbläsare, och ingenting du skriver skickas någonstans.</p>
+    <h2>Vad en högre hastighet sparar</h2>
+    <p>Varje steg upp sparar mindre än det förra, och det är därför de flesta landar mellan 1,25x och 1,75x.</p>
+    <table class="speeds">
+      <thead><tr><th scope="col">Hastighet</th><th scope="col">Sparad tid</th><th scope="col">Bok på 12 timmar</th></tr></thead>
+      <tbody>
+      <tr><td>1,0x</td><td>0 %</td><td>12 tim 00 min</td></tr>
+      <tr><td>1,25x</td><td>20 %</td><td>9 tim 36 min</td></tr>
+      <tr><td>1,5x</td><td>33 %</td><td>8 tim 00 min</td></tr>
+      <tr><td>2,0x</td><td>50 %</td><td>6 tim 00 min</td></tr>
+      <tr><td>3,0x</td><td>67 %</td><td>4 tim 00 min</td></tr>
+      </tbody>
+    </table>
+    <h2>Frågor</h2>
+    <h3>Hur räknar jag ut hur lång tid en ljudbok tar i 1,5x?</h3>
+    <p>Dela längden med 1,5. En bok på 12 timmar tar 8 timmar, och i 2x tar den 6 timmar.</p>
+    <h3>Var hittar jag positionen och längden?</h3>
+    <p>Din spelare visar båda. I en Audiobookshelf-app finns de på spelarskärmen, och i webbspelaren visas de under omslaget. Använd bokens verkliga längd, inte tiden som är kvar i din hastighet.</p>
+    <h3>Varför visar min spelare en annan tid kvar?</h3>
+    <p>Vissa spelare visar tiden kvar i din hastighet och andra i normal hastighet. Den här kalkylatorn utgår från längden i normal hastighet och lägger själv på din hastighet, så ange siffrorna för normal hastighet.</p>
+  </section>
+
+  <section class="cta">
+    <h2>Lyssna på din egen Audiobookshelf-server</h2>
+    <p>ABS+ är en liten, gratis Android- och iPhone-spelare för din egen <a href="https://www.audiobookshelf.org">Audiobookshelf</a>-server, med nedladdning för offline-lyssning, hastighetsreglering och ett förlopp som synkas tillbaka till servern.</p>
+    <div class="stores">
+      <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
+            <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
+            Hämta på Google Play
+          </a>
+      <a class="store" href="https://apps.apple.com/app/id6818353284">
+            <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
+            Hämta i App Store
+          </a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="links">
+      <a href="/sv/">ABS+ startsida</a>
+      <a href="/sv/privacy/">Integritetspolicy</a>
+      <a href="https://blog.absplus.app/">Blogg (på engelska)</a>
+      <a href="https://github.com/backmeupplz/absplus">Källkod på GitHub</a>
+      <a href="mailto:absplus@borodutch.com">absplus@borodutch.com</a>
+    </div>
+    <p>ABS+ är en oberoende app och är inte knuten till eller godkänd av Audiobookshelf-projektet.</p>
+<nav class="langs" aria-label="Språk"><a href="/tools/listening-time/" hreflang="en" lang="en">English</a> <a href="/ar/tools/listening-time/" hreflang="ar" lang="ar">العربية</a> <a href="/de/tools/listening-time/" hreflang="de" lang="de">Deutsch</a> <a href="/es/tools/listening-time/" hreflang="es" lang="es">Español</a> <a href="/fr/tools/listening-time/" hreflang="fr" lang="fr">Français</a> <a href="/hi/tools/listening-time/" hreflang="hi" lang="hi">हिन्दी</a> <a href="/id/tools/listening-time/" hreflang="id" lang="id">Bahasa Indonesia</a> <a href="/it/tools/listening-time/" hreflang="it" lang="it">Italiano</a> <a href="/ja/tools/listening-time/" hreflang="ja" lang="ja">日本語</a> <a href="/ko/tools/listening-time/" hreflang="ko" lang="ko">한국어</a> <a href="/nl/tools/listening-time/" hreflang="nl" lang="nl">Nederlands</a> <a href="/pl/tools/listening-time/" hreflang="pl" lang="pl">Polski</a> <a href="/pt-br/tools/listening-time/" hreflang="pt-BR" lang="pt-BR">Português (Brasil)</a> <a href="/pt-pt/tools/listening-time/" hreflang="pt-PT" lang="pt-PT">Português (Portugal)</a> <a href="/ru/tools/listening-time/" hreflang="ru" lang="ru">Русский</a> <a href="/sv/tools/listening-time/" hreflang="sv" lang="sv" aria-current="page">Svenska</a> <a href="/th/tools/listening-time/" hreflang="th" lang="th">ไทย</a> <a href="/tr/tools/listening-time/" hreflang="tr" lang="tr">Türkçe</a> <a href="/uk/tools/listening-time/" hreflang="uk" lang="uk">Українська</a> <a href="/vi/tools/listening-time/" hreflang="vi" lang="vi">Tiếng Việt</a> <a href="/zh-hans/tools/listening-time/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a> <a href="/zh-hant/tools/listening-time/" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav>
+  </footer>
+</div>
+<script>
+(function () {
+  var T = {
+    "js_fmt_hm": "{h} tim {m} min",
+    "js_fmt_h": "{h} tim",
+    "js_fmt_m": "{m} min",
+    "js_pct": "{n} %",
+    "js_enter": "Ange en längd, en hastighet på minst 0,5x och minuter per dag.",
+    "js_past_end": "Din position ligger efter slutet, så boken räknas som färdiglyssnad. ",
+    "js_done": "Klart",
+    "js_total": "{total} ({len} i 1x)",
+    "js_already": "Redan färdiglyssnad",
+    "js_date_line": "{date} ({days} med {dm} min per dag)",
+    "js_days_one": "{n} dag",
+    "js_days_other": "{n} dagar",
+    "js_date_passed": "Det datumet har redan passerat.",
+    "js_catch_up": "Det finns inget att ta igen.",
+    "js_need_ok": "Din hastighet på {sp}x räcker under {days}",
+    "js_need_set": "{need}x med {dm} min per dag under {days}",
+    "js_need_impossible": "Inte möjligt med {dm} min per dag: du skulle behöva {need}x. Lyssna i stället {time} per dag i {sp}x.",
+    "need_default": "Välj ett datum för att se vilken hastighet du behöver."
+  };
+  var LANG = "sv", LOC = LANG + "-u-nu-latn", PR = new Intl.PluralRules(LANG);
+  var $ = function (id) { return document.getElementById(id); };
+  var num = function (id) { var v = parseFloat($(id).value); return isFinite(v) ? v : NaN; };
+  var put = function (s, v) { return s.replace(/\{(\w+)\}/g, function (_, k) { return v[k]; }); };
+  var nf = function (n, d) { return n.toLocaleString(LOC, { minimumFractionDigits: d, maximumFractionDigits: d }); };
+  var g = function (n) { return n.toLocaleString(LOC, { maximumFractionDigits: 2 }); };
+  function fmt(min) {
+    var m = Math.round(min), h = Math.floor(m / 60), r = m % 60;
+    if (h && r) return put(T.js_fmt_hm, { h: nf(h, 0), m: nf(r, 0) });
+    return h ? put(T.js_fmt_h, { h: nf(h, 0) }) : put(T.js_fmt_m, { m: nf(r, 0) });
+  }
+  function days(n) { return put(T["js_days_" + PR.select(n)] || T.js_days_other, { n: nf(n, 0) }); }
+  function day(d) { return d.toLocaleDateString(LOC, { weekday: "short", year: "numeric", month: "short", day: "numeric" }); }
+  function calc() {
+    var len = (num("lh") || 0) * 60 + (num("lm") || 0), pos = (num("ph") || 0) * 60 + (num("pm") || 0);
+    var sp = num("sp"), dm = num("dm"), note = "";
+    if (!(len > 0) || !(sp >= 0.5) || !(dm > 0)) { $("o-note").textContent = T.js_enter; return; }
+    if (pos > len) { pos = len; note = T.js_past_end; }
+    var left = len - pos, real = left / sp;
+    $("o-pct").textContent = put(T.js_pct, { n: nf(pos / len * 100, 1) });
+    $("o-left").textContent = real < 0.5 ? T.js_done : fmt(real);
+    $("o-total").textContent = put(T.js_total, { total: fmt(len / sp), len: fmt(len) });
+    var n = Math.ceil(real / dm - 1e-9), d = new Date();
+    d.setDate(d.getDate() + Math.max(n - 1, 0));
+    $("o-date").textContent = real < 0.5 ? T.js_already : put(T.js_date_line, { date: day(d), days: days(n), dm: g(dm) });
+    var by = $("by").value;
+    if (by) {
+      var t = new Date(by + "T00:00:00"), now = new Date(); now.setHours(0, 0, 0, 0);
+      var span = Math.round((t - now) / 864e5) + 1;
+      if (span < 1) { $("o-need").textContent = T.js_date_passed; }
+      else if (real < 0.5) { $("o-need").textContent = T.js_catch_up; }
+      else {
+        var need = left / (span * dm);
+        $("o-need").textContent = need <= 4
+          ? put(need <= sp ? T.js_need_ok : T.js_need_set, { sp: g(sp), need: nf(need, 2), dm: g(dm), days: days(span) })
+          : put(T.js_need_impossible, { dm: g(dm), need: nf(need, 1), time: fmt(left / sp / span), sp: g(sp) });
+      }
+    } else { $("o-need").textContent = T.need_default; }
+    $("o-note").textContent = note;
+  }
+  document.getElementById("f").addEventListener("input", calc);
+  calc();
+})();
+</script>
+</body>
+</html>

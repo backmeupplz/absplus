@@ -12,6 +12,28 @@
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="https://absplus.app/tools/listening-time/">
 <meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="ar_AR">
+<meta property="og:locale:alternate" content="de_DE">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta property="og:locale:alternate" content="hi_IN">
+<meta property="og:locale:alternate" content="id_ID">
+<meta property="og:locale:alternate" content="it_IT">
+<meta property="og:locale:alternate" content="ja_JP">
+<meta property="og:locale:alternate" content="ko_KR">
+<meta property="og:locale:alternate" content="nl_NL">
+<meta property="og:locale:alternate" content="pl_PL">
+<meta property="og:locale:alternate" content="pt_BR">
+<meta property="og:locale:alternate" content="pt_PT">
+<meta property="og:locale:alternate" content="ru_RU">
+<meta property="og:locale:alternate" content="sv_SE">
+<meta property="og:locale:alternate" content="th_TH">
+<meta property="og:locale:alternate" content="tr_TR">
+<meta property="og:locale:alternate" content="uk_UA">
+<meta property="og:locale:alternate" content="vi_VN">
+<meta property="og:locale:alternate" content="zh_CN">
+<meta property="og:locale:alternate" content="zh_TW">
 <meta property="og:site_name" content="ABS+">
 <meta property="og:image:alt" content="ABS+: a fast, minimal audiobook and podcast player for Audiobookshelf, for Android and iPhone.">
 <meta name="twitter:card" content="summary_large_image">
@@ -20,6 +42,29 @@
 <meta name="twitter:image" content="https://absplus.app/img/og.jpg">
 <meta name="twitter:image:alt" content="ABS+: a fast, minimal audiobook and podcast player for Audiobookshelf, for Android and iPhone.">
 <link rel="canonical" href="https://absplus.app/tools/listening-time/">
+<link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/">
+<link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/">
+<link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/">
+<link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/">
+<link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/">
+<link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/">
+<link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/">
+<link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/">
+<link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/">
+<link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/">
+<link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/">
+<link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/">
+<link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/">
+<link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/">
+<link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/">
+<link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/">
+<link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/">
+<link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/">
+<link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/">
+<link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/">
+<link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/">
+<link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/">
+<link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/">
 <meta name="theme-color" content="#F4F2FB">
 <link rel="icon" href="/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
@@ -153,8 +198,9 @@
   .cta .store { background: #fff; color: var(--ink); }
   .cta .store:hover { background: var(--amber); }
   @media (max-width: 720px) { .calc { grid-template-columns: 1fr; } .card { padding: 20px; } .tool h1 { max-width: none; } }
+  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "Audiobook listening time calculator", "url": "https://absplus.app/tools/listening-time/", "description": "Work out how long an audiobook has left at your listening speed, the day you will finish it, and the speed you need to finish by a date. Free, runs in your browser.", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any (runs in a web browser)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I work out how long an audiobook takes at 1.5x?", "acceptedAnswer": {"@type": "Answer", "text": "Divide the book's length by the speed. A 12 hour book at 1.5x takes 8 hours; at 2x it takes 6 hours."}}, {"@type": "Question", "name": "Does a faster speed save as much time as it seems?", "acceptedAnswer": {"@type": "Answer", "text": "The first steps save the most. Going from 1x to 1.25x saves 20 percent of the time, 1.5x saves 33 percent, 2x saves 50 percent and 3x saves 67 percent."}}, {"@type": "Question", "name": "What speed do I need to finish a book by a date?", "acceptedAnswer": {"@type": "Answer", "text": "Divide the time left in the book by the minutes you will listen in total before the date. The calculator does this for you and shows the speed that makes it fit."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "Audiobook listening time calculator", "url": "https://absplus.app/tools/listening-time/", "description": "Work out how long an audiobook has left at your listening speed, the day you will finish it, and the speed you need to finish by a date. Free, runs in your browser.", "inLanguage": "en", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any (runs in a web browser)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "en", "mainEntity": [{"@type": "Question", "name": "How do I work out how long an audiobook takes at 1.5x?", "acceptedAnswer": {"@type": "Answer", "text": "Divide the book's length by the speed. A 12 hour book at 1.5x takes 8 hours; at 2x it takes 6 hours."}}, {"@type": "Question", "name": "Does a faster speed save as much time as it seems?", "acceptedAnswer": {"@type": "Answer", "text": "The first steps save the most. Going from 1x to 1.25x saves 20 percent of the time, 1.5x saves 33 percent, 2x saves 50 percent and 3x saves 67 percent."}}, {"@type": "Question", "name": "What speed do I need to finish a book by a date?", "acceptedAnswer": {"@type": "Answer", "text": "Divide the time left in the book by the minutes you will listen in total before the date. The calculator does this for you and shows the speed that makes it fit."}}]}]}</script>
 <script defer src="https://lumen.borodutch.com/l.js"></script>
 </head>
 <body>
@@ -247,41 +293,69 @@
       <a href="mailto:absplus@borodutch.com">absplus@borodutch.com</a>
     </div>
     <p>ABS+ is an independent app, not affiliated with or endorsed by the Audiobookshelf project.</p>
+<nav class="langs" aria-label="Language"><a href="/tools/listening-time/" hreflang="en" lang="en" aria-current="page">English</a> <a href="/ar/tools/listening-time/" hreflang="ar" lang="ar">العربية</a> <a href="/de/tools/listening-time/" hreflang="de" lang="de">Deutsch</a> <a href="/es/tools/listening-time/" hreflang="es" lang="es">Español</a> <a href="/fr/tools/listening-time/" hreflang="fr" lang="fr">Français</a> <a href="/hi/tools/listening-time/" hreflang="hi" lang="hi">हिन्दी</a> <a href="/id/tools/listening-time/" hreflang="id" lang="id">Bahasa Indonesia</a> <a href="/it/tools/listening-time/" hreflang="it" lang="it">Italiano</a> <a href="/ja/tools/listening-time/" hreflang="ja" lang="ja">日本語</a> <a href="/ko/tools/listening-time/" hreflang="ko" lang="ko">한국어</a> <a href="/nl/tools/listening-time/" hreflang="nl" lang="nl">Nederlands</a> <a href="/pl/tools/listening-time/" hreflang="pl" lang="pl">Polski</a> <a href="/pt-br/tools/listening-time/" hreflang="pt-BR" lang="pt-BR">Português (Brasil)</a> <a href="/pt-pt/tools/listening-time/" hreflang="pt-PT" lang="pt-PT">Português (Portugal)</a> <a href="/ru/tools/listening-time/" hreflang="ru" lang="ru">Русский</a> <a href="/sv/tools/listening-time/" hreflang="sv" lang="sv">Svenska</a> <a href="/th/tools/listening-time/" hreflang="th" lang="th">ไทย</a> <a href="/tr/tools/listening-time/" hreflang="tr" lang="tr">Türkçe</a> <a href="/uk/tools/listening-time/" hreflang="uk" lang="uk">Українська</a> <a href="/vi/tools/listening-time/" hreflang="vi" lang="vi">Tiếng Việt</a> <a href="/zh-hans/tools/listening-time/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a> <a href="/zh-hant/tools/listening-time/" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav>
   </footer>
 </div>
 <script>
 (function () {
+  var T = {
+    "js_fmt_hm": "{h} h {m} min",
+    "js_fmt_h": "{h} h",
+    "js_fmt_m": "{m} min",
+    "js_pct": "{n}%",
+    "js_enter": "Enter a length, a speed of at least 0.5x and minutes per day.",
+    "js_past_end": "Your position is past the end, so the book counts as finished. ",
+    "js_done": "Done",
+    "js_total": "{total} ({len} at 1x)",
+    "js_already": "Already finished",
+    "js_date_line": "{date} ({days} at {dm} min a day)",
+    "js_days_one": "{n} day",
+    "js_days_other": "{n} days",
+    "js_date_passed": "That date has passed.",
+    "js_catch_up": "Nothing to catch up on.",
+    "js_need_ok": "Your speed of {sp}x is enough over {days}",
+    "js_need_set": "{need}x at {dm} min a day over {days}",
+    "js_need_impossible": "Not possible at {dm} min a day: you would need {need}x. Listen {time} a day at {sp}x instead.",
+    "need_default": "Pick a date to see the speed you need."
+  };
+  var LANG = "en", LOC = LANG + "-u-nu-latn", PR = new Intl.PluralRules(LANG);
   var $ = function (id) { return document.getElementById(id); };
   var num = function (id) { var v = parseFloat($(id).value); return isFinite(v) ? v : NaN; };
+  var put = function (s, v) { return s.replace(/\{(\w+)\}/g, function (_, k) { return v[k]; }); };
+  var nf = function (n, d) { return n.toLocaleString(LOC, { minimumFractionDigits: d, maximumFractionDigits: d }); };
+  var g = function (n) { return n.toLocaleString(LOC, { maximumFractionDigits: 2 }); };
   function fmt(min) {
-    var m = Math.round(min), h = Math.floor(m / 60);
-    return (h ? h + " h" : "") + (m % 60 || !h ? (h ? " " : "") + (m % 60) + " min" : "");
+    var m = Math.round(min), h = Math.floor(m / 60), r = m % 60;
+    if (h && r) return put(T.js_fmt_hm, { h: nf(h, 0), m: nf(r, 0) });
+    return h ? put(T.js_fmt_h, { h: nf(h, 0) }) : put(T.js_fmt_m, { m: nf(r, 0) });
   }
-  function day(d) { return d.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" }); }
+  function days(n) { return put(T["js_days_" + PR.select(n)] || T.js_days_other, { n: nf(n, 0) }); }
+  function day(d) { return d.toLocaleDateString(LOC, { weekday: "short", year: "numeric", month: "short", day: "numeric" }); }
   function calc() {
     var len = (num("lh") || 0) * 60 + (num("lm") || 0), pos = (num("ph") || 0) * 60 + (num("pm") || 0);
     var sp = num("sp"), dm = num("dm"), note = "";
-    if (!(len > 0) || !(sp >= 0.5) || !(dm > 0)) { $("o-note").textContent = "Enter a length, a speed of at least 0.5x and minutes per day."; return; }
-    if (pos > len) { pos = len; note = "Your position is past the end, so the book counts as finished. "; }
+    if (!(len > 0) || !(sp >= 0.5) || !(dm > 0)) { $("o-note").textContent = T.js_enter; return; }
+    if (pos > len) { pos = len; note = T.js_past_end; }
     var left = len - pos, real = left / sp;
-    $("o-pct").textContent = (pos / len * 100).toFixed(1) + "%";
-    $("o-left").textContent = real < 0.5 ? "Done" : fmt(real);
-    $("o-total").textContent = fmt(len / sp) + " (" + fmt(len) + " at 1x)";
-    var days = Math.ceil(real / dm - 1e-9), d = new Date();
-    d.setDate(d.getDate() + Math.max(days - 1, 0));
-    $("o-date").textContent = real < 0.5 ? "Already finished" : day(d) + " (" + days + (days === 1 ? " day" : " days") + " at " + dm + " min a day)";
+    $("o-pct").textContent = put(T.js_pct, { n: nf(pos / len * 100, 1) });
+    $("o-left").textContent = real < 0.5 ? T.js_done : fmt(real);
+    $("o-total").textContent = put(T.js_total, { total: fmt(len / sp), len: fmt(len) });
+    var n = Math.ceil(real / dm - 1e-9), d = new Date();
+    d.setDate(d.getDate() + Math.max(n - 1, 0));
+    $("o-date").textContent = real < 0.5 ? T.js_already : put(T.js_date_line, { date: day(d), days: days(n), dm: g(dm) });
     var by = $("by").value;
     if (by) {
-      var t = new Date(by + "T00:00:00"), n = new Date(); n.setHours(0, 0, 0, 0);
-      var span = Math.round((t - n) / 864e5) + 1;
-      if (span < 1) { $("o-need").textContent = "That date has passed."; }
-      else if (real < 0.5) { $("o-need").textContent = "Nothing to catch up on."; }
+      var t = new Date(by + "T00:00:00"), now = new Date(); now.setHours(0, 0, 0, 0);
+      var span = Math.round((t - now) / 864e5) + 1;
+      if (span < 1) { $("o-need").textContent = T.js_date_passed; }
+      else if (real < 0.5) { $("o-need").textContent = T.js_catch_up; }
       else {
         var need = left / (span * dm);
-        $("o-need").textContent = need <= 4 ? (need <= sp ? "Your speed of " + sp + "x is enough" : need.toFixed(2) + "x at " + dm + " min a day") + " over " + span + (span === 1 ? " day" : " days")
-          : "Not possible at " + dm + " min a day: you would need " + need.toFixed(1) + "x. Listen " + fmt(left / sp / span) + " a day at " + sp + "x instead.";
+        $("o-need").textContent = need <= 4
+          ? put(need <= sp ? T.js_need_ok : T.js_need_set, { sp: g(sp), need: nf(need, 2), dm: g(dm), days: days(span) })
+          : put(T.js_need_impossible, { dm: g(dm), need: nf(need, 1), time: fmt(left / sp / span), sp: g(sp) });
       }
-    } else { $("o-need").textContent = "Pick a date to see the speed you need."; }
+    } else { $("o-need").textContent = T.need_default; }
     $("o-note").textContent = note;
   }
   document.getElementById("f").addEventListener("input", calc);

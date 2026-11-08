@@ -1146,5 +1146,574 @@
   </url>
   <url>
     <loc>https://absplus.app/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ar/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/de/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/es/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/fr/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/hi/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/id/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/it/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ja/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ko/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/nl/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/pl/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/pt-br/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/pt-pt/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/ru/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/sv/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/th/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/tr/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/uk/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/vi/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/zh-hans/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
+  </url>
+  <url>
+    <loc>https://absplus.app/zh-hant/tools/listening-time/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://absplus.app/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://absplus.app/ar/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://absplus.app/de/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://absplus.app/es/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://absplus.app/fr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://absplus.app/hi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://absplus.app/id/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://absplus.app/it/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://absplus.app/ja/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://absplus.app/ko/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://absplus.app/nl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://absplus.app/pl/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://absplus.app/pt-br/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://absplus.app/pt-pt/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://absplus.app/ru/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="sv" href="https://absplus.app/sv/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://absplus.app/th/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://absplus.app/tr/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="uk" href="https://absplus.app/uk/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://absplus.app/vi/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://absplus.app/zh-hans/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://absplus.app/zh-hant/tools/listening-time/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://absplus.app/tools/listening-time/"/>
   </url>
 </urlset>
