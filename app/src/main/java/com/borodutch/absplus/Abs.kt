@@ -507,8 +507,19 @@ object Abs {
     }
     fun file(item: String, t: Track) = mediaFile(mediaDir, item, t)
     fun done(item: String, t: Track) = file(item, t).isFile && file(item, t).length() == t.size
+    private fun stream(base: String, item: String, t: Track) = "$base/api/items/$item/file/${t.ino}"
     fun uri(item: String, t: Track): Uri =
-        if (done(item, t)) Uri.fromFile(file(item, t)) else Uri.parse("$server/api/items/$item/file/${t.ino}")
+        if (done(item, t)) Uri.fromFile(file(item, t)) else Uri.parse(stream(server, item, t))
+
+    /** The finished download behind a stream URL of the title in the player. The queue keeps the URLs it was built
+     * with, so a book downloaded while it streams carries on from the phone: on the next file, a reload after the
+     * network drops, or Retry. */
+    fun downloadedStream(uri: Uri, s: Scope): File? = inScope(s) {
+        val n = now?.takeIf { nowScope == s } ?: return@inScope null
+        val u = uri.toString()
+        val t = n.tracks.firstOrNull { stream(s.server, n.item, it) == u } ?: return@inScope null
+        file(n.item, t).takeIf { done(n.item, t) }
+    }
 
     private val dlMemo = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     fun dlChanged() = dlMemo.clear()
