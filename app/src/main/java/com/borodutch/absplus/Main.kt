@@ -1455,8 +1455,10 @@ class Main : AppCompatActivity() {
         this.hint = hint
         addView(TextInputEditText(context).apply {
             setText(v)
-            inputType = InputType.TYPE_CLASS_TEXT or type
+            // Single line first: setSingleLine swaps in SingleLineTransformationMethod, which would unmask a password set
+            // before it; a password input type keeps the line single and installs PasswordTransformationMethod.
             isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or type
         })
         if (type == InputType.TYPE_TEXT_VARIATION_PASSWORD) endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
     }
