@@ -1,0 +1,1 @@
+Wenn eine Podcastfolge endet, spielt ABS+ jetzt direkt die nächste ab, und offline wählt es die nächste Folge, die du heruntergeladen hast. Beim Öffnen der App siehst du sofort, was du zuletzt gehört hast, statt auf den Server zu warten. Außerdem enthält dieses Update kleinere Korrekturen bei Wiedergabe und Anmeldung.

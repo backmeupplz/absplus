@@ -1,0 +1,1 @@
+Saat episode podcast selesai, ABS+ kini langsung memutar episode berikutnya, dan saat offline memilih episode berikutnya yang sudah Anda unduh. Saat aplikasi dibuka, Anda langsung melihat apa yang sedang didengarkan tanpa menunggu server. Rilis ini juga membawa perbaikan kecil untuk pemutaran dan proses masuk.

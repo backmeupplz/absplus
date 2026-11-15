@@ -31,8 +31,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
 import androidx.core.widget.doAfterTextChanged
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.Util
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -1222,9 +1220,16 @@ class Main : AppCompatActivity() {
             val c = ctl ?: return@ifCurrent
             if (c.mediaItemCount > 0 || Abs.me == null || Abs.loginPending || !nav.isVisible) return@ifCurrent
             val n = Abs.now ?: Abs.loadNow() ?: return@ifCurrent
+            // Show the last title right away from this device's position, then let the server move it on.
+            start(n, Abs.localPos(n, captured)?.time ?: 0.0, play = false, captured = captured)
+            if (c.mediaItemCount == 0) return@ifCurrent
             val request = playRequest
-            scopedBg(captured, { Abs.positions(n, captured).first().time }) { t ->
-                if (request == playRequest && pendingPlay == null && ctl === c && c.mediaItemCount == 0) start(n, t, play = false, captured = captured)
+            val shown = Abs.pos(c, n)
+            scopedBg(captured, { Abs.positions(n, captured).first().time }, {}) { t ->
+                val target = if (t > n.duration - 5) 0.0 else t
+                // Another device got further: follow it while nobody has touched the restored player.
+                if (request == playRequest && pendingPlay == null && ctl === c && !c.playWhenReady && Abs.now === n &&
+                    kotlin.math.abs(Abs.pos(c, n) - shown) < 1 && kotlin.math.abs(target - shown) > 1) seek(target)
             }
         }
     }
@@ -1236,13 +1241,8 @@ class Main : AppCompatActivity() {
         Abs.bindPlayback(n, captured)
         Abs.saveNow(n)
         if (play) Abs.addHistory(n)
-        val art = "${captured.server}/api/items/${n.item}/cover?width=400&format=webp"
-        val items = n.tracks.mapIndexed { i, tr ->
-            MediaItem.Builder().setMediaId(Abs.mediaId(n, captured, i)).setCustomCacheKey(captured.generation.toString()).setUri(Abs.uri(n.item, tr))
-                .setMediaMetadata(MediaMetadata.Builder().setTitle(n.title).setArtist(n.author).setArtworkUri(android.net.Uri.parse(art)).build()).build()
-        }
         val (i, ms) = n.at(if (t > n.duration - 5) 0.0 else t)
-        c.setMediaItems(items, i, ms)
+        c.setMediaItems(Abs.mediaItems(n, captured), i, ms)
         c.setPlaybackSpeed(Abs.p.getFloat("speed", 1f))
         c.prepare()
         if (!play) return@ifCurrent updatePlayer()

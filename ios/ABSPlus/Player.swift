@@ -1,5 +1,6 @@
 import AVFoundation
 import MediaPlayer
+import Network
 import UIKit
 
 @MainActor let player = Player(source: app)
@@ -71,9 +72,12 @@ import UIKit
     @ObservationIgnored private var scope: UUID?
     @ObservationIgnored private var lastRetry = Date.distantPast
     @ObservationIgnored private var obs: [NSKeyValueObservation] = []
+    @ObservationIgnored private let net = NWPathMonitor()
+    @ObservationIgnored private var seeks = 0
 
     init(source: Abs = app) {
         self.source = source
+        net.start(queue: .main)
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         p.defaultRate = speed
         p.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 2), queue: .main) { [weak self] _ in
@@ -149,6 +153,10 @@ import UIKit
             pos = n.duration
             sync(finished: true)
             if n.ep == nil { RatingPrompt.finished() }
+            // A finished podcast episode rolls straight on to the next one, from the phone when it's downloaded.
+            else if scope == source.playbackGeneration, let next = source.nextEpisode(n, online: net.currentPath.status == .satisfied) {
+                start(next, source.localPos(next).time)
+            }
         } else {
             idx = i + 1
         }
@@ -215,6 +223,7 @@ import UIKit
         guard let n = now, let generation = scope, valid(generation) else { return }
         let (i, off) = n.at(t)
         pos = t
+        seeks += 1
         if i == idx && p.currentItem != nil { p.seek(to: CMTime(seconds: off, preferredTimescale: 1000)) { _ in } }
         else { Task { await queue(n, i, off, play: playing, generation: generation) } }
         info()
@@ -310,9 +319,16 @@ import UIKit
     func restore() async {
         let generation = source.playbackGeneration
         guard now == nil, valid(generation), let n = source.loadNow() else { return }
-        let request = requestID, account = source.accountGeneration
+        // Show the last title right away from this device's position, then let the server move it on.
+        let local = source.localPos(n).time
+        start(n, local, play: false, generation: generation)
+        let request = requestID, account = source.accountGeneration, touched = seeks
         guard let t = await source.positions(n).first?.time, account == source.accountGeneration else { return }
-        if now == nil && requestID == request { start(n, t, play: false, generation: generation) }
+        let shown = local > n.duration - 5 ? 0 : local, target = t > n.duration - 5 ? 0 : t
+        // Another device got further: follow it while nobody has touched the restored player.
+        if now == n, requestID == request, seeks == touched, !playing, abs(target - shown) > 1 {
+            start(n, target, play: false, generation: generation)
+        }
     }
 
     func start(_ n: Now, _ t: Double, play: Bool = true) { start(n, t, play: play, generation: source.playbackGeneration) }

@@ -1,0 +1,1 @@
+Bir podcast bölümü bittiğinde ABS+ artık doğrudan sonrakine geçiyor, çevrimdışıyken de indirdiğiniz bir sonraki bölümü seçiyor. Uygulamayı açtığınızda sunucuyu beklemeden ne dinlediğinizi hemen görüyorsunuz. Bu sürümde ayrıca oynatma ve oturum açmayla ilgili küçük düzeltmeler var.

@@ -1,0 +1,1 @@
+Als een podcastaflevering afloopt, gaat ABS+ nu meteen door naar de volgende, en offline kiest het de volgende aflevering die je hebt gedownload. Bij het openen van de app zie je direct waar je naar luisterde, zonder op de server te wachten. Deze versie bevat ook kleinere verbeteringen voor afspelen en inloggen.

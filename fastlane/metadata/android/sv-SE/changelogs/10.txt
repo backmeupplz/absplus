@@ -1,0 +1,1 @@
+När ett poddavsnitt tar slut går ABS+ nu direkt vidare till nästa, och offline väljer appen nästa avsnitt som du har laddat ner. När du öppnar appen ser du direkt vad du lyssnade på i stället för att vänta på servern. Den här versionen innehåller också mindre rättningar för uppspelning och inloggning.

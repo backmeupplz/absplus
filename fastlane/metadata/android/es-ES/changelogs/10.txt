@@ -1,0 +1,1 @@
+Cuando termina un episodio de pódcast, ABS+ pasa directamente al siguiente y, sin conexión, elige el siguiente episodio que hayas descargado. Al abrir la app ves al instante lo que estabas escuchando, sin esperar al servidor. Esta versión también incluye pequeñas correcciones de reproducción y de inicio de sesión.

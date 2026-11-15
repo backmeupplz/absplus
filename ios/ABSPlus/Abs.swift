@@ -781,15 +781,37 @@ let resumeDir: URL = {
         return p
     }
 
+    /// this device's own last position in `n`, without asking the server
+    func localPos(_ n: Now) -> Pos {
+        let you = String(localized: "You", comment: "Resume choice: this account's own listening position, shown as \"You — 1:02:03\"")
+        if let p = progressDisk.local[n.key] { return Pos(who: you, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0) }
+        if let s = d.string(forKey: "pos:\(n.key)")?.split(separator: ","), s.count == 2, let t = Double(s[0]), let at = Double(s[1]) {
+            return Pos(who: you, time: t, at: at)
+        }
+        return Pos(who: you, time: 0, at: 0)
+    }
+
+    /// The podcast episode to play once `n` ends: the next newer unfinished one, else the newest older unfinished one.
+    /// It comes from the cached item, so it starts without the network; offline, only downloaded episodes count.
+    func nextEpisode(_ n: Now, online: Bool) -> Now? {
+        guard let ep = n.ep, let data = cached("/api/items/\(n.item)?expanded=1"),
+              let it = try? JSONDecoder().decode(Item.self, from: data) else { return nil }
+        let eps = (it.media.episodes ?? []).compactMap { e in e.audioFile.map { (e, $0.track(0)) } }
+            .enumerated().sorted { ($0.element.0.publishedAt ?? 0, $0.offset) < ($1.element.0.publishedAt ?? 0, $1.offset) }.map(\.element)
+        guard let i = eps.firstIndex(where: { $0.0.id == ep }) else { return nil }
+        func ok(_ e: (Episode, Track)) -> Bool {
+            let p = progressDisk.local["\(n.item)/\(e.0.id)"] ?? progress["\(n.item)/\(e.0.id)"]
+            return p?.isFinished != true && (online && !offline || done(n.item, e.1))
+        }
+        guard let (e, t) = eps[(i + 1)...].first(where: ok) ?? eps[..<i].last(where: ok) else { return nil }
+        return Now(item: n.item, ep: e.id, title: e.title ?? "", author: n.author, tracks: [t])
+    }
+
     /// First = where this account should resume; the rest = linked accounts that listened more recently elsewhere.
     func positions(_ n: Now) async -> [Pos] {
         let generation = accountGeneration
-        let you = String(localized: "You", comment: "Resume choice: this account's own listening position, shown as \"You — 1:02:03\"")
-        var mine = Pos(who: you, time: 0, at: 0)
-        if let s = d.string(forKey: "pos:\(n.key)")?.split(separator: ","), s.count == 2, let t = Double(s[0]), let at = Double(s[1]) {
-            mine = Pos(who: you, time: t, at: at)
-        }
-        if let p = progressDisk.local[n.key] { mine = Pos(who: you, time: p.isFinished == true ? 0 : p.currentTime ?? 0, at: p.lastUpdate ?? 0) }
+        var mine = localPos(n)
+        let you = mine.who
         if let me, let r = await remote(me, n.key) {
             guard generation == accountGeneration else { return [] }
             mergeProgress(r, key: n.key)

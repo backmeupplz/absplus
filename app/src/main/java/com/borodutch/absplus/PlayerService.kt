@@ -2,6 +2,8 @@ package com.borodutch.absplus
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.AudioAttributes
@@ -126,9 +128,35 @@ class PlayerService : MediaSessionService() {
             }
         }
         override fun onPlaybackStateChanged(state: Int) {
-            if (state == Player.STATE_ENDED) sync(player, true)
+            if (state == Player.STATE_ENDED) {
+                sync(player, true)
+                h.post { playNext(player) }
+            }
         }
     }
+
+    /** A finished podcast episode rolls straight on to the next one, from the phone when it's downloaded. */
+    private fun playNext(p: Player) {
+        if (p.playbackState != Player.STATE_ENDED) return
+        val captured = Abs.nowScope ?: return
+        Abs.ifCurrent(captured) {
+            val n = Abs.now ?: return@ifCurrent
+            if (p.currentMediaItem?.mediaId != Abs.mediaId(n, captured, p.currentMediaItemIndex)) return@ifCurrent
+            val next = Abs.nextEpisode(n, captured, online()) ?: return@ifCurrent
+            val t = Abs.localPos(next, captured)?.time ?: 0.0
+            Abs.bindPlayback(next, captured)
+            Abs.saveNow(next)
+            Abs.addHistory(next)
+            val (i, ms) = next.at(if (t > next.duration - 5) 0.0 else t)
+            p.setMediaItems(Abs.mediaItems(next, captured), i, ms)
+            p.prepare()
+            p.play()
+        }
+    }
+
+    private fun online() = getSystemService(ConnectivityManager::class.java)?.let {
+        it.getNetworkCapabilities(it.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    } == true
 
     private fun sync(p: Player, finished: Boolean = false, intentionalPlayback: Boolean = false) {
         // The bound scope remains authorized while reauthentication is pending.

@@ -1,0 +1,1 @@
+Quando um episódio de podcast termina, o ABS+ passa direto para o próximo e, offline, escolhe o próximo episódio que você baixou. Ao abrir o app, você vê na hora o que estava ouvindo, sem esperar pelo servidor. Esta versão também traz pequenas correções de reprodução e de login.

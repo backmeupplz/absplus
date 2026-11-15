@@ -13,4 +13,12 @@ class NowTest {
         assertEquals(1 to 0L, n.at(100.0))
         assertEquals(1 to 25_000L, n.at(125.0))
     }
+
+    @Test fun nextEpisodeIsNewerFirstThenNewestOlder() {
+        val unfinished = setOf(0, 1, 3, 5)
+        assertEquals(3, Abs.nextIndex(6, 2) { it in unfinished }) // the next newer one
+        assertEquals(5, Abs.nextIndex(6, 4) { it in unfinished })
+        assertEquals(3, Abs.nextIndex(6, 5) { it in unfinished - 5 }) // newest finished: newest older unfinished
+        assertEquals(null, Abs.nextIndex(1, 0) { true })
+    }
 }

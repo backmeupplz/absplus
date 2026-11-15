@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import android.util.Base64
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import org.json.JSONArray
 import org.json.JSONObject
@@ -614,11 +616,43 @@ object Abs {
     }.getOrNull()
 
     /** First = where this account should resume; the rest = linked accounts that listened more recently elsewhere. */
+    /** this device's own last position in [n], without asking the server */
+    fun localPos(n: Now, captured: Scope): Pos? = inScope(captured) {
+        progressSync.local()[n.key]?.let { Pos("", if (it.optBoolean("isFinished")) 0.0 else it.optDouble("currentTime"), it.optLong("lastUpdate")) }
+            ?: p.getString("pos:${n.key}", null)?.split(',')?.let { Pos("", it[0].toDouble(), it[1].toLong()) }
+    }
+
+    /** The podcast episode to play once [n] ends: the next newer unfinished one, else the newest older unfinished one.
+     * It comes from the cached item, so it starts without the network; offline, only downloaded episodes count. */
+    fun nextEpisode(n: Now, captured: Scope, online: Boolean): Now? {
+        val ep = n.ep ?: return null
+        val eps = runCatching {
+            val a = JSONObject(cached("/api/items/${n.item}?expanded=1", captured)!!).getJSONObject("media").getJSONArray("episodes")
+            (0 until a.length()).map { a.getJSONObject(it) }.filter { it.optJSONObject("audioFile") != null }.sortedBy { it.optLong("publishedAt") }
+        }.getOrNull() ?: return null
+        val tracks = eps.map { track(it.getJSONObject("audioFile"), 0.0) }
+        val current = eps.indexOfFirst { it.str("id") == ep }.takeIf { it >= 0 } ?: return null
+        val i = nextIndex(eps.size, current) {
+            (pct("${n.item}/${eps[it].str("id")}") ?: 0.0) < 1 && (online && !offline || done(n.item, tracks[it]))
+        } ?: return null
+        return Now(n.item, eps[i].str("id"), eps[i].str("title"), n.author, listOf(tracks[i]))
+    }
+
+    /** of [size] episodes oldest first: the first [ok] one after [current], else the last [ok] one before it */
+    internal fun nextIndex(size: Int, current: Int, ok: (Int) -> Boolean) =
+        (current + 1 until size).firstOrNull(ok) ?: (current - 1 downTo 0).firstOrNull(ok)
+
+    fun mediaItems(n: Now, s: Scope): List<MediaItem> {
+        val art = Uri.parse("${s.server}/api/items/${n.item}/cover?width=400&format=webp")
+        return n.tracks.mapIndexed { i, tr ->
+            MediaItem.Builder().setMediaId(mediaId(n, s, i)).setCustomCacheKey(s.generation.toString()).setUri(uri(n.item, tr))
+                .setMediaMetadata(MediaMetadata.Builder().setTitle(n.title).setArtist(n.author).setArtworkUri(art).build()).build()
+        }
+    }
+
     fun positions(n: Now, captured: Scope = scope()): List<Pos> {
         val request = inScope(captured) { scope() }
-        val saved = inScope(request) { progressSync.local()[n.key] }
-        val local = saved?.let { Pos("", if (it.optBoolean("isFinished")) 0.0 else it.optDouble("currentTime"), it.optLong("lastUpdate")) }
-            ?: p.getString("pos:${n.key}", null)?.split(',')?.let { Pos("", it[0].toDouble(), it[1].toLong()) }
+        val local = localPos(n, request)
         val mine = listOfNotNull(local, me?.takeUnless { offline }?.let { remote(it, n.key, request) }?.let { Pos("", it.time, it.at) })
             .maxByOrNull { it.at } ?: Pos("", 0.0, 0)
         val result = listOf(mine) + inScope(request) { if (offline) emptySet() else shares(n.item) }.mapNotNull { remote(it, n.key, request) }

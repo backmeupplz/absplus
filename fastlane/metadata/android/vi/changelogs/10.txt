@@ -1,0 +1,1 @@
+Khi một tập podcast kết thúc, ABS+ giờ chuyển ngay sang tập tiếp theo, và khi ngoại tuyến sẽ chọn tập tiếp theo bạn đã tải xuống. Mở ứng dụng là thấy ngay nội dung bạn đang nghe, không phải chờ máy chủ. Bản phát hành này cũng có một số sửa lỗi nhỏ về phát và đăng nhập.
