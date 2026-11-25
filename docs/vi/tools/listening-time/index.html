@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tính thời gian nghe sách nói: thời gian còn lại, ngày xong, tốc độ</title>
-<meta name="description" content="Tính thời gian còn lại của cuốn sách nói theo tốc độ nghe, ngày bạn nghe xong và tốc độ cần để xong trước một ngày. Miễn phí, chạy ngay trên trình duyệt.">
-<meta property="og:title" content="Tính thời gian nghe sách nói">
-<meta property="og:description" content="Tính thời gian còn lại của cuốn sách nói theo tốc độ nghe, ngày bạn nghe xong và tốc độ cần để xong trước một ngày. Miễn phí, chạy ngay trên trình duyệt.">
+<title>Công cụ tính tốc độ và thời gian nghe sách nói</title>
+<meta name="description" content="Chia độ dài sách nói cho tốc độ phát để biết thời gian nghe thực tế (45 phút ở tốc độ 1,75x mất 25 phút 43 giây), ngày nghe xong và tốc độ cần thiết.">
+<meta property="og:title" content="Công cụ tính tốc độ và thời gian nghe sách nói">
+<meta property="og:description" content="Chia độ dài sách nói cho tốc độ phát để biết thời gian nghe thực tế (45 phút ở tốc độ 1,75x mất 25 phút 43 giây), ngày nghe xong và tốc độ cần thiết.">
 <meta property="og:image" content="https://absplus.app/og/vi/home.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -37,8 +37,8 @@
 <meta property="og:site_name" content="ABS+">
 <meta property="og:image:alt" content="ABS+: trình phát sách nói và podcast nhanh, tối giản cho Audiobookshelf, trên Android và iPhone.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Tính thời gian nghe sách nói">
-<meta name="twitter:description" content="Tính thời gian còn lại của cuốn sách nói theo tốc độ nghe, ngày bạn nghe xong và tốc độ cần để xong trước một ngày. Miễn phí, chạy ngay trên trình duyệt.">
+<meta name="twitter:title" content="Công cụ tính tốc độ và thời gian nghe sách nói">
+<meta name="twitter:description" content="Chia độ dài sách nói cho tốc độ phát để biết thời gian nghe thực tế (45 phút ở tốc độ 1,75x mất 25 phút 43 giây), ngày nghe xong và tốc độ cần thiết.">
 <meta name="twitter:image" content="https://absplus.app/og/vi/home.jpg">
 <meta name="twitter:image:alt" content="ABS+: trình phát sách nói và podcast nhanh, tối giản cho Audiobookshelf, trên Android và iPhone.">
 <link rel="canonical" href="https://absplus.app/vi/tools/listening-time/">
@@ -99,13 +99,11 @@
   .top nav a { color: var(--muted); text-decoration: none; font-size: 16px; }
   .top nav a:hover { color: var(--ink); }
 
-  /* hero */
-  .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 72px; align-items: center; padding: 48px 0 96px; }
   h1 {
-    font-size: clamp(44px, 5.6vw, 74px); line-height: 1; letter-spacing: -.035em; font-weight: 800;
-    font-variation-settings: "opsz" 96; margin: 0 0 28px; max-width: 14ch; text-wrap: balance;
+    font-size: clamp(36px, 5vw, 60px); line-height: 1.04; letter-spacing: -.035em; font-weight: 800;
+    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 22ch; text-wrap: balance;
   }
-  .lead { font-size: 21px; line-height: 1.55; color: var(--muted); max-width: 30em; margin: 0 0 36px; }
+  .lead { font-size: 20px; line-height: 1.55; color: var(--muted); max-width: 44em; margin: 0 0 28px; }
   .stores { display: flex; flex-wrap: wrap; gap: 12px; }
   .store {
     display: inline-flex; align-items: center; gap: 10px; background: var(--ink); color: #fff; text-decoration: none;
@@ -113,62 +111,14 @@
   }
   .store svg { width: 26px; height: 26px; flex: none; fill: var(--amber); }
   .store:hover { background: #2a2068; }
-  .req { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
 
-  .device {
-    width: 300px; padding: 10px; border-radius: 42px; background: #15102f;
-    box-shadow: 0 1px 0 1px #2c2560 inset, 0 40px 80px -30px rgba(27, 20, 70, .45);
-  }
-  .device img { display: block; width: 100%; height: auto; border-radius: 33px; }
-  .hero .device { width: 330px; }
-
-  /* video */
-  .promo { padding: 0 0 88px; }
-  .promo video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 24px; background: var(--ink); box-shadow: 0 40px 80px -30px rgba(27, 20, 70, .45); }
-
-  /* features */
-  .section { padding: 88px 0; border-top: 1px solid var(--rule); }
   h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.08; letter-spacing: -.025em; font-weight: 750; font-variation-settings: "opsz" 72; margin: 0 0 48px; max-width: 18ch; }
-  .features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 72px; margin: 0; }
-  .feature { display: grid; grid-template-columns: 28px 1fr; gap: 4px 18px; }
-  .feature svg { width: 28px; height: 28px; fill: var(--indigo); grid-row: span 2; margin-top: 2px; }
-  .feature dt { font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
-  .feature dd { margin: 0; color: var(--muted); max-width: 34em; }
-
-  /* screens */
-  .screens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin: 0; }
-  .screens figure { margin: 0; }
-  .screens .device { width: 100%; border-radius: 30px; padding: 7px; }
-  .screens .device img { border-radius: 24px; }
-  .screens figcaption { margin-top: 18px; font-size: 16px; color: var(--muted); max-width: 22em; }
-  .screens figcaption b { display: block; color: var(--ink); font-weight: 700; font-size: 17px; }
-
-  /* privacy */
-  .privacy p.big {
-    font-size: clamp(30px, 4.2vw, 54px); line-height: 1.1; letter-spacing: -.03em; font-weight: 750;
-    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 20ch;
-  }
-  .privacy p.small { color: var(--muted); max-width: 36em; margin: 0; }
-
   footer { border-top: 1px solid var(--rule); padding: 36px 0 56px; color: var(--muted); font-size: 15px; }
   footer .links { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 12px; }
   footer p { margin: 0; }
 
-  @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; gap: 56px; padding: 16px 0 72px; }
-    .hero .device { width: min(300px, 78vw); justify-self: center; }
-    .features { grid-template-columns: 1fr; gap: 32px; }
-    .screens { grid-template-columns: repeat(4, 220px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
-    .screens figure { scroll-snap-align: start; }
-    .section { padding: 64px 0; }
-    .promo { padding-bottom: 64px; }
-    .promo video { border-radius: 16px; }
-  }
-  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}
-
-  .tool { padding: 8px 0 64px; }
-  .tool h1 { max-width: 20ch; font-size: clamp(36px, 5vw, 60px); }
-  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .tool { padding: 8px 0 0; }
+  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; margin-bottom: 56px; }
   .card { background: #fff; border: 1px solid var(--rule); border-radius: 20px; padding: 24px; }
   .card h2 { font-size: 22px; letter-spacing: -.01em; margin: 0 0 16px; max-width: none; }
   fieldset { border: 0; margin: 0 0 16px; padding: 0; }
@@ -183,20 +133,32 @@
   .out dd { margin: 0; font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
   .out dd.small { font-size: 19px; font-weight: 600; }
   .prose { padding: 56px 0; border-top: 1px solid var(--rule); max-width: 46em; }
-  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 0 0 20px; max-width: none; }
+  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 36px 0 16px; max-width: none; }
+  .prose h2:first-child { margin-top: 0; }
+  .prose h3 { font-size: 20px; margin: 24px 0 8px; }
   .prose p, .prose li { color: #3a335f; }
-  table.speeds { border-collapse: collapse; width: 100%; max-width: 34em; margin: 16px 0; font-size: 17px; }
+  .prose ul { padding-left: 22px; }
+  .prose li { margin-bottom: 10px; }
+  .tested { font-size: 16px; color: var(--muted); }
+  table.speeds { border-collapse: collapse; width: 100%; max-width: 38em; margin: 16px 0 12px; font-size: 17px; }
   table.speeds th, table.speeds td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
   .cta { background: var(--ink); color: #fff; border-radius: 20px; padding: 32px; margin: 8px 0 56px; }
   .cta h2 { color: #fff; font-size: 26px; margin: 0 0 12px; max-width: none; }
-  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 36em; }
+  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 38em; }
   .cta a:not(.store) { color: #fff; }
   .cta .store { background: #fff; color: var(--ink); }
   .cta .store:hover { background: var(--amber); }
-  @media (max-width: 720px) { .calc { grid-template-columns: 1fr; } .card { padding: 20px; } .tool h1 { max-width: none; } }
+  @media (max-width: 720px) {
+    .calc { grid-template-columns: 1fr; }
+    .card { padding: 20px; }
+    .tool h1 { max-width: none; }
+    .lead { font-size: 18px; }
+    table.speeds { font-size: 16px; }
+    table.speeds th, table.speeds td { padding: 9px 6px; }
+  }
   nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}h1,h2,p,li{overflow-wrap:break-word;hyphens:auto}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "Tính thời gian nghe sách nói", "url": "https://absplus.app/vi/tools/listening-time/", "description": "Tính thời gian còn lại của cuốn sách nói theo tốc độ nghe, ngày bạn nghe xong và tốc độ cần để xong trước một ngày. Miễn phí, chạy ngay trên trình duyệt.", "inLanguage": "vi", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Mọi hệ điều hành (chạy trong trình duyệt web)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "vi", "mainEntity": [{"@type": "Question", "name": "Làm sao tính một cuốn sách nói mất bao lâu ở tốc độ 1,5x?", "acceptedAnswer": {"@type": "Answer", "text": "Lấy độ dài sách chia cho tốc độ. Một cuốn sách 12 giờ ở tốc độ 1,5x mất 8 giờ; ở tốc độ 2x thì mất 6 giờ."}}, {"@type": "Question", "name": "Tốc độ nhanh hơn có tiết kiệm thời gian nhiều như vẻ ngoài không?", "acceptedAnswer": {"@type": "Answer", "text": "Những nấc đầu tiết kiệm nhiều nhất. Tăng từ 1x lên 1,25x tiết kiệm 20 phần trăm thời gian, 1,5x tiết kiệm 33 phần trăm, 2x tiết kiệm 50 phần trăm và 3x tiết kiệm 67 phần trăm."}}, {"@type": "Question", "name": "Tôi cần tốc độ bao nhiêu để nghe xong một cuốn sách trước một ngày?", "acceptedAnswer": {"@type": "Answer", "text": "Lấy thời gian còn lại của sách chia cho tổng số phút bạn sẽ nghe trước ngày đó. Công cụ tính giúp bạn và cho biết tốc độ vừa đủ để kịp."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "Công cụ tính tốc độ và thời gian nghe sách nói", "url": "https://absplus.app/vi/tools/listening-time/", "description": "Chia độ dài sách nói cho tốc độ phát để biết thời gian nghe thực tế (45 phút ở tốc độ 1,75x mất 25 phút 43 giây), ngày nghe xong và tốc độ cần thiết.", "inLanguage": "vi", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Mọi hệ điều hành (chạy trong trình duyệt web)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "vi", "mainEntity": [{"@type": "Question", "name": "45 phút ở tốc độ 1,75x mất bao lâu?", "acceptedAnswer": {"@type": "Answer", "text": "45 phút ở tốc độ 1,75x mất 25 phút 43 giây (45 chia cho 1,75 bằng 25,71 phút), tiết kiệm được 19 phút 17 giây. Công cụ làm tròn thời gian hiển thị đến phút gần nhất nên sẽ báo 26 phút."}}, {"@type": "Question", "name": "Làm sao tính một cuốn sách nói mất bao lâu ở tốc độ 1,5x?", "acceptedAnswer": {"@type": "Answer", "text": "Lấy độ dài ở tốc độ bình thường chia cho 1,5. Cuốn sách nói 6 giờ mất 4 giờ và cuốn 12 giờ mất 8 giờ; ở tốc độ 2x, hai cuốn lần lượt mất 3 giờ và 6 giờ."}}, {"@type": "Question", "name": "Tôi xem vị trí và độ dài ở đâu?", "acceptedAnswer": {"@type": "Answer", "text": "Trình phát của bạn hiển thị cả hai. Trong ABS+ và các ứng dụng Audiobookshelf khác, chúng nằm ngay trên màn hình phát, còn trình phát web Audiobookshelf hiển thị chúng bên dưới ảnh bìa. Hãy dùng độ dài ở tốc độ bình thường của sách, không phải thời gian còn lại đã điều chỉnh theo tốc độ."}}, {"@type": "Question", "name": "Vì sao trình phát của tôi hiển thị thời gian còn lại khác?", "acceptedAnswer": {"@type": "Answer", "text": "Một số trình phát tự điều chỉnh thời gian còn lại theo tốc độ phát của bạn, còn số khác luôn hiển thị theo tốc độ bình thường. Công cụ này nhận độ dài và vị trí ở tốc độ bình thường rồi tự chia cho tốc độ bạn chọn."}}, {"@type": "Question", "name": "Tôi cần tốc độ bao nhiêu để nghe xong một cuốn sách trước một ngày nhất định?", "acceptedAnswer": {"@type": "Answer", "text": "Lấy số phút còn lại của sách ở tốc độ bình thường chia cho tổng số phút bạn dự định nghe từ hôm nay đến ngày mục tiêu, tính cả hai ngày đó. Chỉ cần chọn ngày ở mục Nghe xong trước ngày, công cụ sẽ tự tính tốc độ giúp bạn."}}]}]}</script>
 <script defer src="https://lumen.borodutch.com/l.js"></script>
 </head>
 <body>
@@ -209,8 +171,8 @@
     <nav><a href="https://github.com/backmeupplz/absplus">GitHub</a><a href="/privacy/">Quyền riêng tư</a></nav>
   </header>
   <main class="tool">
-    <h1>Tính thời gian nghe sách nói</h1>
-    <p class="lead">Nhập độ dài cuốn sách, vị trí bạn đang nghe và tốc độ nghe. Bạn sẽ biết thời gian còn lại, ngày nghe xong và tốc độ cần để kịp hạn.</p>
+    <h1>Công cụ tính tốc độ và thời gian nghe sách nói</h1>
+    <p class="lead">Để biết một cuốn sách nói hay podcast mất bao lâu khi nghe nhanh hơn, bạn chỉ cần chia độ dài ở tốc độ bình thường cho tốc độ phát: 45 phút ở mức 1,75x mất 25 phút 43 giây (45 ÷ 1,75, bên dưới làm tròn thành 26 phút), còn sách nói dài 6 giờ ở mức 1,5x mất 4 giờ. Nhập độ dài, vị trí hiện tại và thời gian nghe mỗi ngày để xem thời gian còn lại, ngày nghe xong và tốc độ cần để kịp hạn.</p>
     <div class="calc">
     <form id="f" class="card" onsubmit="return false">
       <h2>Cuốn sách của bạn</h2>
@@ -238,47 +200,64 @@
       <p class="hint" id="o-note"></p>
     </section>
     </div>
+
+    <section class="prose" id="how">
+      <h2>Cách tính các con số</h2>
+      <p>Thời lượng sách nói và podcast luôn được ghi theo tốc độ bình thường (1x), nên thời gian nghe thực tế bằng phần thời lượng còn lại chia cho tốc độ phát. Một cuốn sách dài 12 giờ 30 phút ở mức 1,25x mất 10 giờ (12,5 ÷ 1,25). Công cụ trừ đi vị trí hiện tại trước khi chia, nên chỉ phần bạn chưa nghe mới được tăng tốc, rồi làm tròn thời lượng hiển thị đến phút gần nhất.</p>
+      <p>Ngày nghe xong được tính từ số ngày bạn cần theo thời gian nghe mỗi ngày, bắt đầu từ hôm nay, với giả định bạn nghe đều đặn hằng ngày. Nếu bạn chọn ngày cần nghe xong, công cụ đếm số ngày từ hôm nay đến ngày đó, tính cả hai đầu, rồi chia số phút còn lại của sách cho tổng số phút bạn dự định nghe để tìm ra tốc độ vừa kịp. Mọi thứ chạy ngay trong trình duyệt của bạn; những gì bạn nhập không rời khỏi trang này.</p>
+
+      <h2>Ví dụ cụ thể</h2>
+      <p>Mọi ví dụ bên dưới đều đã được chạy thử trên chính công cụ này trong Chrome vào ngày 24 tháng 11 năm 2026; bạn có thể nhập lại bất kỳ ví dụ nào vào biểu mẫu ở trên để kiểm chứng kết quả.</p>
+      <ul>
+        <li><strong>45 phút ở tốc độ 1,75x:</strong> nhập 0 giờ 45 phút, vị trí 0 giờ 0 phút và tốc độ 1,75x. Lấy 45 chia cho 1,75 ra 25,71 phút, tức 25 phút 43 giây (tiết kiệm 19 phút 17 giây, tương đương 43%). Công cụ làm tròn thành 26 phút.</li>
+        <li><strong>Sách nói 6 giờ ở tốc độ 1,5x:</strong> nhập 6 giờ 0 phút ở mức 1,5x. Lấy 360 phút chia cho 1,5 ra 240 phút, tức đúng 4 giờ (tiết kiệm 2 giờ, ngắn hơn 33%; mất 4 ngày nếu mỗi ngày nghe 60 phút).</li>
+        <li><strong>Sách dài 12 giờ 30 phút, đang ở mốc 3 giờ 15 phút với tốc độ 1,25x (thông số mặc định):</strong> bạn đã nghe được 26,0% và còn lại 9 giờ 15 phút (555 phút) theo thời lượng gốc. Ở mức 1,25x, phần còn lại mất 7 giờ 24 phút, tức 10 ngày nếu nghe 45 phút mỗi ngày (và 10 giờ cho cả cuốn).</li>
+        <li><strong>Sách 10 giờ, đang ở mốc 2 giờ 0 phút, cần nghe xong trong 7 ngày với 45 phút mỗi ngày:</strong> còn lại 8 giờ (480 phút) cho tổng cộng 315 phút nghe trong 7 ngày. Lấy 480 chia cho 315 ra 1,52x — đây là mức công cụ hiển thị khi bạn đặt mục Nghe xong trước ngày cách hôm nay sáu ngày.</li>
+      </ul>
+
+      <h2>Tốc độ nhanh hơn tiết kiệm được bao nhiêu</h2>
+      <p>Mỗi nấc tăng tốc tiết kiệm được ít hơn nấc trước đó, vì vậy hầu hết người nghe chọn mức từ 1,25x đến 1,75x.</p>
+      <table class="speeds">
+        <thead><tr><th scope="col">Tốc độ</th><th scope="col">Tiết kiệm</th><th scope="col">45 phút</th><th scope="col">Sách 12 giờ</th></tr></thead>
+        <tbody>
+        <tr><td>1,0x</td><td>0%</td><td>45 phút</td><td>12 giờ 00 phút</td></tr>
+        <tr><td>1,25x</td><td>20%</td><td>36 phút</td><td>9 giờ 36 phút</td></tr>
+        <tr><td>1,5x</td><td>33%</td><td>30 phút</td><td>8 giờ 00 phút</td></tr>
+        <tr><td>1,75x</td><td>43%</td><td>26 phút</td><td>6 giờ 51 phút</td></tr>
+        <tr><td>2,0x</td><td>50%</td><td>23 phút</td><td>6 giờ 00 phút</td></tr>
+        <tr><td>3,0x</td><td>67%</td><td>15 phút</td><td>4 giờ 00 phút</td></tr>
+        </tbody>
+      </table>
+      <p class="tested">Thời lượng trong bảng được làm tròn đến phút gần nhất để khớp với công cụ ở trên (thời gian chính xác cho 45 phút là 25 phút 43 giây ở mức 1,75x và 22 phút 30 giây ở mức 2,0x). Đã kiểm thử vào ngày 24 tháng 11 năm 2026 trên Chrome, đối chiếu với ABS+ v1.2.5.</p>
+
+      <h2>Câu hỏi thường gặp</h2>
+      <h3>45 phút ở tốc độ 1,75x mất bao lâu?</h3>
+      <p>45 phút ở tốc độ 1,75x mất 25 phút 43 giây (45 chia cho 1,75 bằng 25,71 phút), tiết kiệm được 19 phút 17 giây. Công cụ làm tròn thời gian hiển thị đến phút gần nhất nên sẽ báo 26 phút.</p>
+      <h3>Làm sao tính một cuốn sách nói mất bao lâu ở tốc độ 1,5x?</h3>
+      <p>Lấy độ dài ở tốc độ bình thường chia cho 1,5. Cuốn sách nói 6 giờ mất 4 giờ và cuốn 12 giờ mất 8 giờ; ở tốc độ 2x, hai cuốn lần lượt mất 3 giờ và 6 giờ.</p>
+      <h3>Tôi xem vị trí và độ dài ở đâu?</h3>
+      <p>Trình phát của bạn hiển thị cả hai. Trong ABS+ và các ứng dụng Audiobookshelf khác, chúng nằm ngay trên màn hình phát, còn trình phát web Audiobookshelf hiển thị chúng bên dưới ảnh bìa. Hãy dùng độ dài ở tốc độ bình thường của sách, không phải thời gian còn lại đã điều chỉnh theo tốc độ.</p>
+      <h3>Vì sao trình phát của tôi hiển thị thời gian còn lại khác?</h3>
+      <p>Một số trình phát tự điều chỉnh thời gian còn lại theo tốc độ phát của bạn, còn số khác luôn hiển thị theo tốc độ bình thường. Công cụ này nhận độ dài và vị trí ở tốc độ bình thường rồi tự chia cho tốc độ bạn chọn.</p>
+      <h3>Tôi cần tốc độ bao nhiêu để nghe xong một cuốn sách trước một ngày nhất định?</h3>
+      <p>Lấy số phút còn lại của sách ở tốc độ bình thường chia cho tổng số phút bạn dự định nghe từ hôm nay đến ngày mục tiêu, tính cả hai ngày đó. Chỉ cần chọn ngày ở mục Nghe xong trước ngày, công cụ sẽ tự tính tốc độ giúp bạn.</p>
+    </section>
+
+    <section class="cta">
+      <h2>Nghe trên máy chủ Audiobookshelf của riêng bạn</h2>
+      <p>ABS+ là trình phát Android và iPhone nhỏ gọn, miễn phí, mã nguồn mở dành cho máy chủ <a href="https://www.audiobookshelf.org">Audiobookshelf</a> của riêng bạn, có tải xuống để nghe ngoại tuyến, sáu mức tốc độ phát cài sẵn (0,8x, 1x, 1,25x, 1,5x, 1,75x và 2x) và đồng bộ tiến độ về máy chủ.</p>
+      <div class="stores">
+        <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
+              <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
+              Tải trên Google Play
+            </a>
+        <a class="store" href="https://apps.apple.com/app/id6818353284">
+              <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
+              Tải xuống trên App Store
+            </a>
+      </div>
+    </section>
   </main>
-
-  <section class="prose" id="how">
-    <h2>Cách tính các con số</h2>
-    <p>Độ dài sách nói luôn được ghi theo tốc độ bình thường, nên thời gian bạn bỏ ra bằng độ dài chia cho tốc độ phát. Một cuốn sách 12 giờ 30 phút ở tốc độ 1,25x mất 10 giờ: 12,5 chia 1,25. Công cụ trừ vị trí hiện tại trước, nên chỉ phần bạn chưa nghe mới được tăng tốc.</p>
-    <p>Ngày nghe xong được tính từ số ngày bạn cần với thời gian nghe mỗi ngày, bắt đầu từ hôm nay, và giả định bạn nghe mỗi ngày. Nếu bạn chọn ngày cần nghe xong, công cụ đếm số ngày từ hôm nay đến ngày đó, tính cả hai đầu, rồi chia thời gian còn lại của sách cho tổng số phút bạn sẽ nghe. Kết quả là tốc độ vừa đủ để kịp. Mọi thứ chạy ngay trong trình duyệt của bạn; những gì bạn nhập không được gửi đi đâu cả.</p>
-    <h2>Tốc độ nhanh hơn tiết kiệm được bao nhiêu</h2>
-    <p>Mỗi nấc tăng tiết kiệm được ít hơn nấc trước, đó là lý do hầu hết mọi người chọn mức từ 1,25x đến 1,75x.</p>
-    <table class="speeds">
-      <thead><tr><th scope="col">Tốc độ</th><th scope="col">Thời gian tiết kiệm</th><th scope="col">Sách 12 giờ</th></tr></thead>
-      <tbody>
-      <tr><td>1,0x</td><td>0%</td><td>12 giờ 00 phút</td></tr>
-      <tr><td>1,25x</td><td>20%</td><td>9 giờ 36 phút</td></tr>
-      <tr><td>1,5x</td><td>33%</td><td>8 giờ 00 phút</td></tr>
-      <tr><td>2,0x</td><td>50%</td><td>6 giờ 00 phút</td></tr>
-      <tr><td>3,0x</td><td>67%</td><td>4 giờ 00 phút</td></tr>
-      </tbody>
-    </table>
-    <h2>Câu hỏi thường gặp</h2>
-    <h3>Làm sao tính một cuốn sách nói mất bao lâu ở tốc độ 1,5x?</h3>
-    <p>Lấy độ dài chia cho 1,5. Một cuốn sách 12 giờ mất 8 giờ; ở tốc độ 2x thì mất 6 giờ.</p>
-    <h3>Tôi xem vị trí và độ dài ở đâu?</h3>
-    <p>Trình phát của bạn hiển thị cả hai. Trong ứng dụng Audiobookshelf, chúng nằm ở màn hình phát, còn trình phát web hiển thị chúng bên dưới ảnh bìa. Hãy dùng độ dài thật của sách, không phải thời gian còn lại ở tốc độ của bạn.</p>
-    <h3>Vì sao trình phát của tôi hiển thị thời gian còn lại khác?</h3>
-    <p>Một số trình phát hiển thị thời gian còn lại theo tốc độ của bạn, số khác theo tốc độ bình thường. Công cụ này lấy độ dài ở tốc độ bình thường và tự áp dụng tốc độ của bạn, nên hãy nhập các con số ở tốc độ bình thường.</p>
-  </section>
-
-  <section class="cta">
-    <h2>Nghe trên máy chủ Audiobookshelf của riêng bạn</h2>
-    <p>ABS+ là trình phát Android và iPhone nhỏ gọn, miễn phí dành cho máy chủ <a href="https://www.audiobookshelf.org">Audiobookshelf</a> của riêng bạn, với tính năng tải xuống để nghe ngoại tuyến, điều chỉnh tốc độ và tiến độ được đồng bộ về máy chủ.</p>
-    <div class="stores">
-      <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
-            <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
-            Tải trên Google Play
-          </a>
-      <a class="store" href="https://apps.apple.com/app/id6818353284">
-            <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
-            Tải xuống trên App Store
-          </a>
-    </div>
-  </section>
 
   <footer>
     <div class="links">
@@ -353,7 +332,11 @@
     } else { $("o-need").textContent = T.need_default; }
     $("o-note").textContent = note;
   }
-  document.getElementById("f").addEventListener("input", calc);
+  var used = false;
+  document.getElementById("f").addEventListener("input", function () {
+    calc();
+    if (!used && typeof window !== "undefined" && typeof window.lumen === "function") { used = true; window.lumen("tool_use"); }
+  });
   calc();
 })();
 </script>

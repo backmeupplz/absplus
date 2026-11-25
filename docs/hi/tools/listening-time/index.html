@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ऑडियो बुक सुनने का समय कैलकुलेटर: बचा समय, खत्म होने की तारीख</title>
-<meta name="description" content="अपनी स्पीड पर ऑडियो बुक में कितना समय बचा है, वह कब खत्म होगी, और तय तारीख तक खत्म करने के लिए कौन-सी स्पीड चाहिए, यह जानें। मुफ़्त, ब्राउज़र में चलता है।">
-<meta property="og:title" content="ऑडियो बुक सुनने का समय कैलकुलेटर">
-<meta property="og:description" content="अपनी स्पीड पर ऑडियो बुक में कितना समय बचा है, वह कब खत्म होगी, और तय तारीख तक खत्म करने के लिए कौन-सी स्पीड चाहिए, यह जानें। मुफ़्त, ब्राउज़र में चलता है।">
+<title>ऑडियो बुक स्पीड और सुनने का समय कैलकुलेटर</title>
+<meta name="description" content="ऑडियो बुक की लंबाई को प्लेबैक स्पीड से भाग देकर असली समय (45 मिनट 1.75x पर 25 मिनट 43 सेकंड में पूरे होते हैं), खत्म होने की तारीख और ज़रूरी स्पीड जानें।">
+<meta property="og:title" content="ऑडियो बुक स्पीड और सुनने का समय कैलकुलेटर">
+<meta property="og:description" content="ऑडियो बुक की लंबाई को प्लेबैक स्पीड से भाग देकर असली समय (45 मिनट 1.75x पर 25 मिनट 43 सेकंड में पूरे होते हैं), खत्म होने की तारीख और ज़रूरी स्पीड जानें।">
 <meta property="og:image" content="https://absplus.app/og/hi/home.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -37,8 +37,8 @@
 <meta property="og:site_name" content="ABS+">
 <meta property="og:image:alt" content="ABS+: Android और iPhone के लिए Audiobookshelf का तेज़, सादा ऑडियो बुक और पॉडकास्ट प्लेयर।">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="ऑडियो बुक सुनने का समय कैलकुलेटर">
-<meta name="twitter:description" content="अपनी स्पीड पर ऑडियो बुक में कितना समय बचा है, वह कब खत्म होगी, और तय तारीख तक खत्म करने के लिए कौन-सी स्पीड चाहिए, यह जानें। मुफ़्त, ब्राउज़र में चलता है।">
+<meta name="twitter:title" content="ऑडियो बुक स्पीड और सुनने का समय कैलकुलेटर">
+<meta name="twitter:description" content="ऑडियो बुक की लंबाई को प्लेबैक स्पीड से भाग देकर असली समय (45 मिनट 1.75x पर 25 मिनट 43 सेकंड में पूरे होते हैं), खत्म होने की तारीख और ज़रूरी स्पीड जानें।">
 <meta name="twitter:image" content="https://absplus.app/og/hi/home.jpg">
 <meta name="twitter:image:alt" content="ABS+: Android और iPhone के लिए Audiobookshelf का तेज़, सादा ऑडियो बुक और पॉडकास्ट प्लेयर।">
 <link rel="canonical" href="https://absplus.app/hi/tools/listening-time/">
@@ -99,13 +99,11 @@
   .top nav a { color: var(--muted); text-decoration: none; font-size: 16px; }
   .top nav a:hover { color: var(--ink); }
 
-  /* hero */
-  .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 72px; align-items: center; padding: 48px 0 96px; }
   h1 {
-    font-size: clamp(44px, 5.6vw, 74px); line-height: 1; letter-spacing: -.035em; font-weight: 800;
-    font-variation-settings: "opsz" 96; margin: 0 0 28px; max-width: 14ch; text-wrap: balance;
+    font-size: clamp(36px, 5vw, 60px); line-height: 1.04; letter-spacing: -.035em; font-weight: 800;
+    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 22ch; text-wrap: balance;
   }
-  .lead { font-size: 21px; line-height: 1.55; color: var(--muted); max-width: 30em; margin: 0 0 36px; }
+  .lead { font-size: 20px; line-height: 1.55; color: var(--muted); max-width: 44em; margin: 0 0 28px; }
   .stores { display: flex; flex-wrap: wrap; gap: 12px; }
   .store {
     display: inline-flex; align-items: center; gap: 10px; background: var(--ink); color: #fff; text-decoration: none;
@@ -113,62 +111,14 @@
   }
   .store svg { width: 26px; height: 26px; flex: none; fill: var(--amber); }
   .store:hover { background: #2a2068; }
-  .req { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
 
-  .device {
-    width: 300px; padding: 10px; border-radius: 42px; background: #15102f;
-    box-shadow: 0 1px 0 1px #2c2560 inset, 0 40px 80px -30px rgba(27, 20, 70, .45);
-  }
-  .device img { display: block; width: 100%; height: auto; border-radius: 33px; }
-  .hero .device { width: 330px; }
-
-  /* video */
-  .promo { padding: 0 0 88px; }
-  .promo video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 24px; background: var(--ink); box-shadow: 0 40px 80px -30px rgba(27, 20, 70, .45); }
-
-  /* features */
-  .section { padding: 88px 0; border-top: 1px solid var(--rule); }
   h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.08; letter-spacing: -.025em; font-weight: 750; font-variation-settings: "opsz" 72; margin: 0 0 48px; max-width: 18ch; }
-  .features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 72px; margin: 0; }
-  .feature { display: grid; grid-template-columns: 28px 1fr; gap: 4px 18px; }
-  .feature svg { width: 28px; height: 28px; fill: var(--indigo); grid-row: span 2; margin-top: 2px; }
-  .feature dt { font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
-  .feature dd { margin: 0; color: var(--muted); max-width: 34em; }
-
-  /* screens */
-  .screens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin: 0; }
-  .screens figure { margin: 0; }
-  .screens .device { width: 100%; border-radius: 30px; padding: 7px; }
-  .screens .device img { border-radius: 24px; }
-  .screens figcaption { margin-top: 18px; font-size: 16px; color: var(--muted); max-width: 22em; }
-  .screens figcaption b { display: block; color: var(--ink); font-weight: 700; font-size: 17px; }
-
-  /* privacy */
-  .privacy p.big {
-    font-size: clamp(30px, 4.2vw, 54px); line-height: 1.1; letter-spacing: -.03em; font-weight: 750;
-    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 20ch;
-  }
-  .privacy p.small { color: var(--muted); max-width: 36em; margin: 0; }
-
   footer { border-top: 1px solid var(--rule); padding: 36px 0 56px; color: var(--muted); font-size: 15px; }
   footer .links { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 12px; }
   footer p { margin: 0; }
 
-  @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; gap: 56px; padding: 16px 0 72px; }
-    .hero .device { width: min(300px, 78vw); justify-self: center; }
-    .features { grid-template-columns: 1fr; gap: 32px; }
-    .screens { grid-template-columns: repeat(4, 220px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
-    .screens figure { scroll-snap-align: start; }
-    .section { padding: 64px 0; }
-    .promo { padding-bottom: 64px; }
-    .promo video { border-radius: 16px; }
-  }
-  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}
-
-  .tool { padding: 8px 0 64px; }
-  .tool h1 { max-width: 20ch; font-size: clamp(36px, 5vw, 60px); }
-  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .tool { padding: 8px 0 0; }
+  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; margin-bottom: 56px; }
   .card { background: #fff; border: 1px solid var(--rule); border-radius: 20px; padding: 24px; }
   .card h2 { font-size: 22px; letter-spacing: -.01em; margin: 0 0 16px; max-width: none; }
   fieldset { border: 0; margin: 0 0 16px; padding: 0; }
@@ -183,20 +133,32 @@
   .out dd { margin: 0; font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
   .out dd.small { font-size: 19px; font-weight: 600; }
   .prose { padding: 56px 0; border-top: 1px solid var(--rule); max-width: 46em; }
-  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 0 0 20px; max-width: none; }
+  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 36px 0 16px; max-width: none; }
+  .prose h2:first-child { margin-top: 0; }
+  .prose h3 { font-size: 20px; margin: 24px 0 8px; }
   .prose p, .prose li { color: #3a335f; }
-  table.speeds { border-collapse: collapse; width: 100%; max-width: 34em; margin: 16px 0; font-size: 17px; }
+  .prose ul { padding-left: 22px; }
+  .prose li { margin-bottom: 10px; }
+  .tested { font-size: 16px; color: var(--muted); }
+  table.speeds { border-collapse: collapse; width: 100%; max-width: 38em; margin: 16px 0 12px; font-size: 17px; }
   table.speeds th, table.speeds td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
   .cta { background: var(--ink); color: #fff; border-radius: 20px; padding: 32px; margin: 8px 0 56px; }
   .cta h2 { color: #fff; font-size: 26px; margin: 0 0 12px; max-width: none; }
-  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 36em; }
+  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 38em; }
   .cta a:not(.store) { color: #fff; }
   .cta .store { background: #fff; color: var(--ink); }
   .cta .store:hover { background: var(--amber); }
-  @media (max-width: 720px) { .calc { grid-template-columns: 1fr; } .card { padding: 20px; } .tool h1 { max-width: none; } }
+  @media (max-width: 720px) {
+    .calc { grid-template-columns: 1fr; }
+    .card { padding: 20px; }
+    .tool h1 { max-width: none; }
+    .lead { font-size: 18px; }
+    table.speeds { font-size: 16px; }
+    table.speeds th, table.speeds td { padding: 9px 6px; }
+  }
   nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}h1,h2,p,li{overflow-wrap:break-word;hyphens:auto}h1,h2,.privacy p.big{letter-spacing:0}h1{line-height:1.3}h2{line-height:1.35}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "ऑडियो बुक सुनने का समय कैलकुलेटर", "url": "https://absplus.app/hi/tools/listening-time/", "description": "अपनी स्पीड पर ऑडियो बुक में कितना समय बचा है, वह कब खत्म होगी, और तय तारीख तक खत्म करने के लिए कौन-सी स्पीड चाहिए, यह जानें। मुफ़्त, ब्राउज़र में चलता है।", "inLanguage": "hi", "applicationCategory": "UtilitiesApplication", "operatingSystem": "कोई भी (वेब ब्राउज़र में चलता है)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "hi", "mainEntity": [{"@type": "Question", "name": "1.5x पर ऑडियो बुक कितनी देर में पूरी होगी, यह कैसे निकालें?", "acceptedAnswer": {"@type": "Answer", "text": "किताब की लंबाई को स्पीड से भाग दें। 12 घंटे की किताब 1.5x पर 8 घंटे में पूरी होती है; 2x पर 6 घंटे में।"}}, {"@type": "Question", "name": "क्या तेज़ स्पीड से उतना ही समय बचता है जितना लगता है?", "acceptedAnswer": {"@type": "Answer", "text": "शुरुआती कदम सबसे ज़्यादा समय बचाते हैं। 1x से 1.25x पर जाने से 20 प्रतिशत समय बचता है, 1.5x पर 33 प्रतिशत, 2x पर 50 प्रतिशत और 3x पर 67 प्रतिशत।"}}, {"@type": "Question", "name": "किसी तारीख तक किताब खत्म करने के लिए कितनी स्पीड चाहिए?", "acceptedAnswer": {"@type": "Answer", "text": "किताब का बचा समय उन कुल मिनटों से भाग दें जो आप उस तारीख से पहले सुनेंगे। कैलकुलेटर यह आपके लिए कर देता है और वह स्पीड दिखाता है जिस पर किताब समय में पूरी हो जाएगी।"}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "ऑडियो बुक स्पीड और सुनने का समय कैलकुलेटर", "url": "https://absplus.app/hi/tools/listening-time/", "description": "ऑडियो बुक की लंबाई को प्लेबैक स्पीड से भाग देकर असली समय (45 मिनट 1.75x पर 25 मिनट 43 सेकंड में पूरे होते हैं), खत्म होने की तारीख और ज़रूरी स्पीड जानें।", "inLanguage": "hi", "applicationCategory": "UtilitiesApplication", "operatingSystem": "कोई भी (वेब ब्राउज़र में चलता है)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "hi", "mainEntity": [{"@type": "Question", "name": "45 मिनट 1.75x स्पीड पर कितने समय में पूरे होते हैं?", "acceptedAnswer": {"@type": "Answer", "text": "45 मिनट 1.75x स्पीड पर 25 मिनट और 43 सेकंड में पूरे होते हैं (45 को 1.75 से भाग देने पर 25.71 मिनट आते हैं), जिससे 19 मिनट और 17 सेकंड बचते हैं। कैलकुलेटर दिखाए जाने वाले समय को सबसे नज़दीकी मिनट पर राउंड करता है, इसलिए यह 26 मिनट दिखाता है।"}}, {"@type": "Question", "name": "1.5x पर ऑडियो बुक कितनी देर में पूरी होगी, यह कैसे निकालें?", "acceptedAnswer": {"@type": "Answer", "text": "सामान्य स्पीड वाली लंबाई को 1.5 से भाग दें। 6 घंटे की ऑडियो बुक 4 घंटे में और 12 घंटे की ऑडियो बुक 8 घंटे में पूरी होती है; 2x पर इन्हें 3 घंटे और 6 घंटे लगते हैं।"}}, {"@type": "Question", "name": "पोज़िशन और लंबाई कहां मिलेगी?", "acceptedAnswer": {"@type": "Answer", "text": "आपका प्लेयर दोनों दिखाता है। ABS+ और दूसरे Audiobookshelf ऐप में वे प्लेयर स्क्रीन पर दिखती हैं, और Audiobookshelf वेब प्लेयर में कवर के नीचे। किताब की सामान्य स्पीड वाली लंबाई डालें, स्पीड के हिसाब से बदला हुआ बचा समय नहीं।"}}, {"@type": "Question", "name": "मेरा प्लेयर बचा हुआ समय अलग क्यों दिखाता है?", "acceptedAnswer": {"@type": "Answer", "text": "कुछ प्लेयर आपकी प्लेबैक स्पीड के हिसाब से बचा हुआ समय बदलकर दिखाते हैं, जबकि कुछ हमेशा सामान्य स्पीड का समय दिखाते हैं। यह कैलकुलेटर सामान्य स्पीड वाली लंबाई और पोज़िशन लेता है और आपकी स्पीड से खुद भाग देता है।"}}, {"@type": "Question", "name": "किसी तय तारीख तक किताब खत्म करने के लिए कितनी स्पीड चाहिए?", "acceptedAnswer": {"@type": "Answer", "text": "किताब में सामान्य स्पीड के बचे हुए मिनटों को उन कुल मिनटों से भाग दें जो आप आज से अपनी तय तारीख तक (दोनों दिन गिनकर) सुनने की योजना बना रहे हैं। “तब तक खत्म करनी है” फ़ील्ड में तारीख चुनें और कैलकुलेटर वह स्पीड आपके लिए निकाल देगा।"}}]}]}</script>
 <script defer src="https://lumen.borodutch.com/l.js"></script>
 </head>
 <body>
@@ -209,8 +171,8 @@
     <nav><a href="https://github.com/backmeupplz/absplus">GitHub</a><a href="/privacy/">निजता</a></nav>
   </header>
   <main class="tool">
-    <h1>ऑडियो बुक सुनने का समय कैलकुलेटर</h1>
-    <p class="lead">किताब की लंबाई, आप कहां तक पहुंचे हैं और आप कितनी स्पीड पर सुनते हैं, यह डालें। आपको बचा हुआ समय, किताब खत्म होने का दिन और तय तारीख तक पूरी करने वाली स्पीड मिल जाएगी।</p>
+    <h1>ऑडियो बुक स्पीड और सुनने का समय कैलकुलेटर</h1>
+    <p class="lead">तेज़ स्पीड पर कोई ऑडियो बुक या पॉडकास्ट कितनी देर में पूरा होगा, यह जानने के लिए उसकी सामान्य स्पीड वाली लंबाई को अपनी प्लेबैक स्पीड से भाग दें: 45 मिनट 1.75x पर 25 मिनट 43 सेकंड में पूरे होते हैं (45 ÷ 1.75, नीचे 26 मिनट पर राउंड किया गया है), और 6 घंटे की ऑडियो बुक 1.5x पर 4 घंटे में पूरी होती है। बचा हुआ समय, खत्म होने की तारीख और तय तारीख के लिए ज़रूरी स्पीड देखने के लिए लंबाई, मौजूदा पोज़िशन और रोज़ सुनने का समय डालें।</p>
     <div class="calc">
     <form id="f" class="card" onsubmit="return false">
       <h2>आपकी किताब</h2>
@@ -238,47 +200,64 @@
       <p class="hint" id="o-note"></p>
     </section>
     </div>
+
+    <section class="prose" id="how">
+      <h2>संख्याएं कैसे निकाली जाती हैं</h2>
+      <p>ऑडियो बुक और पॉडकास्ट की लंबाई हमेशा सामान्य स्पीड (1x) पर बताई जाती है, इसलिए आपका असली सुनने का समय बची हुई लंबाई को आपकी प्लेबैक स्पीड से भाग देने पर मिलता है। 12 घंटे 30 मिनट की किताब 1.25x पर 10 घंटे में पूरी होती है (12.5 ÷ 1.25)। कैलकुलेटर भाग देने से पहले आपकी मौजूदा पोज़िशन घटा देता है, इसलिए तेज़ स्पीड सिर्फ़ उस हिस्से पर लगती है जो आपने अभी सुना नहीं है, और दिखाया जाने वाला समय सबसे नज़दीकी मिनट पर राउंड किया जाता है।</p>
+      <p>खत्म होने की तारीख आज से गिनकर निकाली जाती है कि रोज़ सुनने के आपके समय के हिसाब से कितने दिन लगेंगे, यह मानते हुए कि आप हर दिन सुनते हैं। अगर आप खत्म करने की तारीख चुनते हैं, तो कैलकुलेटर आज से उस तारीख तक, दोनों दिन शामिल करके कुल दिन गिनता है, और किताब के बचे मिनटों को आपके कुल सुनने के मिनटों से भाग देकर वह स्पीड निकालता है जिस पर किताब समय पर पूरी हो जाए। सब कुछ आपके ब्राउज़र में चलता है; आप जो भी टाइप करते हैं, वह इस पेज से बाहर नहीं जाता।</p>
+
+      <h2>हल किए गए उदाहरण</h2>
+      <p>नीचे दिया गया हर उदाहरण 24 नवंबर 2026 को Chrome में इसी कैलकुलेटर पर जांचा गया था, और आप वही संख्याएं जांचने के लिए इनमें से किसी को भी ऊपर दिए फ़ॉर्म में फिर से डाल सकते हैं।</p>
+      <ul>
+        <li><strong>45 मिनट 1.75x स्पीड पर:</strong> लंबाई 0 घंटे 45 मिनट, पोज़िशन 0 घंटे 0 मिनट और स्पीड 1.75x डालें। 45 को 1.75 से भाग देने पर 25.71 मिनट, यानी 25 मिनट और 43 सेकंड आते हैं (19 मिनट और 17 सेकंड, या 43% की बचत)। कैलकुलेटर इसे राउंड करके 26 मिनट दिखाता है।</li>
+        <li><strong>6 घंटे की ऑडियो बुक 1.5x स्पीड पर:</strong> 6 घंटे 0 मिनट और 1.5x डालें। 360 मिनट को 1.5 से भाग देने पर 240 मिनट, यानी पूरे 4 घंटे आते हैं (2 घंटे की बचत, 33% कम समय; 4 दिन, रोज़ 60 मिनट के हिसाब से)।</li>
+        <li><strong>12 घंटे 30 मिनट की किताब, 3 घंटे 15 मिनट से आगे 1.25x पर (डिफ़ॉल्ट मान):</strong> आप 26.0% सुन चुके हैं और किताब का 9 घंटे 15 मिनट (555 मिनट) समय बचा है। 1.25x पर इसमें 7 घंटे 24 मिनट लगते हैं, यानी 10 दिन, रोज़ 45 मिनट के हिसाब से (पूरी किताब के लिए 10 घंटे)।</li>
+        <li><strong>10 घंटे की किताब, 2 घंटे 0 मिनट से आगे, 7 दिन की समय-सीमा और रोज़ 45 मिनट सुनने पर:</strong> 8 घंटे (480 मिनट) बाकी हैं, जबकि आपके पास सुनने के लिए कुल 315 मिनट हैं (7 दिनों में)। 480 को 315 से भाग देने पर 1.52x आता है, जिसे कैलकुलेटर तब दिखाता है जब “तब तक खत्म करनी है” आज से छह दिन बाद की तारीख पर सेट हो।</li>
+      </ul>
+
+      <h2>तेज़ स्पीड से कितना समय बचता है</h2>
+      <p>हर अगला कदम पिछले से कम समय बचाता है, इसीलिए ज़्यादातर सुनने वाले 1.25x और 1.75x के बीच रुक जाते हैं।</p>
+      <table class="speeds">
+        <thead><tr><th scope="col">स्पीड</th><th scope="col">बचत</th><th scope="col">45 मिनट</th><th scope="col">12 घंटे की किताब</th></tr></thead>
+        <tbody>
+        <tr><td>1.0x</td><td>0%</td><td>45 मिनट</td><td>12 घंटे 00 मिनट</td></tr>
+        <tr><td>1.25x</td><td>20%</td><td>36 मिनट</td><td>9 घंटे 36 मिनट</td></tr>
+        <tr><td>1.5x</td><td>33%</td><td>30 मिनट</td><td>8 घंटे 00 मिनट</td></tr>
+        <tr><td>1.75x</td><td>43%</td><td>26 मिनट</td><td>6 घंटे 51 मिनट</td></tr>
+        <tr><td>2.0x</td><td>50%</td><td>23 मिनट</td><td>6 घंटे 00 मिनट</td></tr>
+        <tr><td>3.0x</td><td>67%</td><td>15 मिनट</td><td>4 घंटे 00 मिनट</td></tr>
+        </tbody>
+      </table>
+      <p class="tested">ऊपर के कैलकुलेटर से मेल खाने के लिए तालिका के समय सबसे नज़दीकी मिनट पर राउंड किए गए हैं (45 मिनट के लिए सटीक समय 1.75x पर 25 मिनट 43 सेकंड और 2.0x पर 22 मिनट 30 सेकंड है)। 24 नवंबर 2026 को Chrome में ABS+ v1.2.5 के साथ जांचा गया।</p>
+
+      <h2>सवाल</h2>
+      <h3>45 मिनट 1.75x स्पीड पर कितने समय में पूरे होते हैं?</h3>
+      <p>45 मिनट 1.75x स्पीड पर 25 मिनट और 43 सेकंड में पूरे होते हैं (45 को 1.75 से भाग देने पर 25.71 मिनट आते हैं), जिससे 19 मिनट और 17 सेकंड बचते हैं। कैलकुलेटर दिखाए जाने वाले समय को सबसे नज़दीकी मिनट पर राउंड करता है, इसलिए यह 26 मिनट दिखाता है।</p>
+      <h3>1.5x पर ऑडियो बुक कितनी देर में पूरी होगी, यह कैसे निकालें?</h3>
+      <p>सामान्य स्पीड वाली लंबाई को 1.5 से भाग दें। 6 घंटे की ऑडियो बुक 4 घंटे में और 12 घंटे की ऑडियो बुक 8 घंटे में पूरी होती है; 2x पर इन्हें 3 घंटे और 6 घंटे लगते हैं।</p>
+      <h3>पोज़िशन और लंबाई कहां मिलेगी?</h3>
+      <p>आपका प्लेयर दोनों दिखाता है। ABS+ और दूसरे Audiobookshelf ऐप में वे प्लेयर स्क्रीन पर दिखती हैं, और Audiobookshelf वेब प्लेयर में कवर के नीचे। किताब की सामान्य स्पीड वाली लंबाई डालें, स्पीड के हिसाब से बदला हुआ बचा समय नहीं।</p>
+      <h3>मेरा प्लेयर बचा हुआ समय अलग क्यों दिखाता है?</h3>
+      <p>कुछ प्लेयर आपकी प्लेबैक स्पीड के हिसाब से बचा हुआ समय बदलकर दिखाते हैं, जबकि कुछ हमेशा सामान्य स्पीड का समय दिखाते हैं। यह कैलकुलेटर सामान्य स्पीड वाली लंबाई और पोज़िशन लेता है और आपकी स्पीड से खुद भाग देता है।</p>
+      <h3>किसी तय तारीख तक किताब खत्म करने के लिए कितनी स्पीड चाहिए?</h3>
+      <p>किताब में सामान्य स्पीड के बचे हुए मिनटों को उन कुल मिनटों से भाग दें जो आप आज से अपनी तय तारीख तक (दोनों दिन गिनकर) सुनने की योजना बना रहे हैं। “तब तक खत्म करनी है” फ़ील्ड में तारीख चुनें और कैलकुलेटर वह स्पीड आपके लिए निकाल देगा।</p>
+    </section>
+
+    <section class="cta">
+      <h2>अपने Audiobookshelf सर्वर से सुनें</h2>
+      <p>ABS+ आपके अपने <a href="https://www.audiobookshelf.org">Audiobookshelf</a> सर्वर के लिए एक छोटा, मुफ़्त और ओपन सोर्स Android और iPhone प्लेयर है, जिसमें ऑफ़लाइन डाउनलोड, छह सेव की गई प्लेबैक स्पीड (0.8x, 1x, 1.25x, 1.5x, 1.75x और 2x) और वापस सर्वर पर सिंक होने वाली प्रोग्रेस मिलती है।</p>
+      <div class="stores">
+        <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
+              <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
+              Google Play पर पाएं
+            </a>
+        <a class="store" href="https://apps.apple.com/app/id6818353284">
+              <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
+              App Store से डाउनलोड करें
+            </a>
+      </div>
+    </section>
   </main>
-
-  <section class="prose" id="how">
-    <h2>संख्याएं कैसे निकाली जाती हैं</h2>
-    <p>ऑडियो बुक की लंबाई हमेशा सामान्य स्पीड पर बताई जाती है, इसलिए आपका लगने वाला समय लंबाई को आपकी प्लेबैक स्पीड से भाग देने पर मिलता है। 12 घंटे 30 मिनट की किताब 1.25x पर 10 घंटे में पूरी होती है: 12.5 को 1.25 से भाग दें। कैलकुलेटर पहले आपकी मौजूदा पोज़िशन घटा देता है, इसलिए तेज़ स्पीड सिर्फ़ उस हिस्से पर लगती है जो आपने अभी सुना नहीं है।</p>
-    <p>खत्म होने की तारीख के लिए आज से गिना जाता है कि आपके रोज़ के सुनने के समय पर कितने दिन लगेंगे, और माना जाता है कि आप हर दिन सुनते हैं। अगर आप खत्म करने की तारीख चुनते हैं, तो कैलकुलेटर आज से उस तारीख तक के दिन गिनता है, दोनों दिन मिलाकर, और किताब का बचा समय आपके कुल सुनने के मिनटों से भाग देता है। जो नतीजा आता है, वही वह स्पीड है जिस पर किताब समय में पूरी हो जाएगी। सब कुछ आपके ब्राउज़र में चलता है; आप जो भी डालते हैं, वह कहीं नहीं भेजा जाता।</p>
-    <h2>तेज़ स्पीड से कितना समय बचता है</h2>
-    <p>हर अगला कदम पिछले से कम समय बचाता है, इसीलिए ज़्यादातर लोग 1.25x और 1.75x के बीच रुक जाते हैं।</p>
-    <table class="speeds">
-      <thead><tr><th scope="col">स्पीड</th><th scope="col">बचा समय</th><th scope="col">12 घंटे की किताब</th></tr></thead>
-      <tbody>
-      <tr><td>1.0x</td><td>0%</td><td>12 घंटे 00 मिनट</td></tr>
-      <tr><td>1.25x</td><td>20%</td><td>9 घंटे 36 मिनट</td></tr>
-      <tr><td>1.5x</td><td>33%</td><td>8 घंटे 00 मिनट</td></tr>
-      <tr><td>2.0x</td><td>50%</td><td>6 घंटे 00 मिनट</td></tr>
-      <tr><td>3.0x</td><td>67%</td><td>4 घंटे 00 मिनट</td></tr>
-      </tbody>
-    </table>
-    <h2>सवाल</h2>
-    <h3>1.5x पर ऑडियो बुक कितनी देर में पूरी होगी, यह कैसे निकालें?</h3>
-    <p>लंबाई को 1.5 से भाग दें। 12 घंटे की किताब 8 घंटे में पूरी होती है; 2x पर 6 घंटे में।</p>
-    <h3>पोज़िशन और लंबाई कहां मिलेगी?</h3>
-    <p>दोनों आपके प्लेयर में दिखती हैं। Audiobookshelf ऐप में वे प्लेयर स्क्रीन पर होती हैं, और वेब प्लेयर में कवर के नीचे। किताब की असली लंबाई डालें, आपकी स्पीड पर बचा समय नहीं।</p>
-    <h3>मेरा प्लेयर बचा हुआ समय अलग क्यों दिखाता है?</h3>
-    <p>कुछ प्लेयर बचा समय आपकी स्पीड पर दिखाते हैं और कुछ सामान्य स्पीड पर। यह कैलकुलेटर सामान्य स्पीड वाली लंबाई लेकर आपकी स्पीड खुद लगाता है, इसलिए सामान्य स्पीड वाली संख्याएं डालें।</p>
-  </section>
-
-  <section class="cta">
-    <h2>अपने Audiobookshelf सर्वर से सुनें</h2>
-    <p>ABS+ आपके अपने <a href="https://www.audiobookshelf.org">Audiobookshelf</a> सर्वर के लिए एक छोटा, मुफ़्त Android और iPhone प्लेयर है, जिसमें ऑफ़लाइन डाउनलोड, स्पीड कंट्रोल और ऐसी प्रोग्रेस है जो वापस सर्वर पर सिंक होती है।</p>
-    <div class="stores">
-      <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
-            <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
-            Google Play पर पाएं
-          </a>
-      <a class="store" href="https://apps.apple.com/app/id6818353284">
-            <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
-            App Store से डाउनलोड करें
-          </a>
-    </div>
-  </section>
 
   <footer>
     <div class="links">
@@ -354,7 +333,11 @@
     } else { $("o-need").textContent = T.need_default; }
     $("o-note").textContent = note;
   }
-  document.getElementById("f").addEventListener("input", calc);
+  var used = false;
+  document.getElementById("f").addEventListener("input", function () {
+    calc();
+    if (!used && typeof window !== "undefined" && typeof window.lumen === "function") { used = true; window.lumen("tool_use"); }
+  });
   calc();
 })();
 </script>

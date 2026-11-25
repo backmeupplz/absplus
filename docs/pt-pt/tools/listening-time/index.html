@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Calculadora de tempo de audiolivros: tempo restante e data de fim</title>
-<meta name="description" content="Calcule quanto falta de um audiolivro à sua velocidade, o dia em que o termina e a velocidade para o acabar até uma data. Gratuita, corre no navegador.">
-<meta property="og:title" content="Calculadora de tempo de audiolivros">
-<meta property="og:description" content="Calcule quanto falta de um audiolivro à sua velocidade, o dia em que o termina e a velocidade para o acabar até uma data. Gratuita, corre no navegador.">
+<title>Calculadora de velocidade e tempo de audiolivros</title>
+<meta name="description" content="Divida a duração do audiolivro pela velocidade para saber o tempo real (45 min a 1,75x demoram 25 min 43 s), a data de fim e a velocidade necessária.">
+<meta property="og:title" content="Calculadora de velocidade e tempo de audiolivros">
+<meta property="og:description" content="Divida a duração do audiolivro pela velocidade para saber o tempo real (45 min a 1,75x demoram 25 min 43 s), a data de fim e a velocidade necessária.">
 <meta property="og:image" content="https://absplus.app/og/pt-pt/home.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -37,8 +37,8 @@
 <meta property="og:site_name" content="ABS+">
 <meta property="og:image:alt" content="ABS+: um leitor de audiolivros e podcasts rápido e minimalista para o Audiobookshelf, para Android e iPhone.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Calculadora de tempo de audiolivros">
-<meta name="twitter:description" content="Calcule quanto falta de um audiolivro à sua velocidade, o dia em que o termina e a velocidade para o acabar até uma data. Gratuita, corre no navegador.">
+<meta name="twitter:title" content="Calculadora de velocidade e tempo de audiolivros">
+<meta name="twitter:description" content="Divida a duração do audiolivro pela velocidade para saber o tempo real (45 min a 1,75x demoram 25 min 43 s), a data de fim e a velocidade necessária.">
 <meta name="twitter:image" content="https://absplus.app/og/pt-pt/home.jpg">
 <meta name="twitter:image:alt" content="ABS+: um leitor de audiolivros e podcasts rápido e minimalista para o Audiobookshelf, para Android e iPhone.">
 <link rel="canonical" href="https://absplus.app/pt-pt/tools/listening-time/">
@@ -103,13 +103,11 @@
   .top nav a { color: var(--muted); text-decoration: none; font-size: 16px; }
   .top nav a:hover { color: var(--ink); }
 
-  /* hero */
-  .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 72px; align-items: center; padding: 48px 0 96px; }
   h1 {
-    font-size: clamp(44px, 5.6vw, 74px); line-height: 1; letter-spacing: -.035em; font-weight: 800;
-    font-variation-settings: "opsz" 96; margin: 0 0 28px; max-width: 14ch; text-wrap: balance;
+    font-size: clamp(36px, 5vw, 60px); line-height: 1.04; letter-spacing: -.035em; font-weight: 800;
+    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 22ch; text-wrap: balance;
   }
-  .lead { font-size: 21px; line-height: 1.55; color: var(--muted); max-width: 30em; margin: 0 0 36px; }
+  .lead { font-size: 20px; line-height: 1.55; color: var(--muted); max-width: 44em; margin: 0 0 28px; }
   .stores { display: flex; flex-wrap: wrap; gap: 12px; }
   .store {
     display: inline-flex; align-items: center; gap: 10px; background: var(--ink); color: #fff; text-decoration: none;
@@ -117,62 +115,14 @@
   }
   .store svg { width: 26px; height: 26px; flex: none; fill: var(--amber); }
   .store:hover { background: #2a2068; }
-  .req { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
 
-  .device {
-    width: 300px; padding: 10px; border-radius: 42px; background: #15102f;
-    box-shadow: 0 1px 0 1px #2c2560 inset, 0 40px 80px -30px rgba(27, 20, 70, .45);
-  }
-  .device img { display: block; width: 100%; height: auto; border-radius: 33px; }
-  .hero .device { width: 330px; }
-
-  /* video */
-  .promo { padding: 0 0 88px; }
-  .promo video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 24px; background: var(--ink); box-shadow: 0 40px 80px -30px rgba(27, 20, 70, .45); }
-
-  /* features */
-  .section { padding: 88px 0; border-top: 1px solid var(--rule); }
   h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.08; letter-spacing: -.025em; font-weight: 750; font-variation-settings: "opsz" 72; margin: 0 0 48px; max-width: 18ch; }
-  .features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 72px; margin: 0; }
-  .feature { display: grid; grid-template-columns: 28px 1fr; gap: 4px 18px; }
-  .feature svg { width: 28px; height: 28px; fill: var(--indigo); grid-row: span 2; margin-top: 2px; }
-  .feature dt { font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
-  .feature dd { margin: 0; color: var(--muted); max-width: 34em; }
-
-  /* screens */
-  .screens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin: 0; }
-  .screens figure { margin: 0; }
-  .screens .device { width: 100%; border-radius: 30px; padding: 7px; }
-  .screens .device img { border-radius: 24px; }
-  .screens figcaption { margin-top: 18px; font-size: 16px; color: var(--muted); max-width: 22em; }
-  .screens figcaption b { display: block; color: var(--ink); font-weight: 700; font-size: 17px; }
-
-  /* privacy */
-  .privacy p.big {
-    font-size: clamp(30px, 4.2vw, 54px); line-height: 1.1; letter-spacing: -.03em; font-weight: 750;
-    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 20ch;
-  }
-  .privacy p.small { color: var(--muted); max-width: 36em; margin: 0; }
-
   footer { border-top: 1px solid var(--rule); padding: 36px 0 56px; color: var(--muted); font-size: 15px; }
   footer .links { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 12px; }
   footer p { margin: 0; }
 
-  @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; gap: 56px; padding: 16px 0 72px; }
-    .hero .device { width: min(300px, 78vw); justify-self: center; }
-    .features { grid-template-columns: 1fr; gap: 32px; }
-    .screens { grid-template-columns: repeat(4, 220px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
-    .screens figure { scroll-snap-align: start; }
-    .section { padding: 64px 0; }
-    .promo { padding-bottom: 64px; }
-    .promo video { border-radius: 16px; }
-  }
-  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}
-
-  .tool { padding: 8px 0 64px; }
-  .tool h1 { max-width: 20ch; font-size: clamp(36px, 5vw, 60px); }
-  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .tool { padding: 8px 0 0; }
+  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; margin-bottom: 56px; }
   .card { background: #fff; border: 1px solid var(--rule); border-radius: 20px; padding: 24px; }
   .card h2 { font-size: 22px; letter-spacing: -.01em; margin: 0 0 16px; max-width: none; }
   fieldset { border: 0; margin: 0 0 16px; padding: 0; }
@@ -187,20 +137,32 @@
   .out dd { margin: 0; font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
   .out dd.small { font-size: 19px; font-weight: 600; }
   .prose { padding: 56px 0; border-top: 1px solid var(--rule); max-width: 46em; }
-  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 0 0 20px; max-width: none; }
+  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 36px 0 16px; max-width: none; }
+  .prose h2:first-child { margin-top: 0; }
+  .prose h3 { font-size: 20px; margin: 24px 0 8px; }
   .prose p, .prose li { color: #3a335f; }
-  table.speeds { border-collapse: collapse; width: 100%; max-width: 34em; margin: 16px 0; font-size: 17px; }
+  .prose ul { padding-left: 22px; }
+  .prose li { margin-bottom: 10px; }
+  .tested { font-size: 16px; color: var(--muted); }
+  table.speeds { border-collapse: collapse; width: 100%; max-width: 38em; margin: 16px 0 12px; font-size: 17px; }
   table.speeds th, table.speeds td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
   .cta { background: var(--ink); color: #fff; border-radius: 20px; padding: 32px; margin: 8px 0 56px; }
   .cta h2 { color: #fff; font-size: 26px; margin: 0 0 12px; max-width: none; }
-  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 36em; }
+  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 38em; }
   .cta a:not(.store) { color: #fff; }
   .cta .store { background: #fff; color: var(--ink); }
   .cta .store:hover { background: var(--amber); }
-  @media (max-width: 720px) { .calc { grid-template-columns: 1fr; } .card { padding: 20px; } .tool h1 { max-width: none; } }
+  @media (max-width: 720px) {
+    .calc { grid-template-columns: 1fr; }
+    .card { padding: 20px; }
+    .tool h1 { max-width: none; }
+    .lead { font-size: 18px; }
+    table.speeds { font-size: 16px; }
+    table.speeds th, table.speeds td { padding: 9px 6px; }
+  }
   nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}h1,h2,p,li{overflow-wrap:break-word;hyphens:auto}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "Calculadora de tempo de audiolivros", "url": "https://absplus.app/pt-pt/tools/listening-time/", "description": "Calcule quanto falta de um audiolivro à sua velocidade, o dia em que o termina e a velocidade para o acabar até uma data. Gratuita, corre no navegador.", "inLanguage": "pt-PT", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Qualquer (corre num navegador web)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "pt-PT", "mainEntity": [{"@type": "Question", "name": "Como calculo quanto tempo demora um audiolivro a 1,5x?", "acceptedAnswer": {"@type": "Answer", "text": "Divida a duração do livro pela velocidade. Um livro de 12 horas a 1,5x demora 8 horas; a 2x demora 6 horas."}}, {"@type": "Question", "name": "Uma velocidade maior poupa tanto tempo como parece?", "acceptedAnswer": {"@type": "Answer", "text": "Os primeiros aumentos são os que mais poupam. Passar de 1x para 1,25x poupa 20 por cento do tempo, 1,5x poupa 33 por cento, 2x poupa 50 por cento e 3x poupa 67 por cento."}}, {"@type": "Question", "name": "Que velocidade preciso para acabar um livro até uma data?", "acceptedAnswer": {"@type": "Answer", "text": "Divida o tempo que falta no livro pelos minutos que vai ouvir no total até essa data. A calculadora faz isto por si e mostra a velocidade que o faz caber."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "Calculadora de velocidade e tempo de audiolivros", "url": "https://absplus.app/pt-pt/tools/listening-time/", "description": "Divida a duração do audiolivro pela velocidade para saber o tempo real (45 min a 1,75x demoram 25 min 43 s), a data de fim e a velocidade necessária.", "inLanguage": "pt-PT", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Qualquer (corre num navegador web)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "pt-PT", "mainEntity": [{"@type": "Question", "name": "Quanto tempo demoram 45 minutos a 1,75x?", "acceptedAnswer": {"@type": "Answer", "text": "45 minutos à velocidade de 1,75x demoram 25 minutos e 43 segundos (45 a dividir por 1,75 dá 25,71 minutos), o que poupa 19 minutos e 17 segundos. A calculadora arredonda os tempos apresentados ao minuto mais próximo, pelo que mostra 26 min."}}, {"@type": "Question", "name": "Como calculo quanto tempo demora um audiolivro a 1,5x?", "acceptedAnswer": {"@type": "Answer", "text": "Divida a duração à velocidade normal por 1,5. Um audiolivro de 6 horas demora 4 horas e um audiolivro de 12 horas demora 8 horas; a 2x demoram 3 horas e 6 horas."}}, {"@type": "Question", "name": "Onde encontro a posição e a duração?", "acceptedAnswer": {"@type": "Answer", "text": "O seu leitor mostra ambas. No ABS+ e noutras aplicações do Audiobookshelf encontram-se no ecrã do leitor, e o leitor web do Audiobookshelf mostra-as por baixo da capa. Use a duração do livro à velocidade normal, não o tempo restante ajustado."}}, {"@type": "Question", "name": "Porque é que o meu leitor mostra um tempo restante diferente?", "acceptedAnswer": {"@type": "Answer", "text": "Alguns leitores ajustam o tempo restante consoante a velocidade de reprodução, enquanto outros mostram sempre o tempo à velocidade normal. Esta calculadora espera a duração e a posição à velocidade normal e faz ela própria a divisão pela sua velocidade."}}, {"@type": "Question", "name": "De que velocidade preciso para acabar um livro até uma data?", "acceptedAnswer": {"@type": "Answer", "text": "Divida os minutos de livro restantes à velocidade normal pelo total de minutos que planeia ouvir entre hoje e a data pretendida, contando ambos os dias. Escolha uma data no campo «Acabar até» e a calculadora determina essa velocidade por si."}}]}]}</script>
 <script defer src="https://lumen.borodutch.com/l.js"></script>
 </head>
 <body>
@@ -213,8 +175,8 @@
     <nav><a href="https://github.com/backmeupplz/absplus">GitHub</a><a href="/privacy/">Privacidade</a></nav>
   </header>
   <main class="tool">
-    <h1>Calculadora de tempo de audiolivros</h1>
-    <p class="lead">Indique a duração do livro, o ponto em que vai e a velocidade a que ouve. Fica a saber o tempo que falta, o dia em que acaba e a velocidade que cumpriria um prazo.</p>
+    <h1>Calculadora de velocidade e tempo de audiolivros</h1>
+    <p class="lead">Para saber quanto tempo demora um audiolivro ou podcast a uma velocidade mais rápida, divida a duração à velocidade normal pela velocidade de reprodução: 45 minutos a 1,75x demoram 25 minutos e 43 segundos (45 ÷ 1,75, arredondado para 26 minutos abaixo), e um audiolivro de 6 horas a 1,5x demora 4 horas. Indique a duração, a posição atual e o tempo diário de audição para ver o tempo restante, a data de fim e a velocidade necessária para cumprir um prazo.</p>
     <div class="calc">
     <form id="f" class="card" onsubmit="return false">
       <h2>O seu livro</h2>
@@ -242,47 +204,64 @@
       <p class="hint" id="o-note"></p>
     </section>
     </div>
+
+    <section class="prose" id="how">
+      <h2>Como se calculam os valores</h2>
+      <p>A duração de um audiolivro ou podcast é sempre indicada à velocidade normal (1x), por isso o tempo real de audição é a duração restante dividida pela velocidade de reprodução. Um livro de 12 horas e 30 minutos a 1,25x demora 10 horas (12,5 ÷ 1,25). A calculadora subtrai a sua posição atual antes de dividir, para que só a parte que ainda não ouviu seja acelerada, e arredonda o tempo apresentado ao minuto mais próximo.</p>
+      <p>A data de fim conta os dias de que precisa com o seu tempo diário de audição, a partir de hoje, partindo do princípio de que ouve todos os dias. Se escolher uma data-limite, a calculadora conta os dias desde hoje até essa data, incluindo ambos os extremos, e divide os minutos de livro restantes pelo total de minutos de audição para encontrar a velocidade certa. Tudo corre no seu navegador; nada do que escreve sai desta página.</p>
+
+      <h2>Exemplos práticos</h2>
+      <p>Todos os exemplos abaixo foram testados nesta calculadora no Chrome a 24 de novembro de 2026; pode introduzir qualquer um no formulário acima para obter os mesmos valores.</p>
+      <ul>
+        <li><strong>45 minutos à velocidade de 1,75x:</strong> introduza 0 h 45 min com a posição 0 h 0 min e velocidade 1,75x. Dividir 45 por 1,75 dá 25,71 minutos, ou 25 minutos e 43 segundos (poupa 19 minutos e 17 segundos, ou 43%). A calculadora arredonda este valor para 26 min.</li>
+        <li><strong>Audiolivro de 6 horas à velocidade de 1,5x:</strong> introduza 6 h 0 min a 1,5x. Dividir 360 minutos por 1,5 dá 240 minutos, ou 4 h certas (poupa 2 horas, menos 33%; 4 dias a ouvir 60 minutos por dia).</li>
+        <li><strong>Livro de 12 h 30 min a partir de 3 h 15 min a 1,25x (valores predefinidos):</strong> já ouviu 26,0% e faltam 9 h 15 min (555 minutos) de duração do livro. A 1,25x isso demora 7 h 24 min, ou seja, 10 dias a 45 minutos por dia (10 h para o livro inteiro).</li>
+        <li><strong>Livro de 10 horas a partir de 2 h 0 min com prazo de 7 dias a 45 min por dia:</strong> faltam 8 horas (480 minutos) para 315 minutos de audição diária ao longo de 7 dias. Dividir 480 por 315 dá 1,52x, o valor que a calculadora mostra quando o campo «Acabar até» está definido para daqui a seis dias.</li>
+      </ul>
+
+      <h2>O que poupa uma velocidade maior</h2>
+      <p>Cada aumento poupa uma fatia menor do que o anterior, e é por isso que a maioria dos ouvintes acaba por ficar entre 1,25x e 1,75x.</p>
+      <table class="speeds">
+        <thead><tr><th scope="col">Velocidade</th><th scope="col">Poupado</th><th scope="col">45 min</th><th scope="col">Livro de 12 h</th></tr></thead>
+        <tbody>
+        <tr><td>1,0x</td><td>0%</td><td>45 min</td><td>12 h 00 min</td></tr>
+        <tr><td>1,25x</td><td>20%</td><td>36 min</td><td>9 h 36 min</td></tr>
+        <tr><td>1,5x</td><td>33%</td><td>30 min</td><td>8 h 00 min</td></tr>
+        <tr><td>1,75x</td><td>43%</td><td>26 min</td><td>6 h 51 min</td></tr>
+        <tr><td>2,0x</td><td>50%</td><td>23 min</td><td>6 h 00 min</td></tr>
+        <tr><td>3,0x</td><td>67%</td><td>15 min</td><td>4 h 00 min</td></tr>
+        </tbody>
+      </table>
+      <p class="tested">As durações na tabela são arredondadas ao minuto mais próximo para corresponderem à calculadora acima (os tempos exatos para 45 minutos são 25 min 43 s a 1,75x e 22 min 30 s a 2,0x). Testado a 24 de novembro de 2026 no Chrome com o ABS+ v1.2.5.</p>
+
+      <h2>Perguntas</h2>
+      <h3>Quanto tempo demoram 45 minutos a 1,75x?</h3>
+      <p>45 minutos à velocidade de 1,75x demoram 25 minutos e 43 segundos (45 a dividir por 1,75 dá 25,71 minutos), o que poupa 19 minutos e 17 segundos. A calculadora arredonda os tempos apresentados ao minuto mais próximo, pelo que mostra 26 min.</p>
+      <h3>Como calculo quanto tempo demora um audiolivro a 1,5x?</h3>
+      <p>Divida a duração à velocidade normal por 1,5. Um audiolivro de 6 horas demora 4 horas e um audiolivro de 12 horas demora 8 horas; a 2x demoram 3 horas e 6 horas.</p>
+      <h3>Onde encontro a posição e a duração?</h3>
+      <p>O seu leitor mostra ambas. No ABS+ e noutras aplicações do Audiobookshelf encontram-se no ecrã do leitor, e o leitor web do Audiobookshelf mostra-as por baixo da capa. Use a duração do livro à velocidade normal, não o tempo restante ajustado.</p>
+      <h3>Porque é que o meu leitor mostra um tempo restante diferente?</h3>
+      <p>Alguns leitores ajustam o tempo restante consoante a velocidade de reprodução, enquanto outros mostram sempre o tempo à velocidade normal. Esta calculadora espera a duração e a posição à velocidade normal e faz ela própria a divisão pela sua velocidade.</p>
+      <h3>De que velocidade preciso para acabar um livro até uma data?</h3>
+      <p>Divida os minutos de livro restantes à velocidade normal pelo total de minutos que planeia ouvir entre hoje e a data pretendida, contando ambos os dias. Escolha uma data no campo «Acabar até» e a calculadora determina essa velocidade por si.</p>
+    </section>
+
+    <section class="cta">
+      <h2>Ouça no seu próprio servidor Audiobookshelf</h2>
+      <p>O ABS+ é um leitor pequeno, gratuito e de código aberto para Android e iPhone, feito para o seu próprio servidor <a href="https://www.audiobookshelf.org">Audiobookshelf</a>, com transferências para ouvir sem ligação, seis velocidades de reprodução guardadas (0,8x, 1x, 1,25x, 1,5x, 1,75x e 2x) e progresso sincronizado com o servidor.</p>
+      <div class="stores">
+        <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
+              <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
+              Disponível no Google Play
+            </a>
+        <a class="store" href="https://apps.apple.com/app/id6818353284">
+              <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
+              Transferir na App Store
+            </a>
+      </div>
+    </section>
   </main>
-
-  <section class="prose" id="how">
-    <h2>Como se calculam os valores</h2>
-    <p>A duração de um audiolivro é sempre indicada à velocidade normal, por isso o tempo que passa a ouvir é a duração dividida pela velocidade de reprodução. Um livro de 12 horas e 30 minutos a 1,25x demora 10 horas: 12,5 a dividir por 1,25. A calculadora subtrai primeiro a sua posição atual, para que só a parte que ainda não ouviu seja acelerada.</p>
-    <p>A data de fim conta os dias de que precisa ao seu tempo diário de audição, a partir de hoje, e pressupõe que ouve todos os dias. Se escolher uma data limite, a calculadora conta os dias desde hoje até essa data, incluindo os dois extremos, e divide o tempo do livro que falta pelo total de minutos que ouviria. O resultado é a velocidade que o faz caber. Tudo corre no seu navegador; nada do que escreve é enviado para lado nenhum.</p>
-    <h2>O que poupa uma velocidade maior</h2>
-    <p>Cada aumento poupa menos do que o anterior, e é por isso que a maioria das pessoas se fixa entre 1,25x e 1,75x.</p>
-    <table class="speeds">
-      <thead><tr><th scope="col">Velocidade</th><th scope="col">Tempo poupado</th><th scope="col">Livro de 12 horas</th></tr></thead>
-      <tbody>
-      <tr><td>1,0x</td><td>0%</td><td>12 h 00 min</td></tr>
-      <tr><td>1,25x</td><td>20%</td><td>9 h 36 min</td></tr>
-      <tr><td>1,5x</td><td>33%</td><td>8 h 00 min</td></tr>
-      <tr><td>2,0x</td><td>50%</td><td>6 h 00 min</td></tr>
-      <tr><td>3,0x</td><td>67%</td><td>4 h 00 min</td></tr>
-      </tbody>
-    </table>
-    <h2>Perguntas</h2>
-    <h3>Como calculo quanto tempo demora um audiolivro a 1,5x?</h3>
-    <p>Divida a duração por 1,5. Um livro de 12 horas demora 8 horas; a 2x demora 6 horas.</p>
-    <h3>Onde encontro a posição e a duração?</h3>
-    <p>O seu leitor mostra ambas. Numa aplicação do Audiobookshelf estão no ecrã do leitor, e o leitor web mostra-as por baixo da capa. Use a duração real do livro, não o tempo que falta à sua velocidade.</p>
-    <h3>Porque é que o meu leitor mostra um tempo restante diferente?</h3>
-    <p>Alguns leitores mostram o tempo restante à sua velocidade e outros à velocidade normal. Esta calculadora usa a duração à velocidade normal e aplica ela própria a sua velocidade, por isso introduza os valores à velocidade normal.</p>
-  </section>
-
-  <section class="cta">
-    <h2>Ouça no seu próprio servidor Audiobookshelf</h2>
-    <p>O ABS+ é um leitor pequeno e gratuito de Android e iPhone para o seu próprio servidor <a href="https://www.audiobookshelf.org">Audiobookshelf</a>, com transferências para ouvir sem ligação, controlo da velocidade e progresso que se sincroniza de volta com o servidor.</p>
-    <div class="stores">
-      <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
-            <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
-            Disponível no Google Play
-          </a>
-      <a class="store" href="https://apps.apple.com/app/id6818353284">
-            <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
-            Transferir na App Store
-          </a>
-    </div>
-  </section>
 
   <footer>
     <div class="links">
@@ -358,7 +337,11 @@
     } else { $("o-need").textContent = T.need_default; }
     $("o-note").textContent = note;
   }
-  document.getElementById("f").addEventListener("input", calc);
+  var used = false;
+  document.getElementById("f").addEventListener("input", function () {
+    calc();
+    if (!used && typeof window !== "undefined" && typeof window.lumen === "function") { used = true; window.lumen("tool_use"); }
+  });
   calc();
 })();
 </script>

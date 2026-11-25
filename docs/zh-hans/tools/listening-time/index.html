@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>有声书听完时间计算器：剩余时间、听完日期和所需倍速</title>
-<meta name="description" content="算一算这本有声书按你的倍速还要听多久、哪天能听完，以及想在某个日期前听完需要多快的倍速。免费，在浏览器中运行。">
-<meta property="og:title" content="有声书听完时间计算器">
-<meta property="og:description" content="算一算这本有声书按你的倍速还要听多久、哪天能听完，以及想在某个日期前听完需要多快的倍速。免费，在浏览器中运行。">
+<title>有声书倍速与听完时间计算器</title>
+<meta name="description" content="用有声书时长除以播放倍速，算出实际收听时间（45 分钟按 1.75x 播放需要 25 分 43 秒）、听完日期以及赶上截止日期所需的倍速。">
+<meta property="og:title" content="有声书倍速与听完时间计算器">
+<meta property="og:description" content="用有声书时长除以播放倍速，算出实际收听时间（45 分钟按 1.75x 播放需要 25 分 43 秒）、听完日期以及赶上截止日期所需的倍速。">
 <meta property="og:image" content="https://absplus.app/og/zh-hans/home.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -37,8 +37,8 @@
 <meta property="og:site_name" content="ABS+">
 <meta property="og:image:alt" content="ABS+：适用于 Android 和 iPhone 的 Audiobookshelf 有声书与播客播放器，快速而简洁。">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="有声书听完时间计算器">
-<meta name="twitter:description" content="算一算这本有声书按你的倍速还要听多久、哪天能听完，以及想在某个日期前听完需要多快的倍速。免费，在浏览器中运行。">
+<meta name="twitter:title" content="有声书倍速与听完时间计算器">
+<meta name="twitter:description" content="用有声书时长除以播放倍速，算出实际收听时间（45 分钟按 1.75x 播放需要 25 分 43 秒）、听完日期以及赶上截止日期所需的倍速。">
 <meta name="twitter:image" content="https://absplus.app/og/zh-hans/home.jpg">
 <meta name="twitter:image:alt" content="ABS+：适用于 Android 和 iPhone 的 Audiobookshelf 有声书与播客播放器，快速而简洁。">
 <link rel="canonical" href="https://absplus.app/zh-hans/tools/listening-time/">
@@ -99,13 +99,11 @@
   .top nav a { color: var(--muted); text-decoration: none; font-size: 16px; }
   .top nav a:hover { color: var(--ink); }
 
-  /* hero */
-  .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 72px; align-items: center; padding: 48px 0 96px; }
   h1 {
-    font-size: clamp(44px, 5.6vw, 74px); line-height: 1; letter-spacing: -.035em; font-weight: 800;
-    font-variation-settings: "opsz" 96; margin: 0 0 28px; max-width: 14ch; text-wrap: balance;
+    font-size: clamp(36px, 5vw, 60px); line-height: 1.04; letter-spacing: -.035em; font-weight: 800;
+    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 22ch; text-wrap: balance;
   }
-  .lead { font-size: 21px; line-height: 1.55; color: var(--muted); max-width: 30em; margin: 0 0 36px; }
+  .lead { font-size: 20px; line-height: 1.55; color: var(--muted); max-width: 44em; margin: 0 0 28px; }
   .stores { display: flex; flex-wrap: wrap; gap: 12px; }
   .store {
     display: inline-flex; align-items: center; gap: 10px; background: var(--ink); color: #fff; text-decoration: none;
@@ -113,62 +111,14 @@
   }
   .store svg { width: 26px; height: 26px; flex: none; fill: var(--amber); }
   .store:hover { background: #2a2068; }
-  .req { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
 
-  .device {
-    width: 300px; padding: 10px; border-radius: 42px; background: #15102f;
-    box-shadow: 0 1px 0 1px #2c2560 inset, 0 40px 80px -30px rgba(27, 20, 70, .45);
-  }
-  .device img { display: block; width: 100%; height: auto; border-radius: 33px; }
-  .hero .device { width: 330px; }
-
-  /* video */
-  .promo { padding: 0 0 88px; }
-  .promo video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 24px; background: var(--ink); box-shadow: 0 40px 80px -30px rgba(27, 20, 70, .45); }
-
-  /* features */
-  .section { padding: 88px 0; border-top: 1px solid var(--rule); }
   h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.08; letter-spacing: -.025em; font-weight: 750; font-variation-settings: "opsz" 72; margin: 0 0 48px; max-width: 18ch; }
-  .features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 72px; margin: 0; }
-  .feature { display: grid; grid-template-columns: 28px 1fr; gap: 4px 18px; }
-  .feature svg { width: 28px; height: 28px; fill: var(--indigo); grid-row: span 2; margin-top: 2px; }
-  .feature dt { font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
-  .feature dd { margin: 0; color: var(--muted); max-width: 34em; }
-
-  /* screens */
-  .screens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin: 0; }
-  .screens figure { margin: 0; }
-  .screens .device { width: 100%; border-radius: 30px; padding: 7px; }
-  .screens .device img { border-radius: 24px; }
-  .screens figcaption { margin-top: 18px; font-size: 16px; color: var(--muted); max-width: 22em; }
-  .screens figcaption b { display: block; color: var(--ink); font-weight: 700; font-size: 17px; }
-
-  /* privacy */
-  .privacy p.big {
-    font-size: clamp(30px, 4.2vw, 54px); line-height: 1.1; letter-spacing: -.03em; font-weight: 750;
-    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 20ch;
-  }
-  .privacy p.small { color: var(--muted); max-width: 36em; margin: 0; }
-
   footer { border-top: 1px solid var(--rule); padding: 36px 0 56px; color: var(--muted); font-size: 15px; }
   footer .links { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 12px; }
   footer p { margin: 0; }
 
-  @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; gap: 56px; padding: 16px 0 72px; }
-    .hero .device { width: min(300px, 78vw); justify-self: center; }
-    .features { grid-template-columns: 1fr; gap: 32px; }
-    .screens { grid-template-columns: repeat(4, 220px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
-    .screens figure { scroll-snap-align: start; }
-    .section { padding: 64px 0; }
-    .promo { padding-bottom: 64px; }
-    .promo video { border-radius: 16px; }
-  }
-  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}
-
-  .tool { padding: 8px 0 64px; }
-  .tool h1 { max-width: 20ch; font-size: clamp(36px, 5vw, 60px); }
-  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .tool { padding: 8px 0 0; }
+  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; margin-bottom: 56px; }
   .card { background: #fff; border: 1px solid var(--rule); border-radius: 20px; padding: 24px; }
   .card h2 { font-size: 22px; letter-spacing: -.01em; margin: 0 0 16px; max-width: none; }
   fieldset { border: 0; margin: 0 0 16px; padding: 0; }
@@ -183,20 +133,32 @@
   .out dd { margin: 0; font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
   .out dd.small { font-size: 19px; font-weight: 600; }
   .prose { padding: 56px 0; border-top: 1px solid var(--rule); max-width: 46em; }
-  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 0 0 20px; max-width: none; }
+  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 36px 0 16px; max-width: none; }
+  .prose h2:first-child { margin-top: 0; }
+  .prose h3 { font-size: 20px; margin: 24px 0 8px; }
   .prose p, .prose li { color: #3a335f; }
-  table.speeds { border-collapse: collapse; width: 100%; max-width: 34em; margin: 16px 0; font-size: 17px; }
+  .prose ul { padding-left: 22px; }
+  .prose li { margin-bottom: 10px; }
+  .tested { font-size: 16px; color: var(--muted); }
+  table.speeds { border-collapse: collapse; width: 100%; max-width: 38em; margin: 16px 0 12px; font-size: 17px; }
   table.speeds th, table.speeds td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
   .cta { background: var(--ink); color: #fff; border-radius: 20px; padding: 32px; margin: 8px 0 56px; }
   .cta h2 { color: #fff; font-size: 26px; margin: 0 0 12px; max-width: none; }
-  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 36em; }
+  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 38em; }
   .cta a:not(.store) { color: #fff; }
   .cta .store { background: #fff; color: var(--ink); }
   .cta .store:hover { background: var(--amber); }
-  @media (max-width: 720px) { .calc { grid-template-columns: 1fr; } .card { padding: 20px; } .tool h1 { max-width: none; } }
+  @media (max-width: 720px) {
+    .calc { grid-template-columns: 1fr; }
+    .card { padding: 20px; }
+    .tool h1 { max-width: none; }
+    .lead { font-size: 18px; }
+    table.speeds { font-size: 16px; }
+    table.speeds th, table.speeds td { padding: 9px 6px; }
+  }
   nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}h1,h2,p,li{overflow-wrap:break-word;hyphens:auto}h1,h2,.privacy p.big{letter-spacing:0}h1{line-height:1.3}h2{line-height:1.35}h1{max-width:12em}h2,.privacy p.big{max-width:none}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "有声书听完时间计算器", "url": "https://absplus.app/zh-hans/tools/listening-time/", "description": "算一算这本有声书按你的倍速还要听多久、哪天能听完，以及想在某个日期前听完需要多快的倍速。免费，在浏览器中运行。", "inLanguage": "zh-Hans", "applicationCategory": "UtilitiesApplication", "operatingSystem": "任意（在网页浏览器中运行）", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "zh-Hans", "mainEntity": [{"@type": "Question", "name": "1.5x 倍速听一本有声书要多久？", "acceptedAnswer": {"@type": "Answer", "text": "用这本书的时长除以倍速。一本 12 小时的书用 1.5x 听需要 8 小时；用 2x 则需要 6 小时。"}}, {"@type": "Question", "name": "提高倍速真的能省下看起来那么多的时间吗？", "acceptedAnswer": {"@type": "Answer", "text": "最初几档省得最多。从 1x 提到 1.25x 可省下 20% 的时间，1.5x 省 33%，2x 省 50%，3x 省 67%。"}}, {"@type": "Question", "name": "想在某个日期前听完一本书，需要多快的倍速？", "acceptedAnswer": {"@type": "Answer", "text": "用书里剩余的时间除以你在这个日期之前总共会听的分钟数。计算器会替你算好，并给出刚好能听完的倍速。"}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "有声书倍速与听完时间计算器", "url": "https://absplus.app/zh-hans/tools/listening-time/", "description": "用有声书时长除以播放倍速，算出实际收听时间（45 分钟按 1.75x 播放需要 25 分 43 秒）、听完日期以及赶上截止日期所需的倍速。", "inLanguage": "zh-Hans", "applicationCategory": "UtilitiesApplication", "operatingSystem": "任意（在网页浏览器中运行）", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "zh-Hans", "mainEntity": [{"@type": "Question", "name": "45 分钟按 1.75x 倍速听要多久？", "acceptedAnswer": {"@type": "Answer", "text": "45 分钟按 1.75x 倍速播放需要 25 分 43 秒（45 除以 1.75 等于 25.71 分钟），可省下 19 分 17 秒。计算器会将显示时间四舍五入到最接近的分钟，因此显示为 26 分钟。"}}, {"@type": "Question", "name": "1.5x 倍速听一本有声书要多久？", "acceptedAnswer": {"@type": "Answer", "text": "用正常速度下的时长除以 1.5。一本 6 小时的有声书需要 4 小时，一本 12 小时的需要 8 小时；按 2x 播放则分别需要 3 小时和 6 小时。"}}, {"@type": "Question", "name": "在哪里能找到位置和总时长？", "acceptedAnswer": {"@type": "Answer", "text": "播放器里都能看到。在 ABS+ 和其他 Audiobookshelf 应用中，它们位于播放界面；Audiobookshelf 网页播放器则显示在封面下方。请填写书本在正常速度下的时长，不要填按倍速换算后的剩余时间。"}}, {"@type": "Question", "name": "为什么我的播放器显示的剩余时间不一样？", "acceptedAnswer": {"@type": "Answer", "text": "有些播放器会按你的播放倍速换算剩余时间，有些则始终按正常速度显示。这个计算器需要填入正常速度下的总时长和当前位置，再由它自行除以你的倍速。"}}, {"@type": "Question", "name": "想在某个日期前听完一本书，需要多快的倍速？", "acceptedAnswer": {"@type": "Answer", "text": "用书里按正常速度计算的剩余分钟数，除以从今天到目标日期之间你计划收听的总分钟数（首尾两天都算）。在“听完的截止日期”栏里选好日期，计算器就会替你算出所需倍速。"}}]}]}</script>
 <script defer src="https://lumen.borodutch.com/l.js"></script>
 </head>
 <body>
@@ -209,8 +171,8 @@
     <nav><a href="https://github.com/backmeupplz/absplus">GitHub</a><a href="/privacy/">隐私</a></nav>
   </header>
   <main class="tool">
-    <h1>有声书听完时间计算器</h1>
-    <p class="lead">输入这本书的总时长、你听到的位置和你的倍速，就能得到剩余时间、听完的日期，以及赶上截止日期所需的倍速。</p>
+    <h1>有声书倍速与听完时间计算器</h1>
+    <p class="lead">想知道有声书或播客倍速播放需要多久，只要用正常速度下的时长除以播放倍速即可：45 分钟按 1.75x 播放需要 25 分 43 秒（45 ÷ 1.75，下方会四舍五入显示为 26 分钟），一本 6 小时的有声书按 1.5x 播放则需要 4 小时。输入总时长、当前听到的位置和每天收听时长，就能算出剩余时间、听完日期，以及赶上截止日期所需的倍速。</p>
     <div class="calc">
     <form id="f" class="card" onsubmit="return false">
       <h2>你的书</h2>
@@ -238,47 +200,64 @@
       <p class="hint" id="o-note"></p>
     </section>
     </div>
+
+    <section class="prose" id="how">
+      <h2>数字是怎么算出来的</h2>
+      <p>有声书和播客的时长一律按正常速度（1x）标注，所以实际收听时间等于剩余时长除以播放倍速。一本 12 小时 30 分钟的书按 1.25x 播放需要 10 小时（12.5 ÷ 1.25）。计算器会先减去你当前听到的位置再做除法，因此只有还没听的部分会按倍速缩短，最终显示的时长会四舍五入到最接近的分钟。</p>
+      <p>听完日期是按你每天的收听时长，从今天起算出所需的天数，并假设你每天都在听。如果选了听完的截止日期，计算器会数出从今天到那一天的天数（首尾两天都算），再用书里剩余的分钟数除以你这段时间总共会听的分钟数，得出刚好能听完的倍速。所有计算都在你的浏览器中完成，你输入的内容不会离开这个页面。</p>
+
+      <h2>计算示例</h2>
+      <p>以下每个示例都于 2026 年 11 月 24 日在 Chrome 中用这个计算器实际验算过，你也可以把任意一组数字重新填入上方表单自行核对。</p>
+      <ul>
+        <li><strong>45 分钟按 1.75x 倍速播放：</strong>总时长填 0 小时 45 分钟，当前位置填 0 小时 0 分钟，倍速填 1.75x。用 45 除以 1.75 得到 25.71 分钟，也就是 25 分 43 秒（省下 19 分 17 秒，即 43%）。计算器会将其四舍五入为 26 分钟。</li>
+        <li><strong>6 小时有声书按 1.5x 倍速播放：</strong>填入 6 小时 0 分钟、1.5x。用 360 分钟除以 1.5 得到 240 分钟，正好 4 小时（省下 2 小时，缩短 33%；共需 4 天，每天 60 分钟）。</li>
+        <li><strong>12 小时 30 分钟的书，从 3 小时 15 分钟处按 1.25x 继续听（默认输入）：</strong>你已听完 26.0%，原速还剩 9 小时 15 分钟（555 分钟）。按 1.25x 听完剩余部分需要 7 小时 24 分钟，共需 10 天，每天 45 分钟（听完整本书需要 10 小时）。</li>
+        <li><strong>10 小时的书，已听到 2 小时 0 分钟，要在 7 天内按每天 45 分钟听完：</strong>书里还剩 8 小时（480 分钟），可安排的收听总时长为 315 分钟（共 7 天）。用 480 除以 315 得到 1.52x，把“听完的截止日期”设为距今六天后，计算器就会显示这个倍速。</li>
+      </ul>
+
+      <h2>提速能省多少时间</h2>
+      <p>每提高一档，省下的比例都比上一档少，所以大多数听众最终会把倍速定在 1.25x 到 1.75x 之间。</p>
+      <table class="speeds">
+        <thead><tr><th scope="col">倍速</th><th scope="col">节省</th><th scope="col">45 分钟</th><th scope="col">12 小时的书</th></tr></thead>
+        <tbody>
+        <tr><td>1.0x</td><td>0%</td><td>45 分钟</td><td>12 小时 00 分钟</td></tr>
+        <tr><td>1.25x</td><td>20%</td><td>36 分钟</td><td>9 小时 36 分钟</td></tr>
+        <tr><td>1.5x</td><td>33%</td><td>30 分钟</td><td>8 小时 00 分钟</td></tr>
+        <tr><td>1.75x</td><td>43%</td><td>26 分钟</td><td>6 小时 51 分钟</td></tr>
+        <tr><td>2.0x</td><td>50%</td><td>23 分钟</td><td>6 小时 00 分钟</td></tr>
+        <tr><td>3.0x</td><td>67%</td><td>15 分钟</td><td>4 小时 00 分钟</td></tr>
+        </tbody>
+      </table>
+      <p class="tested">表中的时长均四舍五入到最接近的分钟，与上方计算器保持一致（45 分钟的精确时长在 1.75x 下为 25 分 43 秒，在 2.0x 下为 22 分 30 秒）。2026 年 11 月 24 日在 Chrome 中对照 ABS+ v1.2.5 测试通过。</p>
+
+      <h2>常见问题</h2>
+      <h3>45 分钟按 1.75x 倍速听要多久？</h3>
+      <p>45 分钟按 1.75x 倍速播放需要 25 分 43 秒（45 除以 1.75 等于 25.71 分钟），可省下 19 分 17 秒。计算器会将显示时间四舍五入到最接近的分钟，因此显示为 26 分钟。</p>
+      <h3>1.5x 倍速听一本有声书要多久？</h3>
+      <p>用正常速度下的时长除以 1.5。一本 6 小时的有声书需要 4 小时，一本 12 小时的需要 8 小时；按 2x 播放则分别需要 3 小时和 6 小时。</p>
+      <h3>在哪里能找到位置和总时长？</h3>
+      <p>播放器里都能看到。在 ABS+ 和其他 Audiobookshelf 应用中，它们位于播放界面；Audiobookshelf 网页播放器则显示在封面下方。请填写书本在正常速度下的时长，不要填按倍速换算后的剩余时间。</p>
+      <h3>为什么我的播放器显示的剩余时间不一样？</h3>
+      <p>有些播放器会按你的播放倍速换算剩余时间，有些则始终按正常速度显示。这个计算器需要填入正常速度下的总时长和当前位置，再由它自行除以你的倍速。</p>
+      <h3>想在某个日期前听完一本书，需要多快的倍速？</h3>
+      <p>用书里按正常速度计算的剩余分钟数，除以从今天到目标日期之间你计划收听的总分钟数（首尾两天都算）。在“听完的截止日期”栏里选好日期，计算器就会替你算出所需倍速。</p>
+    </section>
+
+    <section class="cta">
+      <h2>在你自己的 Audiobookshelf 服务器上收听</h2>
+      <p>ABS+ 是一款小巧、免费且开源的 Android 和 iPhone 播放器，专为你的 <a href="https://www.audiobookshelf.org">Audiobookshelf</a> 服务器而做，支持离线下载、六档预设播放倍速（0.8x、1x、1.25x、1.5x、1.75x 和 2x），收听进度也会同步回服务器。</p>
+      <div class="stores">
+        <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
+              <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
+              在 Google Play 上获取
+            </a>
+        <a class="store" href="https://apps.apple.com/app/id6818353284">
+              <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
+              在 App Store 下载
+            </a>
+      </div>
+    </section>
   </main>
-
-  <section class="prose" id="how">
-    <h2>数字是怎么算出来的</h2>
-    <p>有声书的时长一律按正常速度标注，所以你实际花的时间等于时长除以播放倍速。一本 12 小时 30 分钟的书，用 1.25x 来听需要 10 小时：12.5 除以 1.25。计算器会先减去你当前的位置，所以只有还没听的部分才会按倍速缩短。</p>
-    <p>听完日期是按你每天的收听时长，从今天开始算出所需的天数，并假设你每天都在听。如果选了截止日期，计算器会数出从今天到那一天的天数（首尾两天都算），再用剩余的书本时间除以你这段时间总共会听的分钟数，得到的就是刚好能听完的倍速。所有计算都在浏览器中完成，你输入的内容不会发送到任何地方。</p>
-    <h2>提速能省多少时间</h2>
-    <p>每提高一档，省下的时间都比上一档少，所以大多数人会把倍速定在 1.25x 到 1.75x 之间。</p>
-    <table class="speeds">
-      <thead><tr><th scope="col">倍速</th><th scope="col">节省的时间</th><th scope="col">12 小时的书</th></tr></thead>
-      <tbody>
-      <tr><td>1.0x</td><td>0%</td><td>12 小时 00 分钟</td></tr>
-      <tr><td>1.25x</td><td>20%</td><td>9 小时 36 分钟</td></tr>
-      <tr><td>1.5x</td><td>33%</td><td>8 小时 00 分钟</td></tr>
-      <tr><td>2.0x</td><td>50%</td><td>6 小时 00 分钟</td></tr>
-      <tr><td>3.0x</td><td>67%</td><td>4 小时 00 分钟</td></tr>
-      </tbody>
-    </table>
-    <h2>常见问题</h2>
-    <h3>1.5x 倍速听一本有声书要多久？</h3>
-    <p>用时长除以 1.5。一本 12 小时的书需要 8 小时；用 2x 则需要 6 小时。</p>
-    <h3>在哪里能找到位置和总时长？</h3>
-    <p>播放器里都能看到。在 Audiobookshelf 应用中，它们位于播放界面；网页播放器则显示在封面下方。请使用这本书的真实时长，而不是按你的倍速算出的剩余时间。</p>
-    <h3>为什么我的播放器显示的剩余时间不一样？</h3>
-    <p>有些播放器显示按你的倍速计算的剩余时间，有些则按正常速度显示。这个计算器取的是正常速度下的时长，倍速由它自己来换算，所以请填入正常速度下的数字。</p>
-  </section>
-
-  <section class="cta">
-    <h2>在你自己的 Audiobookshelf 服务器上收听</h2>
-    <p>ABS+ 是一款小巧、免费的 Android 和 iPhone 播放器，用来收听你自己的 <a href="https://www.audiobookshelf.org">Audiobookshelf</a> 服务器，支持离线下载、倍速控制，听到哪里的进度也会同步回服务器。</p>
-    <div class="stores">
-      <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
-            <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
-            在 Google Play 上获取
-          </a>
-      <a class="store" href="https://apps.apple.com/app/id6818353284">
-            <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
-            在 App Store 下载
-          </a>
-    </div>
-  </section>
 
   <footer>
     <div class="links">
@@ -353,7 +332,11 @@
     } else { $("o-need").textContent = T.need_default; }
     $("o-note").textContent = note;
   }
-  document.getElementById("f").addEventListener("input", calc);
+  var used = false;
+  document.getElementById("f").addEventListener("input", function () {
+    calc();
+    if (!used && typeof window !== "undefined" && typeof window.lumen === "function") { used = true; window.lumen("tool_use"); }
+  });
   calc();
 })();
 </script>

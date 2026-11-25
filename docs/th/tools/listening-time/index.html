@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>เครื่องคำนวณเวลาฟังหนังสือเสียง: เวลาที่เหลือ วันที่ฟังจบ และความเร็ว</title>
-<meta name="description" content="คำนวณว่าหนังสือเสียงเหลืออีกกี่ชั่วโมงที่ความเร็วของคุณ ฟังจบวันไหน และต้องฟังเร็วแค่ไหนจึงจบทันกำหนด ฟรี ทำงานในเบราว์เซอร์">
-<meta property="og:title" content="เครื่องคำนวณเวลาฟังหนังสือเสียง">
-<meta property="og:description" content="คำนวณว่าหนังสือเสียงเหลืออีกกี่ชั่วโมงที่ความเร็วของคุณ ฟังจบวันไหน และต้องฟังเร็วแค่ไหนจึงจบทันกำหนด ฟรี ทำงานในเบราว์เซอร์">
+<title>เครื่องคำนวณความเร็วและเวลาฟังหนังสือเสียง</title>
+<meta name="description" content="หารความยาวหนังสือเสียงด้วยความเร็วในการเล่นเพื่อดูเวลาฟังจริง (45 นาทีที่ 1.75x ใช้เวลา 25 นาที 43 วินาที) วันที่ฟังจบ และความเร็วที่ต้องใช้">
+<meta property="og:title" content="เครื่องคำนวณความเร็วและเวลาฟังหนังสือเสียง">
+<meta property="og:description" content="หารความยาวหนังสือเสียงด้วยความเร็วในการเล่นเพื่อดูเวลาฟังจริง (45 นาทีที่ 1.75x ใช้เวลา 25 นาที 43 วินาที) วันที่ฟังจบ และความเร็วที่ต้องใช้">
 <meta property="og:image" content="https://absplus.app/og/th/home.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -37,8 +37,8 @@
 <meta property="og:site_name" content="ABS+">
 <meta property="og:image:alt" content="ABS+: เครื่องเล่นหนังสือเสียงและพอดแคสต์ที่เร็วและเรียบง่ายสำหรับ Audiobookshelf บน Android และ iPhone">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="เครื่องคำนวณเวลาฟังหนังสือเสียง">
-<meta name="twitter:description" content="คำนวณว่าหนังสือเสียงเหลืออีกกี่ชั่วโมงที่ความเร็วของคุณ ฟังจบวันไหน และต้องฟังเร็วแค่ไหนจึงจบทันกำหนด ฟรี ทำงานในเบราว์เซอร์">
+<meta name="twitter:title" content="เครื่องคำนวณความเร็วและเวลาฟังหนังสือเสียง">
+<meta name="twitter:description" content="หารความยาวหนังสือเสียงด้วยความเร็วในการเล่นเพื่อดูเวลาฟังจริง (45 นาทีที่ 1.75x ใช้เวลา 25 นาที 43 วินาที) วันที่ฟังจบ และความเร็วที่ต้องใช้">
 <meta name="twitter:image" content="https://absplus.app/og/th/home.jpg">
 <meta name="twitter:image:alt" content="ABS+: เครื่องเล่นหนังสือเสียงและพอดแคสต์ที่เร็วและเรียบง่ายสำหรับ Audiobookshelf บน Android และ iPhone">
 <link rel="canonical" href="https://absplus.app/th/tools/listening-time/">
@@ -99,13 +99,11 @@
   .top nav a { color: var(--muted); text-decoration: none; font-size: 16px; }
   .top nav a:hover { color: var(--ink); }
 
-  /* hero */
-  .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 72px; align-items: center; padding: 48px 0 96px; }
   h1 {
-    font-size: clamp(44px, 5.6vw, 74px); line-height: 1; letter-spacing: -.035em; font-weight: 800;
-    font-variation-settings: "opsz" 96; margin: 0 0 28px; max-width: 14ch; text-wrap: balance;
+    font-size: clamp(36px, 5vw, 60px); line-height: 1.04; letter-spacing: -.035em; font-weight: 800;
+    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 22ch; text-wrap: balance;
   }
-  .lead { font-size: 21px; line-height: 1.55; color: var(--muted); max-width: 30em; margin: 0 0 36px; }
+  .lead { font-size: 20px; line-height: 1.55; color: var(--muted); max-width: 44em; margin: 0 0 28px; }
   .stores { display: flex; flex-wrap: wrap; gap: 12px; }
   .store {
     display: inline-flex; align-items: center; gap: 10px; background: var(--ink); color: #fff; text-decoration: none;
@@ -113,62 +111,14 @@
   }
   .store svg { width: 26px; height: 26px; flex: none; fill: var(--amber); }
   .store:hover { background: #2a2068; }
-  .req { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
 
-  .device {
-    width: 300px; padding: 10px; border-radius: 42px; background: #15102f;
-    box-shadow: 0 1px 0 1px #2c2560 inset, 0 40px 80px -30px rgba(27, 20, 70, .45);
-  }
-  .device img { display: block; width: 100%; height: auto; border-radius: 33px; }
-  .hero .device { width: 330px; }
-
-  /* video */
-  .promo { padding: 0 0 88px; }
-  .promo video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 24px; background: var(--ink); box-shadow: 0 40px 80px -30px rgba(27, 20, 70, .45); }
-
-  /* features */
-  .section { padding: 88px 0; border-top: 1px solid var(--rule); }
   h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.08; letter-spacing: -.025em; font-weight: 750; font-variation-settings: "opsz" 72; margin: 0 0 48px; max-width: 18ch; }
-  .features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 72px; margin: 0; }
-  .feature { display: grid; grid-template-columns: 28px 1fr; gap: 4px 18px; }
-  .feature svg { width: 28px; height: 28px; fill: var(--indigo); grid-row: span 2; margin-top: 2px; }
-  .feature dt { font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
-  .feature dd { margin: 0; color: var(--muted); max-width: 34em; }
-
-  /* screens */
-  .screens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin: 0; }
-  .screens figure { margin: 0; }
-  .screens .device { width: 100%; border-radius: 30px; padding: 7px; }
-  .screens .device img { border-radius: 24px; }
-  .screens figcaption { margin-top: 18px; font-size: 16px; color: var(--muted); max-width: 22em; }
-  .screens figcaption b { display: block; color: var(--ink); font-weight: 700; font-size: 17px; }
-
-  /* privacy */
-  .privacy p.big {
-    font-size: clamp(30px, 4.2vw, 54px); line-height: 1.1; letter-spacing: -.03em; font-weight: 750;
-    font-variation-settings: "opsz" 96; margin: 0 0 20px; max-width: 20ch;
-  }
-  .privacy p.small { color: var(--muted); max-width: 36em; margin: 0; }
-
   footer { border-top: 1px solid var(--rule); padding: 36px 0 56px; color: var(--muted); font-size: 15px; }
   footer .links { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 12px; }
   footer p { margin: 0; }
 
-  @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; gap: 56px; padding: 16px 0 72px; }
-    .hero .device { width: min(300px, 78vw); justify-self: center; }
-    .features { grid-template-columns: 1fr; gap: 32px; }
-    .screens { grid-template-columns: repeat(4, 220px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
-    .screens figure { scroll-snap-align: start; }
-    .section { padding: 64px 0; }
-    .promo { padding-bottom: 64px; }
-    .promo video { border-radius: 16px; }
-  }
-  nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}
-
-  .tool { padding: 8px 0 64px; }
-  .tool h1 { max-width: 20ch; font-size: clamp(36px, 5vw, 60px); }
-  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .tool { padding: 8px 0 0; }
+  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; margin-bottom: 56px; }
   .card { background: #fff; border: 1px solid var(--rule); border-radius: 20px; padding: 24px; }
   .card h2 { font-size: 22px; letter-spacing: -.01em; margin: 0 0 16px; max-width: none; }
   fieldset { border: 0; margin: 0 0 16px; padding: 0; }
@@ -183,20 +133,32 @@
   .out dd { margin: 0; font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
   .out dd.small { font-size: 19px; font-weight: 600; }
   .prose { padding: 56px 0; border-top: 1px solid var(--rule); max-width: 46em; }
-  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 0 0 20px; max-width: none; }
+  .prose h2 { font-size: clamp(26px, 3vw, 34px); margin: 36px 0 16px; max-width: none; }
+  .prose h2:first-child { margin-top: 0; }
+  .prose h3 { font-size: 20px; margin: 24px 0 8px; }
   .prose p, .prose li { color: #3a335f; }
-  table.speeds { border-collapse: collapse; width: 100%; max-width: 34em; margin: 16px 0; font-size: 17px; }
+  .prose ul { padding-left: 22px; }
+  .prose li { margin-bottom: 10px; }
+  .tested { font-size: 16px; color: var(--muted); }
+  table.speeds { border-collapse: collapse; width: 100%; max-width: 38em; margin: 16px 0 12px; font-size: 17px; }
   table.speeds th, table.speeds td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
   .cta { background: var(--ink); color: #fff; border-radius: 20px; padding: 32px; margin: 8px 0 56px; }
   .cta h2 { color: #fff; font-size: 26px; margin: 0 0 12px; max-width: none; }
-  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 36em; }
+  .cta p { color: #d9d4f5; margin: 0 0 20px; max-width: 38em; }
   .cta a:not(.store) { color: #fff; }
   .cta .store { background: #fff; color: var(--ink); }
   .cta .store:hover { background: var(--amber); }
-  @media (max-width: 720px) { .calc { grid-template-columns: 1fr; } .card { padding: 20px; } .tool h1 { max-width: none; } }
+  @media (max-width: 720px) {
+    .calc { grid-template-columns: 1fr; }
+    .card { padding: 20px; }
+    .tool h1 { max-width: none; }
+    .lead { font-size: 18px; }
+    table.speeds { font-size: 16px; }
+    table.speeds th, table.speeds td { padding: 9px 6px; }
+  }
   nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}h1,h2,p,li{overflow-wrap:break-word;hyphens:auto}h1,h2,.privacy p.big{letter-spacing:0}h1{line-height:1.3}h2{line-height:1.35}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "เครื่องคำนวณเวลาฟังหนังสือเสียง", "url": "https://absplus.app/th/tools/listening-time/", "description": "คำนวณว่าหนังสือเสียงเหลืออีกกี่ชั่วโมงที่ความเร็วของคุณ ฟังจบวันไหน และต้องฟังเร็วแค่ไหนจึงจบทันกำหนด ฟรี ทำงานในเบราว์เซอร์", "inLanguage": "th", "applicationCategory": "UtilitiesApplication", "operatingSystem": "ทุกระบบ (ทำงานในเว็บเบราว์เซอร์)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "th", "mainEntity": [{"@type": "Question", "name": "จะคำนวณได้อย่างไรว่าหนังสือเสียงใช้เวลาฟังนานเท่าไรที่ 1.5x", "acceptedAnswer": {"@type": "Answer", "text": "นำความยาวของหนังสือมาหารด้วยความเร็ว หนังสือยาว 12 ชั่วโมงที่ 1.5x ใช้เวลา 8 ชั่วโมง และที่ 2x ใช้เวลา 6 ชั่วโมง"}}, {"@type": "Question", "name": "ฟังเร็วขึ้นประหยัดเวลาได้มากอย่างที่คิดไหม", "acceptedAnswer": {"@type": "Answer", "text": "ขั้นแรก ๆ ประหยัดได้มากที่สุด การเพิ่มจาก 1x เป็น 1.25x ประหยัดเวลาได้ 20 เปอร์เซ็นต์ 1.5x ประหยัดได้ 33 เปอร์เซ็นต์ 2x ประหยัดได้ 50 เปอร์เซ็นต์ และ 3x ประหยัดได้ 67 เปอร์เซ็นต์"}}, {"@type": "Question", "name": "ต้องฟังด้วยความเร็วเท่าไรจึงจะจบหนังสือทันตามวันที่กำหนด", "acceptedAnswer": {"@type": "Answer", "text": "นำเวลาที่เหลือของหนังสือมาหารด้วยจำนวนนาทีทั้งหมดที่คุณจะฟังก่อนถึงวันนั้น เครื่องคำนวณทำให้คุณอยู่แล้วและแสดงความเร็วที่ทำให้ฟังจบพอดี"}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "เครื่องคำนวณความเร็วและเวลาฟังหนังสือเสียง", "url": "https://absplus.app/th/tools/listening-time/", "description": "หารความยาวหนังสือเสียงด้วยความเร็วในการเล่นเพื่อดูเวลาฟังจริง (45 นาทีที่ 1.75x ใช้เวลา 25 นาที 43 วินาที) วันที่ฟังจบ และความเร็วที่ต้องใช้", "inLanguage": "th", "applicationCategory": "UtilitiesApplication", "operatingSystem": "ทุกระบบ (ทำงานในเว็บเบราว์เซอร์)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "th", "mainEntity": [{"@type": "Question", "name": "45 นาทีที่ความเร็ว 1.75x ใช้เวลาฟังนานเท่าไร", "acceptedAnswer": {"@type": "Answer", "text": "45 นาทีที่ความเร็ว 1.75x ใช้เวลา 25 นาที 43 วินาที (45 หารด้วย 1.75 เท่ากับ 25.71 นาที) ซึ่งประหยัดเวลาได้ 19 นาที 17 วินาที เครื่องคำนวณจะปัดเวลาที่แสดงเป็นนาทีที่ใกล้ที่สุด จึงแสดงเป็น 26 นาที"}}, {"@type": "Question", "name": "จะคำนวณได้อย่างไรว่าหนังสือเสียงใช้เวลาฟังนานเท่าไรที่ 1.5x", "acceptedAnswer": {"@type": "Answer", "text": "นำความยาวที่ความเร็วปกติหารด้วย 1.5 หนังสือเสียงยาว 6 ชั่วโมงจะใช้เวลา 4 ชั่วโมง และหนังสือเสียงยาว 12 ชั่วโมงจะใช้เวลา 8 ชั่วโมง ส่วนที่ความเร็ว 2x จะใช้เวลา 3 ชั่วโมงและ 6 ชั่วโมง"}}, {"@type": "Question", "name": "ดูตำแหน่งและความยาวได้ที่ไหน", "acceptedAnswer": {"@type": "Answer", "text": "เครื่องเล่นของคุณแสดงทั้งสองอย่าง ใน ABS+ และแอป Audiobookshelf อื่น ๆ จะอยู่บนหน้าจอเครื่องเล่น ส่วนเครื่องเล่นบนเว็บของ Audiobookshelf จะแสดงไว้ใต้ภาพปก ให้ใช้ความยาวของหนังสือที่ความเร็วปกติ ไม่ใช่เวลาที่เหลือหลังปรับความเร็วแล้ว"}}, {"@type": "Question", "name": "ทำไมเครื่องเล่นของฉันแสดงเวลาที่เหลือไม่เท่ากัน", "acceptedAnswer": {"@type": "Answer", "text": "เครื่องเล่นบางตัวปรับเวลาที่เหลือตามความเร็วในการเล่นของคุณ ขณะที่บางตัวแสดงเวลาที่ความเร็วปกติเสมอ เครื่องคำนวณนี้รับค่าความยาวและตำแหน่งที่ความเร็วปกติแล้วนำไปหารด้วยความเร็วของคุณเอง"}}, {"@type": "Question", "name": "ต้องฟังด้วยความเร็วเท่าไรจึงจะฟังหนังสือจบทันตามวันที่กำหนด", "acceptedAnswer": {"@type": "Answer", "text": "นำจำนวนนาทีที่เหลือของหนังสือที่ความเร็วปกติหารด้วยจำนวนนาทีทั้งหมดที่คุณตั้งใจจะฟังตั้งแต่วันนี้ถึงวันที่เป้าหมาย โดยนับรวมทั้งสองวัน เลือกวันที่ในช่อง “ฟังให้จบภายใน” แล้วเครื่องคำนวณจะหาความเร็วนั้นให้คุณเอง"}}]}]}</script>
 <script defer src="https://lumen.borodutch.com/l.js"></script>
 </head>
 <body>
@@ -209,8 +171,8 @@
     <nav><a href="https://github.com/backmeupplz/absplus">GitHub</a><a href="/privacy/">ความเป็นส่วนตัว</a></nav>
   </header>
   <main class="tool">
-    <h1>เครื่องคำนวณเวลาฟังหนังสือเสียง</h1>
-    <p class="lead">กรอกความยาวของหนังสือ ตำแหน่งที่ฟังอยู่ และความเร็วที่คุณฟัง แล้วคุณจะเห็นเวลาที่เหลือ วันที่ฟังจบ และความเร็วที่ทำให้ฟังจบทันกำหนด</p>
+    <h1>เครื่องคำนวณความเร็วและเวลาฟังหนังสือเสียง</h1>
+    <p class="lead">หากต้องการรู้ว่าหนังสือเสียงหรือพอดแคสต์ใช้เวลาฟังนานเท่าไรเมื่อเร่งความเร็ว ให้นำความยาวที่ความเร็วปกติหารด้วยความเร็วในการเล่นของคุณ: 45 นาทีที่ความเร็ว 1.75x ใช้เวลา 25 นาที 43 วินาที (45 ÷ 1.75 ซึ่งปัดเป็น 26 นาทีด้านล่าง) และหนังสือเสียงยาว 6 ชั่วโมงที่ความเร็ว 1.5x ใช้เวลา 4 ชั่วโมง กรอกความยาว ตำแหน่งที่ฟังอยู่ และเวลาฟังต่อวันเพื่อดูเวลาที่เหลือ วันที่ฟังจบ และความเร็วที่ต้องใช้ให้ทันกำหนด</p>
     <div class="calc">
     <form id="f" class="card" onsubmit="return false">
       <h2>หนังสือของคุณ</h2>
@@ -238,47 +200,64 @@
       <p class="hint" id="o-note"></p>
     </section>
     </div>
+
+    <section class="prose" id="how">
+      <h2>วิธีคำนวณตัวเลข</h2>
+      <p>ความยาวของหนังสือเสียงและพอดแคสต์จะระบุที่ความเร็วปกติ (1x) เสมอ เวลาที่คุณใช้ฟังจริงจึงเท่ากับความยาวที่เหลือหารด้วยความเร็วในการเล่น หนังสือยาว 12 ชั่วโมง 30 นาทีที่ความเร็ว 1.25x ใช้เวลา 10 ชั่วโมง (12.5 ÷ 1.25) เครื่องคำนวณจะหักตำแหน่งที่ฟังอยู่ออกก่อนนำไปหาร เพื่อให้เร่งความเร็วเฉพาะส่วนที่คุณยังไม่ได้ฟัง และปัดเวลาที่แสดงเป็นนาทีที่ใกล้ที่สุด</p>
+      <p>วันที่ฟังจบคำนวณจากจำนวนวันที่คุณต้องใช้ตามเวลาฟังต่อวัน โดยเริ่มนับตั้งแต่วันนี้และสมมติว่าคุณฟังทุกวัน หากคุณเลือกวันที่ต้องการฟังให้จบ เครื่องคำนวณจะนับจำนวนวันตั้งแต่วันนี้จนถึงวันนั้นรวมทั้งสองวัน แล้วหารจำนวนนาทีของหนังสือที่เหลือด้วยเวลาฟังทั้งหมดของคุณ เพื่อหาความเร็วที่ทำให้ฟังจบพอดี ทุกอย่างทำงานในเบราว์เซอร์ของคุณ ไม่มีข้อมูลที่คุณพิมพ์ถูกส่งออกจากหน้านี้</p>
+
+      <h2>ตัวอย่างการคำนวณ</h2>
+      <p>ตัวอย่างทั้งหมดด้านล่างทดสอบผ่านเครื่องคำนวณนี้ใน Chrome เมื่อวันที่ 24 พฤศจิกายน 2026 และคุณสามารถลองกรอกตัวเลขเหล่านี้ในแบบฟอร์มด้านบนเพื่อตรวจสอบผลลัพธ์เดียวกันได้</p>
+      <ul>
+        <li><strong>45 นาทีที่ความเร็ว 1.75x:</strong> กรอก 0 ชม. 45 นาที ตำแหน่ง 0 ชม. 0 นาที และความเร็ว 1.75x เมื่อนำ 45 หารด้วย 1.75 จะได้ 25.71 นาที หรือ 25 นาที 43 วินาที (ประหยัดเวลาไป 19 นาที 17 วินาที หรือ 43%) เครื่องคำนวณจะปัดแสดงเป็น 26 นาที</li>
+        <li><strong>หนังสือเสียงยาว 6 ชั่วโมงที่ความเร็ว 1.5x:</strong> กรอก 6 ชม. 0 นาที ที่ความเร็ว 1.5x เมื่อนำ 360 นาทีหารด้วย 1.5 จะได้ 240 นาที หรือ 4 ชม. พอดี (ประหยัดได้ 2 ชั่วโมง สั้นลง 33% ใช้เวลา 4 วันหากฟังวันละ 60 นาที)</li>
+        <li><strong>หนังสือยาว 12 ชม. 30 นาที จากตำแหน่ง 3 ชม. 15 นาที ที่ความเร็ว 1.25x (ค่าเริ่มต้น):</strong> คุณฟังไปแล้ว 26.0% เหลือเวลาหนังสืออีก 9 ชม. 15 นาที (555 นาที) ที่ความเร็ว 1.25x จะใช้เวลาฟัง 7 ชม. 24 นาที คิดเป็น 10 วันเมื่อฟังวันละ 45 นาที (ทั้งเล่มใช้เวลา 10 ชม.)</li>
+        <li><strong>หนังสือยาว 10 ชั่วโมง จากตำแหน่ง 2 ชม. 0 นาที มีเวลา 7 วัน โดยฟังวันละ 45 นาที:</strong> เหลือเนื้อหาอีก 8 ชั่วโมง (480 นาที) กับเวลาฟังรวม 315 นาทีตลอด 7 วัน เมื่อนำ 480 หารด้วย 315 จะได้ 1.52x ซึ่งเป็นค่าที่เครื่องคำนวณแสดงเมื่อตั้งช่อง “ฟังให้จบภายใน” เป็นหกวันนับจากวันนี้</li>
+      </ul>
+
+      <h2>ฟังเร็วขึ้นประหยัดเวลาได้เท่าไร</h2>
+      <p>ความเร็วที่เพิ่มขึ้นแต่ละขั้นประหยัดเวลาได้น้อยกว่าขั้นก่อนหน้า ผู้ฟังส่วนใหญ่จึงเลือกฟังที่ความเร็วระหว่าง 1.25x ถึง 1.75x</p>
+      <table class="speeds">
+        <thead><tr><th scope="col">ความเร็ว</th><th scope="col">ประหยัดได้</th><th scope="col">45 นาที</th><th scope="col">หนังสือ 12 ชม.</th></tr></thead>
+        <tbody>
+        <tr><td>1.0x</td><td>0%</td><td>45 นาที</td><td>12 ชม. 00 นาที</td></tr>
+        <tr><td>1.25x</td><td>20%</td><td>36 นาที</td><td>9 ชม. 36 นาที</td></tr>
+        <tr><td>1.5x</td><td>33%</td><td>30 นาที</td><td>8 ชม. 00 นาที</td></tr>
+        <tr><td>1.75x</td><td>43%</td><td>26 นาที</td><td>6 ชม. 51 นาที</td></tr>
+        <tr><td>2.0x</td><td>50%</td><td>23 นาที</td><td>6 ชม. 00 นาที</td></tr>
+        <tr><td>3.0x</td><td>67%</td><td>15 นาที</td><td>4 ชม. 00 นาที</td></tr>
+        </tbody>
+      </table>
+      <p class="tested">เวลาในตารางปัดเป็นนาทีที่ใกล้ที่สุดให้ตรงกับเครื่องคำนวณด้านบน (เวลาที่แม่นยำสำหรับ 45 นาทีคือ 25 นาที 43 วินาทีที่ 1.75x และ 22 นาที 30 วินาทีที่ 2.0x) ทดสอบเมื่อวันที่ 24 พฤศจิกายน 2026 ใน Chrome เทียบกับ ABS+ v1.2.5</p>
+
+      <h2>คำถามที่พบบ่อย</h2>
+      <h3>45 นาทีที่ความเร็ว 1.75x ใช้เวลาฟังนานเท่าไร</h3>
+      <p>45 นาทีที่ความเร็ว 1.75x ใช้เวลา 25 นาที 43 วินาที (45 หารด้วย 1.75 เท่ากับ 25.71 นาที) ซึ่งประหยัดเวลาได้ 19 นาที 17 วินาที เครื่องคำนวณจะปัดเวลาที่แสดงเป็นนาทีที่ใกล้ที่สุด จึงแสดงเป็น 26 นาที</p>
+      <h3>จะคำนวณได้อย่างไรว่าหนังสือเสียงใช้เวลาฟังนานเท่าไรที่ 1.5x</h3>
+      <p>นำความยาวที่ความเร็วปกติหารด้วย 1.5 หนังสือเสียงยาว 6 ชั่วโมงจะใช้เวลา 4 ชั่วโมง และหนังสือเสียงยาว 12 ชั่วโมงจะใช้เวลา 8 ชั่วโมง ส่วนที่ความเร็ว 2x จะใช้เวลา 3 ชั่วโมงและ 6 ชั่วโมง</p>
+      <h3>ดูตำแหน่งและความยาวได้ที่ไหน</h3>
+      <p>เครื่องเล่นของคุณแสดงทั้งสองอย่าง ใน ABS+ และแอป Audiobookshelf อื่น ๆ จะอยู่บนหน้าจอเครื่องเล่น ส่วนเครื่องเล่นบนเว็บของ Audiobookshelf จะแสดงไว้ใต้ภาพปก ให้ใช้ความยาวของหนังสือที่ความเร็วปกติ ไม่ใช่เวลาที่เหลือหลังปรับความเร็วแล้ว</p>
+      <h3>ทำไมเครื่องเล่นของฉันแสดงเวลาที่เหลือไม่เท่ากัน</h3>
+      <p>เครื่องเล่นบางตัวปรับเวลาที่เหลือตามความเร็วในการเล่นของคุณ ขณะที่บางตัวแสดงเวลาที่ความเร็วปกติเสมอ เครื่องคำนวณนี้รับค่าความยาวและตำแหน่งที่ความเร็วปกติแล้วนำไปหารด้วยความเร็วของคุณเอง</p>
+      <h3>ต้องฟังด้วยความเร็วเท่าไรจึงจะฟังหนังสือจบทันตามวันที่กำหนด</h3>
+      <p>นำจำนวนนาทีที่เหลือของหนังสือที่ความเร็วปกติหารด้วยจำนวนนาทีทั้งหมดที่คุณตั้งใจจะฟังตั้งแต่วันนี้ถึงวันที่เป้าหมาย โดยนับรวมทั้งสองวัน เลือกวันที่ในช่อง “ฟังให้จบภายใน” แล้วเครื่องคำนวณจะหาความเร็วนั้นให้คุณเอง</p>
+    </section>
+
+    <section class="cta">
+      <h2>ฟังบนเซิร์ฟเวอร์ Audiobookshelf ของคุณเอง</h2>
+      <p>ABS+ เป็นเครื่องเล่นขนาดเล็ก ใช้ฟรี และเป็นโอเพนซอร์สบน Android และ iPhone สำหรับเซิร์ฟเวอร์ <a href="https://www.audiobookshelf.org">Audiobookshelf</a> ของคุณเอง รองรับการดาวน์โหลดไว้ฟังแบบออฟไลน์ มีความเร็วในการเล่นที่บันทึกไว้หกระดับ (0.8x, 1x, 1.25x, 1.5x, 1.75x และ 2x) และซิงค์ความคืบหน้ากลับไปที่เซิร์ฟเวอร์</p>
+      <div class="stores">
+        <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
+              <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
+              รับได้ที่ Google Play
+            </a>
+        <a class="store" href="https://apps.apple.com/app/id6818353284">
+              <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
+              ดาวน์โหลดบน App Store
+            </a>
+      </div>
+    </section>
   </main>
-
-  <section class="prose" id="how">
-    <h2>วิธีคำนวณตัวเลข</h2>
-    <p>ความยาวของหนังสือเสียงจะระบุเป็นความเร็วปกติเสมอ เวลาที่คุณใช้ฟังจริงจึงเท่ากับความยาวหารด้วยความเร็วในการเล่น หนังสือยาว 12 ชั่วโมง 30 นาทีที่ความเร็ว 1.25x ใช้เวลา 10 ชั่วโมง คือ 12.5 หารด้วย 1.25 เครื่องคำนวณจะหักตำแหน่งที่คุณฟังอยู่ออกก่อน ดังนั้นเฉพาะส่วนที่คุณยังไม่ได้ฟังเท่านั้นที่ถูกเร่งความเร็ว</p>
-    <p>วันที่ฟังจบคำนวณจากจำนวนวันที่คุณต้องใช้ตามเวลาฟังต่อวัน โดยเริ่มนับจากวันนี้และสมมติว่าคุณฟังทุกวัน ถ้าคุณเลือกวันที่ต้องการฟังให้จบ เครื่องคำนวณจะนับจำนวนวันตั้งแต่วันนี้ถึงวันนั้น รวมทั้งสองวัน แล้วหารเวลาของหนังสือที่เหลือด้วยจำนวนนาทีทั้งหมดที่คุณจะฟัง ผลลัพธ์คือความเร็วที่ทำให้ฟังจบพอดี ทุกอย่างทำงานในเบราว์เซอร์ของคุณ และไม่มีสิ่งที่คุณพิมพ์ถูกส่งไปที่ใดเลย</p>
-    <h2>ฟังเร็วขึ้นประหยัดเวลาได้เท่าไร</h2>
-    <p>ความเร็วที่เพิ่มขึ้นแต่ละขั้นประหยัดเวลาได้น้อยกว่าขั้นก่อนหน้า คนส่วนใหญ่จึงเลือกฟังที่ความเร็วระหว่าง 1.25x ถึง 1.75x</p>
-    <table class="speeds">
-      <thead><tr><th scope="col">ความเร็ว</th><th scope="col">เวลาที่ประหยัดได้</th><th scope="col">หนังสือ 12 ชั่วโมง</th></tr></thead>
-      <tbody>
-      <tr><td>1.0x</td><td>0%</td><td>12 ชม. 00 นาที</td></tr>
-      <tr><td>1.25x</td><td>20%</td><td>9 ชม. 36 นาที</td></tr>
-      <tr><td>1.5x</td><td>33%</td><td>8 ชม. 00 นาที</td></tr>
-      <tr><td>2.0x</td><td>50%</td><td>6 ชม. 00 นาที</td></tr>
-      <tr><td>3.0x</td><td>67%</td><td>4 ชม. 00 นาที</td></tr>
-      </tbody>
-    </table>
-    <h2>คำถามที่พบบ่อย</h2>
-    <h3>จะคำนวณได้อย่างไรว่าหนังสือเสียงใช้เวลาฟังนานเท่าไรที่ 1.5x</h3>
-    <p>นำความยาวมาหารด้วย 1.5 หนังสือยาว 12 ชั่วโมงจะใช้เวลา 8 ชั่วโมง และที่ 2x จะใช้เวลา 6 ชั่วโมง</p>
-    <h3>ดูตำแหน่งและความยาวได้ที่ไหน</h3>
-    <p>เครื่องเล่นของคุณแสดงทั้งสองอย่าง ในแอป Audiobookshelf จะอยู่บนหน้าจอเครื่องเล่น ส่วนเครื่องเล่นบนเว็บจะแสดงไว้ใต้ภาพปก ให้ใช้ความยาวจริงของหนังสือ ไม่ใช่เวลาที่เหลือที่ความเร็วของคุณ</p>
-    <h3>ทำไมเครื่องเล่นของฉันแสดงเวลาที่เหลือไม่เท่ากัน</h3>
-    <p>เครื่องเล่นบางตัวแสดงเวลาที่เหลือตามความเร็วที่คุณฟัง ส่วนบางตัวแสดงตามความเร็วปกติ เครื่องคำนวณนี้รับความยาวที่ความเร็วปกติแล้วนำความเร็วของคุณมาคำนวณเอง ดังนั้นให้กรอกตัวเลขที่ความเร็วปกติ</p>
-  </section>
-
-  <section class="cta">
-    <h2>ฟังบนเซิร์ฟเวอร์ Audiobookshelf ของคุณเอง</h2>
-    <p>ABS+ เป็นแอป Android และ iPhone ขนาดเล็กและใช้ฟรี สำหรับเซิร์ฟเวอร์ <a href="https://www.audiobookshelf.org">Audiobookshelf</a> ของคุณเอง มีการดาวน์โหลดไว้ฟังแบบออฟไลน์ ปรับความเร็วได้ และซิงค์ความคืบหน้ากลับไปที่เซิร์ฟเวอร์</p>
-    <div class="stores">
-      <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
-            <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
-            รับได้ที่ Google Play
-          </a>
-      <a class="store" href="https://apps.apple.com/app/id6818353284">
-            <svg viewBox="-9 -6 46 46" aria-hidden="true"><path d="M9.302 34C4.242 33.971.056 23.641.056 18.38c0-8.593 6.447-10.474 8.931-10.474 1.12 0 2.315.44 3.37.829.737.271 1.5.551 1.924.551.254 0 .852-.238 1.38-.447 1.127-.449 2.529-1.006 4.161-1.006h.01c1.219 0 4.914.268 7.136 3.604l.52.782-.749.565c-1.07.808-3.022 2.28-3.022 5.198 0 3.455 2.211 4.784 3.273 5.423.469.282.955.573.955 1.209 0 .415-3.316 9.334-8.13 9.334-1.178 0-2.01-.354-2.745-.666-.743-.316-1.384-.588-2.444-.588-.537 0-1.216.254-1.935.523-.982.367-2.094.783-3.356.783ZM20.331 0c.126 4.521-3.107 7.657-6.337 7.46C13.462 3.853 17.223 0 20.331 0Z"/></svg>
-            ดาวน์โหลดบน App Store
-          </a>
-    </div>
-  </section>
 
   <footer>
     <div class="links">
@@ -353,7 +332,11 @@
     } else { $("o-need").textContent = T.need_default; }
     $("o-note").textContent = note;
   }
-  document.getElementById("f").addEventListener("input", calc);
+  var used = false;
+  document.getElementById("f").addEventListener("input", function () {
+    calc();
+    if (!used && typeof window !== "undefined" && typeof window.lumen === "function") { used = true; window.lumen("tool_use"); }
+  });
   calc();
 })();
 </script>
