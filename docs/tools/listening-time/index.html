@@ -176,7 +176,7 @@
   </header>
   <main class="tool">
     <h1>Audiobook speed and listening time calculator</h1>
-    <p class="lead">To find how long an audiobook or podcast takes at a faster speed, divide its normal-speed length by your playback speed: 45 minutes at 1.75x takes 25 minutes and 43 seconds (45 ÷ 1.75, rounded to 26 minutes below), and a 6-hour audiobook at 1.5x takes 4 hours. Enter your length, current position and daily listening time to see the time left, your finish date and the speed needed for a deadline.</p>
+    <p class="lead">Divide an audiobook's normal-speed length by your playback speed to get real listening time: 45 minutes at 1.75x takes 25 minutes and 43 seconds (45 ÷ 1.75, shown as 26 minutes below), and a 6-hour book at 1.5x takes 4 hours. Put in your length, current position and daily minutes to get time left, your finish date and the speed a deadline needs.</p>
     <div class="calc">
     <form id="f" class="card" onsubmit="return false">
       <h2>Your book</h2>
@@ -207,20 +207,20 @@
 
     <section class="prose" id="how">
       <h2>How the numbers are worked out</h2>
-      <p>Audiobook and podcast runtimes are always listed at normal speed (1x), so your real listening time is the remaining length divided by your playback speed. A book of 12 hours 30 minutes at 1.25x takes 10 hours (12.5 ÷ 1.25). The calculator subtracts your current position before dividing, so only the part you have not heard is sped up, and rounds the displayed duration to the nearest minute.</p>
-      <p>The finish date counts how many days you need at your daily listening budget, starting today, assuming you listen every day. If you pick a finish-by date, the calculator counts the days from today through that date, including both ends, and divides the book minutes left by your total listening minutes to find the speed that makes it fit. Everything runs in your browser; nothing you type leaves this page.</p>
+      <p>Audiobook and podcast runtimes are listed at 1x speed, so your actual listening time is what's left divided by your speed. A 12 hours 30 minutes book at 1.25x takes 10 hours (12.5 ÷ 1.25). We subtract your current position before dividing so only the unheard part gets sped up, then round the output to the nearest minute.</p>
+      <p>Your finish date counts days starting today assuming you hit your daily minutes every day. Pick a finish-by date and the calculator counts every day from today through that date (both ends included), then divides the remaining book minutes by your total listening minutes to get the speed you'll need. It all runs locally in your browser; nothing you enter leaves the page.</p>
 
       <h2>Worked examples</h2>
-      <p>Every example below was run through this calculator in Chrome on 24 November 2026, and you can retype any of them into the form above to check the same numbers.</p>
+      <p>I checked each example below in this calculator in Chrome on 24 November 2026; punch any of them into the form above to verify the same numbers.</p>
       <ul>
-        <li><strong>45 minutes at 1.75x speed:</strong> enter 0 h 45 min with position 0 h 0 min and speed 1.75x. Dividing 45 by 1.75 gives 25.71 minutes, or 25 minutes and 43 seconds (saving 19 minutes and 17 seconds, or 43%). The calculator rounds this to 26 min.</li>
-        <li><strong>6-hour audiobook at 1.5x speed:</strong> enter 6 h 0 min at 1.5x. Dividing 360 minutes by 1.5 gives 240 minutes, or 4 h flat (2 hours saved, 33% shorter; 4 days at 60 minutes a day).</li>
-        <li><strong>12 h 30 min book from 3 h 15 min at 1.25x (default inputs):</strong> you are 26.0% through with 9 h 15 min (555 minutes) of book time left. At 1.25x that takes 7 h 24 min, which is 10 days at 45 minutes a day (10 h for the whole book).</li>
-        <li><strong>10-hour book from 2 h 0 min with a 7-day deadline at 45 min a day:</strong> 8 hours (480 minutes) remain over 315 minutes of daily listening across 7 days. Dividing 480 by 315 gives 1.52x, which the calculator shows when Finish by is set six days from today.</li>
+        <li><strong>45 minutes at 1.75x speed:</strong> set length to 0 h 45 min, position to 0 h 0 min, speed to 1.75x. 45 divided by 1.75 is 25.71 minutes, or 25 minutes and 43 seconds (19 minutes and 17 seconds saved, 43% off), which rounds to 26 min.</li>
+        <li><strong>6-hour audiobook at 1.5x speed:</strong> enter 6 h 0 min at 1.5x. 360 minutes divided by 1.5 gives 240 minutes, or 4 h flat (2 hours saved, 33% shorter; 4 days at 60 minutes a day).</li>
+        <li><strong>12 h 30 min book from 3 h 15 min at 1.25x (default inputs):</strong> you're 26.0% done with 9 h 15 min (555 minutes) left at normal speed. At 1.25x that's 7 h 24 min, or 10 days at 45 minutes a day (10 h for the whole book).</li>
+        <li><strong>10-hour book from 2 h 0 min with a 7-day deadline at 45 min a day:</strong> 8 hours (480 minutes) left across 315 listening minutes over 7 days. 480 divided by 315 gives 1.52x when you set Finish by to six days from today.</li>
       </ul>
 
       <h2>What a faster speed saves</h2>
-      <p>Each step up saves a smaller slice than the one before it, which is why most listeners settle between 1.25x and 1.75x.</p>
+      <p>Each bump in speed trims less time than the last, which is why most people park somewhere between 1.25x and 1.75x.</p>
       <table class="speeds">
         <thead><tr><th scope="col">Speed</th><th scope="col">Saved</th><th scope="col">45 min</th><th scope="col">12 h book</th></tr></thead>
         <tbody>
@@ -232,24 +232,24 @@
         <tr><td>3.0x</td><td>67%</td><td>15 min</td><td>4 h 00 min</td></tr>
         </tbody>
       </table>
-      <p class="tested">Table durations are rounded to the nearest minute to match the calculator above (exact times for 45 minutes are 25 min 43 s at 1.75x and 22 min 30 s at 2.0x). Tested on 24 November 2026 in Chrome against ABS+ v1.2.5.</p>
+      <p class="tested">Durations round to the nearest minute like the calculator above (exact times for 45 minutes are 25 min 43 s at 1.75x and 22 min 30 s at 2.0x). Tested on 24 November 2026 in Chrome against ABS+ v1.2.5.</p>
 
       <h2>Questions</h2>
       <h3>How long is 45 minutes at 1.75x speed?</h3>
-      <p>45 minutes at 1.75x speed takes 25 minutes and 43 seconds (45 divided by 1.75 is 25.71 minutes), which saves 19 minutes and 17 seconds. The calculator rounds displayed times to the nearest minute, so it shows 26 min.</p>
+      <p>25 minutes and 43 seconds (45 divided by 1.75 is 25.71 minutes), saving 19 minutes and 17 seconds. Because the calculator rounds to the nearest minute, it shows 26 min.</p>
       <h3>How do I work out how long an audiobook takes at 1.5x?</h3>
-      <p>Divide the normal-speed length by 1.5. A 6-hour audiobook takes 4 hours and a 12-hour audiobook takes 8 hours; at 2x they take 3 hours and 6 hours.</p>
+      <p>Divide the normal-speed runtime by 1.5: a 6-hour book takes 4 hours and a 12-hour book takes 8 hours. At 2x, they drop to 3 hours and 6 hours.</p>
       <h3>Where do I find the position and the length?</h3>
-      <p>Your player shows both. In ABS+ and other Audiobookshelf apps they sit on the player screen, and the Audiobookshelf web player shows them under the cover. Use the book's normal-speed length, not the adjusted time left.</p>
+      <p>Your player shows both right on the playback screen in ABS+ and other Audiobookshelf apps, or under the cover in the Audiobookshelf web player. Enter the normal-speed length rather than the speed-adjusted time left.</p>
       <h3>Why does my player show a different time left?</h3>
-      <p>Some players adjust the remaining time for your playback speed while others always show normal-speed time. This calculator expects normal-speed length and position and divides by your speed itself.</p>
+      <p>Some players scale the time left by your current speed while others stick to normal-speed time. Put normal-speed length and position in here and let the calculator do the division.</p>
       <h3>What speed do I need to finish a book by a date?</h3>
-      <p>Divide the normal-speed minutes left in the book by the total minutes you plan to listen between today and your target date, counting both days. Pick a date in the Finish by field and the calculator works that speed out for you.</p>
+      <p>Divide the normal-speed minutes left by the total minutes you'll listen from today through your deadline (counting both days). Pick a date in Finish by and the calculator handles it.</p>
     </section>
 
     <section class="cta">
       <h2>Listen on your own Audiobookshelf server</h2>
-      <p>ABS+ is a small, free, open-source Android and iPhone player for your own <a href="https://www.audiobookshelf.org">Audiobookshelf</a> server, with offline downloads, six saved playback speeds (0.8x, 1x, 1.25x, 1.5x, 1.75x and 2x) and progress that syncs back to the server.</p>
+      <p>ABS+ is a small, free, open-source Android and iPhone player for your own <a href="https://www.audiobookshelf.org">Audiobookshelf</a> server, built with offline downloads, six playback speeds (0.8x, 1x, 1.25x, 1.5x, 1.75x and 2x) and server progress sync.</p>
       <div class="stores">
         <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
               <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
