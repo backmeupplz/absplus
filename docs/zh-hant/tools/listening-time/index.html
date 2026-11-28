@@ -158,7 +158,7 @@
   }
   nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}h1,h2,p,li{overflow-wrap:break-word;hyphens:auto}h1,h2,.privacy p.big{letter-spacing:0}h1{line-height:1.3}h2{line-height:1.35}h1{max-width:12em}h2,.privacy p.big{max-width:none}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "有聲書倍速與收聽時間計算器", "url": "https://absplus.app/zh-hant/tools/listening-time/", "description": "將有聲書長度除以播放速度，算出實際收聽時間（45 分鐘以 1.75x 播放需要 25 分 43 秒）、聽完日期，以及趕上期限所需的速度。", "inLanguage": "zh-Hant", "applicationCategory": "UtilitiesApplication", "operatingSystem": "任何系統（在網頁瀏覽器中執行）", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "zh-Hant", "mainEntity": [{"@type": "Question", "name": "45 分鐘以 1.75x 播放要多久？", "acceptedAnswer": {"@type": "Answer", "text": "45 分鐘以 1.75x 播放需要 25 分 43 秒（45 除以 1.75 等於 25.71 分鐘），可省下 19 分 17 秒。計算器會將顯示時間四捨五入到最接近的分鐘，因此顯示為 26 分鐘。"}}, {"@type": "Question", "name": "以 1.5x 聽一本有聲書要花多久？", "acceptedAnswer": {"@type": "Answer", "text": "將正常速度下的長度除以 1.5。一本 6 小時的有聲書需要 4 小時，一本 12 小時的需要 8 小時；以 2x 播放則分別需要 3 小時和 6 小時。"}}, {"@type": "Question", "name": "在哪裡可以找到目前位置和總長度？", "acceptedAnswer": {"@type": "Answer", "text": "播放器上都看得到。在 ABS+ 和其他 Audiobookshelf App 中，它們位於播放畫面；Audiobookshelf 網頁播放器則顯示在封面下方。請填入書本在正常速度下的長度，不要填依速度換算後的剩餘時間。"}}, {"@type": "Question", "name": "為什麼我的播放器顯示的剩餘時間不一樣？", "acceptedAnswer": {"@type": "Answer", "text": "有些播放器會依你的播放速度換算剩餘時間，有些則始終以正常速度顯示。這個計算器需要填入正常速度下的長度與進度，再由它自行除以你的速度。"}}, {"@type": "Question", "name": "要在某個日期前聽完一本書，需要多快的速度？", "acceptedAnswer": {"@type": "Answer", "text": "將書中以正常速度計算的剩餘分鐘數，除以從今天到目標日期之間你預計收聽的總分鐘數（頭尾兩天都算）。在「預計聽完日期」欄位選好日期，計算器就會幫你算出所需速度。"}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "有聲書倍速與收聽時間計算器", "url": "https://absplus.app/zh-hant/tools/listening-time/", "description": "將有聲書長度除以播放速度，算出實際收聽時間（45 分鐘以 1.75x 播放需要 25 分 43 秒）、聽完日期，以及趕上期限所需的速度。", "inLanguage": "zh-Hant", "applicationCategory": "UtilitiesApplication", "operatingSystem": "任何系統（在網頁瀏覽器中執行）", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "zh-Hant", "mainEntity": [{"@type": "Question", "name": "45 分鐘以 1.75x 播放要多久？", "acceptedAnswer": {"@type": "Answer", "text": "25 分 43 秒（45 除以 1.75 等於 25.71 分鐘），省下 19 分 17 秒。因為計算器會四捨五入到最接近的分鐘，所以會顯示為 26 分鐘。"}}, {"@type": "Question", "name": "以 1.5x 聽一本有聲書要花多久？", "acceptedAnswer": {"@type": "Answer", "text": "把正常速度的長度除以 1.5：一本 6 小時的書需要 4 小時，一本 12 小時的書需要 8 小時。調成 2x 後，就分別降到 3 小時和 6 小時。"}}, {"@type": "Question", "name": "在哪裡可以找到目前位置和總長度？", "acceptedAnswer": {"@type": "Answer", "text": "在 ABS+ 和其他 Audiobookshelf App 的播放畫面上，或是在 Audiobookshelf 網頁播放器的封面下方，播放器都會直接顯示這兩項。請輸入正常速度下的長度，而不是依速度換算後的剩餘時間。"}}, {"@type": "Question", "name": "為什麼我的播放器顯示的剩餘時間不一樣？", "acceptedAnswer": {"@type": "Answer", "text": "有些播放器會依你目前的速度換算剩餘時間，有些則會維持正常速度的時間。只要在這裡填入正常速度下的長度與進度，除法交給計算器來算就好。"}}, {"@type": "Question", "name": "要在某個日期前聽完一本書，需要多快的速度？", "acceptedAnswer": {"@type": "Answer", "text": "把以正常速度計算還剩的分鐘數，除以從今天到截止日期之間你總共會聽的分鐘數（頭尾兩天都算）。在「預計聽完日期」選好日期，剩下的交給計算器處理就好。"}}]}]}</script>
 <script defer src="https://lumen.borodutch.com/l.js"></script>
 </head>
 <body>
@@ -172,7 +172,7 @@
   </header>
   <main class="tool">
     <h1>有聲書倍速與收聽時間計算器</h1>
-    <p class="lead">想知道有聲書或 Podcast 加速播放要花多久，只要將正常速度的長度除以播放速度即可：45 分鐘以 1.75x 播放需要 25 分 43 秒（45 ÷ 1.75，下方會四捨五入顯示為 26 分鐘），一本 6 小時的有聲書以 1.5x 播放則需要 4 小時。輸入總長度、目前進度與每天收聽時間，就能看到剩餘時間、聽完日期，以及趕上期限所需的速度。</p>
+    <p class="lead">把有聲書在正常速度下的長度除以你的播放速度，就能得到實際收聽時間：45 分鐘以 1.75x 播放要 25 分 43 秒（45 ÷ 1.75，下方會顯示為 26 分鐘），一本 6 小時的書以 1.5x 播放則要 4 小時。填入總長度、目前進度與每天收聽的分鐘數，就能算出剩餘時間、聽完日期，以及趕上期限所需的速度。</p>
     <div class="calc">
     <form id="f" class="card" onsubmit="return false">
       <h2>你的書</h2>
@@ -203,20 +203,20 @@
 
     <section class="prose" id="how">
       <h2>數字是怎麼算出來的</h2>
-      <p>有聲書和 Podcast 的長度一律以正常速度（1x）標示，因此實際收聽時間就是剩餘長度除以播放速度。一本 12 小時 30 分鐘的書以 1.25x 播放需要 10 小時（12.5 ÷ 1.25）。計算器會先扣掉你目前的進度再相除，所以只有還沒聽的部分會被加速，最後再將顯示的時間四捨五入到最接近的分鐘。</p>
-      <p>聽完日期是依你每天的收聽時間，從今天起算所需的天數，並假設你每天都會收聽。如果你選了預計聽完日期，計算器會算出從今天到那天的天數（頭尾兩天都算），再把書中剩餘的分鐘數除以你這段期間總共會聽的分鐘數，找出剛好來得及的速度。所有運算都在你的瀏覽器中進行，你輸入的內容不會離開這個頁面。</p>
+      <p>有聲書和 Podcast 的長度都是以 1x 速度標示的，所以你實際要聽的時間就是剩下的長度除以播放速度。一本 12 小時 30 分鐘的書以 1.25x 播放需要 10 小時（12.5 ÷ 1.25）。我們會先扣掉你目前的進度再相除，只把還沒聽的部分加速，最後把結果四捨五入到最接近的分鐘。</p>
+      <p>你的聽完日期從今天起算，假設你每天都能聽滿設定的分鐘數。選一個預計聽完日期，計算器就會把從今天到那天的每一天都算進去（頭尾兩天都包含），再把書中剩下的分鐘數除以你總共會聽的分鐘數，算出需要的速度。所有運算都在你的瀏覽器本機執行，你輸入的資料不會離開這個頁面。</p>
 
       <h2>計算範例</h2>
-      <p>以下每個範例都於 2026 年 11 月 24 日在 Chrome 中透過這個計算器實際驗算過，你也可以將其中任何一組數字重新輸入上方表單核對。</p>
+      <p>2026 年 11 月 24 日，我在 Chrome 中用這個計算器核對過下面每個範例；把其中任何一組填進上面的表單，就能確認得到一模一樣的數字。</p>
       <ul>
-        <li><strong>45 分鐘以 1.75x 播放：</strong>總長度輸入 0 小時 45 分鐘，目前進度輸入 0 小時 0 分鐘，速度設為 1.75x。45 除以 1.75 等於 25.71 分鐘，也就是 25 分 43 秒（省下 19 分 17 秒，即 43%）。計算器會將結果四捨五入為 26 分鐘。</li>
-        <li><strong>6 小時有聲書以 1.5x 播放：</strong>輸入 6 小時 0 分鐘、1.5x。360 分鐘除以 1.5 等於 240 分鐘，正好 4 小時（省下 2 小時，縮短 33%；共需 4 天，每天 60 分鐘）。</li>
-        <li><strong>12 小時 30 分鐘的書，從 3 小時 15 分鐘處以 1.25x 繼續聽（預設輸入）：</strong>你已聽完 26.0%，原速還剩 9 小時 15 分鐘（555 分鐘）。以 1.25x 聽完剩餘部分需要 7 小時 24 分鐘，共需 10 天，每天 45 分鐘（聽完整本書需要 10 小時）。</li>
-        <li><strong>10 小時的書，已聽到 2 小時 0 分鐘，期限 7 天、每天聽 45 分鐘：</strong>書中還剩 8 小時（480 分鐘），可安排的總收聽時間為 315 分鐘（共 7 天）。480 除以 315 等於 1.52x，把「預計聽完日期」設為距今六天後，計算器就會顯示這個速度。</li>
+        <li><strong>45 分鐘以 1.75x 播放：</strong>把總長度設為 0 小時 45 分鐘、目前進度設為 0 小時 0 分鐘、速度設為 1.75x。45 除以 1.75 等於 25.71 分鐘，也就是 25 分 43 秒（省下 19 分 17 秒，少花 43% 的時間），四捨五入後為 26 分鐘。</li>
+        <li><strong>6 小時有聲書以 1.5x 播放：</strong>輸入 6 小時 0 分鐘、1.5x。360 分鐘除以 1.5 得到 240 分鐘，剛好 4 小時（省下 2 小時，縮短 33%；聽 4 天、每天 60 分鐘）。</li>
+        <li><strong>12 小時 30 分鐘的書，從 3 小時 15 分鐘處以 1.25x 接著聽（預設輸入）：</strong>你已經聽完 26.0%，正常速度下還剩 9 小時 15 分鐘（555 分鐘）。以 1.25x 來算是 7 小時 24 分鐘，也就是聽 10 天、每天 45 分鐘（整本書一共 10 小時）。</li>
+        <li><strong>10 小時的書，從 2 小時 0 分鐘處起算，期限 7 天、每天聽 45 分鐘：</strong>還剩 8 小時（480 分鐘），總共可聽 315 分鐘（共 7 天）。把「預計聽完日期」設為距今六天後，480 除以 315 就會得出 1.52x。</li>
       </ul>
 
       <h2>加快速度能省多少時間</h2>
-      <p>每往上調一級，省下的比例都比前一級少，這也是多數聽眾最後會選擇 1.25x 到 1.75x 之間的原因。</p>
+      <p>每次調快一點，省下來的時間都會比前一次少，這也是為什麼大多數人最後會停在 1.25x 到 1.75x 之間。</p>
       <table class="speeds">
         <thead><tr><th scope="col">速度</th><th scope="col">節省</th><th scope="col">45 分鐘</th><th scope="col">12 小時的書</th></tr></thead>
         <tbody>
@@ -228,24 +228,24 @@
         <tr><td>3.0x</td><td>67%</td><td>15 分鐘</td><td>4 小時 00 分鐘</td></tr>
         </tbody>
       </table>
-      <p class="tested">表中的時間均四捨五入到最接近的分鐘，與上方計算器保持一致（45 分鐘的精確時間在 1.75x 下為 25 分 43 秒，在 2.0x 下為 22 分 30 秒）。於 2026 年 11 月 24 日在 Chrome 中對照 ABS+ v1.2.5 測試完成。</p>
+      <p class="tested">各項時間都和上面的計算器一樣四捨五入到最接近的分鐘（45 分鐘的精確時間在 1.75x 下是 25 分 43 秒，在 2.0x 下是 22 分 30 秒）。2026 年 11 月 24 日在 Chrome 中對照 ABS+ v1.2.5 測試。</p>
 
       <h2>常見問題</h2>
       <h3>45 分鐘以 1.75x 播放要多久？</h3>
-      <p>45 分鐘以 1.75x 播放需要 25 分 43 秒（45 除以 1.75 等於 25.71 分鐘），可省下 19 分 17 秒。計算器會將顯示時間四捨五入到最接近的分鐘，因此顯示為 26 分鐘。</p>
+      <p>25 分 43 秒（45 除以 1.75 等於 25.71 分鐘），省下 19 分 17 秒。因為計算器會四捨五入到最接近的分鐘，所以會顯示為 26 分鐘。</p>
       <h3>以 1.5x 聽一本有聲書要花多久？</h3>
-      <p>將正常速度下的長度除以 1.5。一本 6 小時的有聲書需要 4 小時，一本 12 小時的需要 8 小時；以 2x 播放則分別需要 3 小時和 6 小時。</p>
+      <p>把正常速度的長度除以 1.5：一本 6 小時的書需要 4 小時，一本 12 小時的書需要 8 小時。調成 2x 後，就分別降到 3 小時和 6 小時。</p>
       <h3>在哪裡可以找到目前位置和總長度？</h3>
-      <p>播放器上都看得到。在 ABS+ 和其他 Audiobookshelf App 中，它們位於播放畫面；Audiobookshelf 網頁播放器則顯示在封面下方。請填入書本在正常速度下的長度，不要填依速度換算後的剩餘時間。</p>
+      <p>在 ABS+ 和其他 Audiobookshelf App 的播放畫面上，或是在 Audiobookshelf 網頁播放器的封面下方，播放器都會直接顯示這兩項。請輸入正常速度下的長度，而不是依速度換算後的剩餘時間。</p>
       <h3>為什麼我的播放器顯示的剩餘時間不一樣？</h3>
-      <p>有些播放器會依你的播放速度換算剩餘時間，有些則始終以正常速度顯示。這個計算器需要填入正常速度下的長度與進度，再由它自行除以你的速度。</p>
+      <p>有些播放器會依你目前的速度換算剩餘時間，有些則會維持正常速度的時間。只要在這裡填入正常速度下的長度與進度，除法交給計算器來算就好。</p>
       <h3>要在某個日期前聽完一本書，需要多快的速度？</h3>
-      <p>將書中以正常速度計算的剩餘分鐘數，除以從今天到目標日期之間你預計收聽的總分鐘數（頭尾兩天都算）。在「預計聽完日期」欄位選好日期，計算器就會幫你算出所需速度。</p>
+      <p>把以正常速度計算還剩的分鐘數，除以從今天到截止日期之間你總共會聽的分鐘數（頭尾兩天都算）。在「預計聽完日期」選好日期，剩下的交給計算器處理就好。</p>
     </section>
 
     <section class="cta">
       <h2>在你自己的 Audiobookshelf 伺服器上收聽</h2>
-      <p>ABS+ 是一款輕巧、免費且開放原始碼的 Android 與 iPhone 播放器，專為你自己的 <a href="https://www.audiobookshelf.org">Audiobookshelf</a> 伺服器打造，支援離線下載、六組預設播放速度（0.8x、1x、1.25x、1.5x、1.75x 與 2x），收聽進度也會同步回伺服器。</p>
+      <p>ABS+ 是一款輕巧、免費且開放原始碼的 Android 與 iPhone 播放器，專為你自己的 <a href="https://www.audiobookshelf.org">Audiobookshelf</a> 伺服器打造，內建離線下載、六段播放速度（0.8x、1x、1.25x、1.5x、1.75x 與 2x）與伺服器進度同步。</p>
       <div class="stores">
         <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
               <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>

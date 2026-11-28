@@ -162,7 +162,7 @@
   }
   nav.langs{display:flex;flex-wrap:wrap;gap:4px 8px;margin:20px 0 0;padding:0}nav.langs a{display:inline-block;padding:4px 8px;min-height:32px;border-radius:6px}nav.langs a[aria-current]{font-weight:700;text-decoration:none;color:inherit}h1,h2,p,li{overflow-wrap:break-word;hyphens:auto}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "Ljudbokskalkylator för hastighet och lyssningstid", "url": "https://absplus.app/sv/tools/listening-time/", "description": "Dela ljudbokens längd med hastigheten för att få verklig lyssningstid (45 min i 1,75x tar 25 min 43 s), slutdatum och hastighet som krävs.", "inLanguage": "sv", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Alla (körs i en webbläsare)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "sv", "mainEntity": [{"@type": "Question", "name": "Hur lång tid tar 45 minuter i 1,75x hastighet?", "acceptedAnswer": {"@type": "Answer", "text": "45 minuter i 1,75x hastighet tar 25 minuter och 43 sekunder (45 delat med 1,75 är 25,71 minuter), vilket sparar 19 minuter och 17 sekunder. Kalkylatorn avrundar tiden som visas till närmaste minut, så den visar 26 min."}}, {"@type": "Question", "name": "Hur räknar jag ut hur lång tid en ljudbok tar i 1,5x?", "acceptedAnswer": {"@type": "Answer", "text": "Dela längden i normal hastighet med 1,5. En ljudbok på 6 timmar tar 4 timmar och en ljudbok på 12 timmar tar 8 timmar; i 2x tar de 3 timmar och 6 timmar."}}, {"@type": "Question", "name": "Var hittar jag positionen och längden?", "acceptedAnswer": {"@type": "Answer", "text": "Din spelare visar båda. I ABS+ och andra Audiobookshelf-appar syns de på spelarskärmen, och webbspelaren i Audiobookshelf visar dem under omslaget. Använd bokens längd i normal hastighet, inte den justerade tiden kvar."}}, {"@type": "Question", "name": "Varför visar min spelare en annan tid kvar?", "acceptedAnswer": {"@type": "Answer", "text": "Vissa spelare anpassar tiden kvar efter din uppspelningshastighet medan andra alltid visar tiden i normal hastighet. Den här kalkylatorn räknar med längd och position i normal hastighet och dividerar själv med din hastighet."}}, {"@type": "Question", "name": "Vilken hastighet behöver jag för att bli klar med en bok till ett datum?", "acceptedAnswer": {"@type": "Answer", "text": "Dela antalet minuter som är kvar i boken i normal hastighet med det totala antalet minuter du planerar att lyssna från i dag till och med ditt måldatum, båda dagarna inräknade. Välj ett datum i fältet Klar senast så räknar kalkylatorn ut hastigheten åt dig."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "Ljudbokskalkylator för hastighet och lyssningstid", "url": "https://absplus.app/sv/tools/listening-time/", "description": "Dela ljudbokens längd med hastigheten för att få verklig lyssningstid (45 min i 1,75x tar 25 min 43 s), slutdatum och hastighet som krävs.", "inLanguage": "sv", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Alla (körs i en webbläsare)", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "publisher": {"@type": "Person", "name": "Nikita Kolmogorov", "url": "https://borodutch.com"}}, {"@type": "FAQPage", "inLanguage": "sv", "mainEntity": [{"@type": "Question", "name": "Hur lång tid tar 45 minuter i 1,75x hastighet?", "acceptedAnswer": {"@type": "Answer", "text": "25 minuter och 43 sekunder (45 delat med 1,75 är 25,71 minuter), vilket sparar 19 minuter och 17 sekunder. Eftersom kalkylatorn avrundar till närmaste minut visar den 26 min."}}, {"@type": "Question", "name": "Hur räknar jag ut hur lång tid en ljudbok tar i 1,5x?", "acceptedAnswer": {"@type": "Answer", "text": "Dela längden i normal hastighet med 1,5: en bok på 6 timmar tar 4 timmar och en bok på 12 timmar tar 8 timmar. I 2x sjunker tiderna till 3 timmar och 6 timmar."}}, {"@type": "Question", "name": "Var hittar jag positionen och längden?", "acceptedAnswer": {"@type": "Answer", "text": "Din spelare visar båda direkt på uppspelningsskärmen i ABS+ och andra Audiobookshelf-appar, eller under omslaget i webbspelaren för Audiobookshelf. Fyll i längden i normal hastighet i stället för den hastighetsjusterade tiden som återstår."}}, {"@type": "Question", "name": "Varför visar min spelare en annan tid kvar?", "acceptedAnswer": {"@type": "Answer", "text": "Vissa spelare räknar om tiden kvar efter din nuvarande hastighet, medan andra håller sig till tiden i normal hastighet. Fyll i längd och position i normal hastighet här och låt kalkylatorn sköta divisionen."}}, {"@type": "Question", "name": "Vilken hastighet behöver jag för att bli klar med en bok till ett datum?", "acceptedAnswer": {"@type": "Answer", "text": "Dela minuterna som är kvar i normal hastighet med det totala antalet minuter du kommer att lyssna från i dag till och med din deadline (båda dagarna inräknade). Välj ett datum i Klar senast så tar kalkylatorn hand om det."}}]}]}</script>
 <script defer src="https://lumen.borodutch.com/l.js"></script>
 </head>
 <body>
@@ -176,7 +176,7 @@
   </header>
   <main class="tool">
     <h1>Ljudbokskalkylator för hastighet och lyssningstid</h1>
-    <p class="lead">För att räkna ut hur lång tid en ljudbok eller podd tar i högre hastighet delar du längden i normal hastighet med din uppspelningshastighet: 45 minuter i 1,75x tar 25 minuter och 43 sekunder (45 ÷ 1,75, avrundat till 26 minuter nedan), och en ljudbok på 6 timmar i 1,5x tar 4 timmar. Ange längd, nuvarande position och daglig lyssningstid för att se hur lång tid som är kvar, ditt slutdatum och vilken hastighet som krävs för att hinna till en deadline.</p>
+    <p class="lead">Dela en ljudboks längd i normal hastighet med din uppspelningshastighet för att få den verkliga lyssningstiden: 45 minuter i 1,75x tar 25 minuter och 43 sekunder (45 ÷ 1,75, visas som 26 minuter nedan), och en bok på 6 timmar i 1,5x tar 4 timmar. Fyll i längd, nuvarande position och minuter per dag för att få fram tid kvar, ditt slutdatum och hastigheten som en deadline kräver.</p>
     <div class="calc">
     <form id="f" class="card" onsubmit="return false">
       <h2>Din bok</h2>
@@ -207,20 +207,20 @@
 
     <section class="prose" id="how">
       <h2>Så räknas siffrorna ut</h2>
-      <p>Längden på ljudböcker och poddar anges alltid i normal hastighet (1x), så din verkliga lyssningstid är den återstående längden delad med din uppspelningshastighet. En bok på 12 timmar och 30 minuter i 1,25x tar 10 timmar (12,5 ÷ 1,25). Kalkylatorn drar bort din nuvarande position innan den dividerar, så att bara den del du inte har hört snabbas upp, och avrundar tiden som visas till närmaste minut.</p>
-      <p>Slutdatumet räknas ut efter hur många dagar du behöver med din dagliga lyssningstid, med start i dag, förutsatt att du lyssnar varje dag. Om du väljer ett datum under Klar senast räknar kalkylatorn dagarna från i dag till och med det datumet, båda dagarna inräknade, och delar de återstående bokminuterna med ditt totala antal lyssningsminuter för att hitta hastigheten som gör att det går ihop. Allt körs i din webbläsare; ingenting du skriver lämnar den här sidan.</p>
+      <p>Längden på ljudböcker och poddar anges i 1x hastighet, så din faktiska lyssningstid är det som återstår delat med din hastighet. En bok på 12 timmar och 30 minuter i 1,25x tar 10 timmar (12,5 ÷ 1,25). Vi drar bort din nuvarande position innan vi delar, så att bara det du inte har hört än snabbas upp, och avrundar sedan resultatet till närmaste minut.</p>
+      <p>Ditt slutdatum räknas från och med i dag, förutsatt att du får in dina dagliga minuter varje dag. Välj ett datum i Klar senast så räknar kalkylatorn varje dag från i dag till och med det datumet (båda dagarna inräknade), och delar sedan bokens återstående minuter med dina totala lyssningsminuter för att få fram hastigheten du behöver. Allt körs lokalt i din webbläsare; inget du fyller i lämnar sidan.</p>
 
       <h2>Räkneexempel</h2>
-      <p>Alla exempel nedan är körda i den här kalkylatorn i Chrome den 24 november 2026, och du kan mata in vilket som helst av dem i formuläret ovan för att få fram samma siffror.</p>
+      <p>Jag testade varje exempel nedan i den här kalkylatorn i Chrome den 24 november 2026; knappa in vilket som helst av dem i formuläret ovan för att verifiera samma siffror.</p>
       <ul>
-        <li><strong>45 minuter i 1,75x hastighet:</strong> ange 0 tim 45 min med position 0 tim 0 min och hastighet 1,75x. 45 delat med 1,75 ger 25,71 minuter, eller 25 minuter och 43 sekunder (du sparar 19 minuter och 17 sekunder, eller 43 %). Kalkylatorn avrundar det till 26 min.</li>
-        <li><strong>Ljudbok på 6 timmar i 1,5x hastighet:</strong> ange 6 tim 0 min i 1,5x. 360 minuter delat med 1,5 ger 240 minuter, alltså exakt 4 tim (2 timmar sparade, 33 % kortare; 4 dagar med 60 minuter om dagen).</li>
-        <li><strong>Bok på 12 tim 30 min från 3 tim 15 min i 1,25x (standardvärden):</strong> du har lyssnat 26,0 % och har 9 tim 15 min (555 minuter) boktid kvar. I 1,25x tar det 7 tim 24 min, vilket blir 10 dagar med 45 minuter om dagen (10 tim för hela boken).</li>
-        <li><strong>Bok på 10 timmar från 2 tim 0 min med 7 dagars deadline och 45 min om dagen:</strong> det återstår 8 timmar (480 minuter) på 315 minuters daglig lyssning under 7 dagar. 480 delat med 315 ger 1,52x, vilket kalkylatorn visar när Klar senast ställs in på sex dagar från i dag.</li>
+        <li><strong>45 minuter i 1,75x hastighet:</strong> sätt längden till 0 tim 45 min, positionen till 0 tim 0 min och hastigheten till 1,75x. 45 delat med 1,75 är 25,71 minuter, eller 25 minuter och 43 sekunder (19 minuter och 17 sekunder sparade, 43 % kortare), vilket avrundas till 26 min.</li>
+        <li><strong>Ljudbok på 6 timmar i 1,5x hastighet:</strong> fyll i 6 tim 0 min i 1,5x. 360 minuter delat med 1,5 ger 240 minuter, eller prick 4 tim (2 timmar sparade, 33 % kortare; 4 dagar med 60 minuter om dagen).</li>
+        <li><strong>Bok på 12 tim 30 min från 3 tim 15 min i 1,25x (standardvärden):</strong> du är 26,0 % klar och har 9 tim 15 min (555 minuter) kvar i normal hastighet. I 1,25x blir det 7 tim 24 min, eller 10 dagar med 45 minuter om dagen (10 tim för hela boken).</li>
+        <li><strong>Bok på 10 timmar från 2 tim 0 min med 7 dagars deadline och 45 min om dagen:</strong> 8 timmar (480 minuter) kvar fördelat på 315 lyssningsminuter under 7 dagar. 480 delat med 315 ger 1,52x när du sätter Klar senast till sex dagar från i dag.</li>
       </ul>
 
       <h2>Vad en högre hastighet sparar</h2>
-      <p>Varje steg upp sparar en mindre bit än det förra, och det är därför de flesta lyssnare landar mellan 1,25x och 1,75x.</p>
+      <p>Varje höjning av hastigheten kapar mindre tid än den förra, och det är därför de flesta lägger sig någonstans mellan 1,25x och 1,75x.</p>
       <table class="speeds">
         <thead><tr><th scope="col">Hastighet</th><th scope="col">Sparat</th><th scope="col">45 min</th><th scope="col">12-timmarsbok</th></tr></thead>
         <tbody>
@@ -232,24 +232,24 @@
         <tr><td>3,0x</td><td>67 %</td><td>15 min</td><td>4 tim 00 min</td></tr>
         </tbody>
       </table>
-      <p class="tested">Tiderna i tabellen är avrundade till närmaste minut för att stämma med kalkylatorn ovan (exakt tid för 45 minuter är 25 min 43 s i 1,75x och 22 min 30 s i 2,0x). Testat den 24 november 2026 i Chrome mot ABS+ v1.2.5.</p>
+      <p class="tested">Tiderna avrundas till närmaste minut precis som i kalkylatorn ovan (exakt tid för 45 minuter är 25 min 43 s i 1,75x och 22 min 30 s i 2,0x). Testat den 24 november 2026 i Chrome mot ABS+ v1.2.5.</p>
 
       <h2>Frågor</h2>
       <h3>Hur lång tid tar 45 minuter i 1,75x hastighet?</h3>
-      <p>45 minuter i 1,75x hastighet tar 25 minuter och 43 sekunder (45 delat med 1,75 är 25,71 minuter), vilket sparar 19 minuter och 17 sekunder. Kalkylatorn avrundar tiden som visas till närmaste minut, så den visar 26 min.</p>
+      <p>25 minuter och 43 sekunder (45 delat med 1,75 är 25,71 minuter), vilket sparar 19 minuter och 17 sekunder. Eftersom kalkylatorn avrundar till närmaste minut visar den 26 min.</p>
       <h3>Hur räknar jag ut hur lång tid en ljudbok tar i 1,5x?</h3>
-      <p>Dela längden i normal hastighet med 1,5. En ljudbok på 6 timmar tar 4 timmar och en ljudbok på 12 timmar tar 8 timmar; i 2x tar de 3 timmar och 6 timmar.</p>
+      <p>Dela längden i normal hastighet med 1,5: en bok på 6 timmar tar 4 timmar och en bok på 12 timmar tar 8 timmar. I 2x sjunker tiderna till 3 timmar och 6 timmar.</p>
       <h3>Var hittar jag positionen och längden?</h3>
-      <p>Din spelare visar båda. I ABS+ och andra Audiobookshelf-appar syns de på spelarskärmen, och webbspelaren i Audiobookshelf visar dem under omslaget. Använd bokens längd i normal hastighet, inte den justerade tiden kvar.</p>
+      <p>Din spelare visar båda direkt på uppspelningsskärmen i ABS+ och andra Audiobookshelf-appar, eller under omslaget i webbspelaren för Audiobookshelf. Fyll i längden i normal hastighet i stället för den hastighetsjusterade tiden som återstår.</p>
       <h3>Varför visar min spelare en annan tid kvar?</h3>
-      <p>Vissa spelare anpassar tiden kvar efter din uppspelningshastighet medan andra alltid visar tiden i normal hastighet. Den här kalkylatorn räknar med längd och position i normal hastighet och dividerar själv med din hastighet.</p>
+      <p>Vissa spelare räknar om tiden kvar efter din nuvarande hastighet, medan andra håller sig till tiden i normal hastighet. Fyll i längd och position i normal hastighet här och låt kalkylatorn sköta divisionen.</p>
       <h3>Vilken hastighet behöver jag för att bli klar med en bok till ett datum?</h3>
-      <p>Dela antalet minuter som är kvar i boken i normal hastighet med det totala antalet minuter du planerar att lyssna från i dag till och med ditt måldatum, båda dagarna inräknade. Välj ett datum i fältet Klar senast så räknar kalkylatorn ut hastigheten åt dig.</p>
+      <p>Dela minuterna som är kvar i normal hastighet med det totala antalet minuter du kommer att lyssna från i dag till och med din deadline (båda dagarna inräknade). Välj ett datum i Klar senast så tar kalkylatorn hand om det.</p>
     </section>
 
     <section class="cta">
       <h2>Lyssna på din egen Audiobookshelf-server</h2>
-      <p>ABS+ är en liten, gratis Android- och iPhone-spelare med öppen källkod för din egen <a href="https://www.audiobookshelf.org">Audiobookshelf</a>-server, med offlinenedladdningar, sex sparade uppspelningshastigheter (0,8x, 1x, 1,25x, 1,5x, 1,75x och 2x) och förlopp som synkas tillbaka till servern.</p>
+      <p>ABS+ är en liten, gratis Android- och iPhone-spelare med öppen källkod för din egen <a href="https://www.audiobookshelf.org">Audiobookshelf</a>-server, byggd med offlinenedladdningar, sex uppspelningshastigheter (0,8x, 1x, 1,25x, 1,5x, 1,75x och 2x) och synkning av förlopp mot servern.</p>
       <div class="stores">
         <a class="store" href="https://play.google.com/store/apps/details?id=com.borodutch.absplus">
               <svg viewBox="0 -960 960 960" aria-hidden="true"><path d="M320-258v-450q0-14 9-22t21-8q4 0 8 1t8 3l354 226q7 5 10.5 11t3.5 14q0 8-3.5 14T720-458L366-232q-4 2-8 3t-8 1q-12 0-21-8t-9-22Z"/></svg>
